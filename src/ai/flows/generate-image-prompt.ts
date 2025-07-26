@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -34,24 +35,50 @@ const featuredImagePrompt = ai.definePrompt({
     name: 'featuredImageSearchQuery',
     input: { schema: GenerateImagePromptInputSchema },
     output: { schema: GenerateImagePromptOutputSchema },
-    prompt: `You are an AI assistant that generates precise and relevant image search queries for Pexels or Unsplash. I will give you a blog title followed by a paragraph. Based on both the title and the context of the paragraph, generate a short and specific search query (3–6 words) that best represents the ideal image that should appear as a featured image. Avoid abstract or generic terms like "concept" or "metaphor." Think visually, and suggest something a human would search to find a matching stock photo.
-Example Format:
-Title: {{{title}}}
-Paragraph: {{{paragraph}}}
-Image Query: [your generated keyword phrase]
-Let’s begin.`
+    prompt: `Your task is to generate a short, specific, and relevant image search query for a stock photo website like Pexels or Unsplash.
+
+I will provide you with a blog post title and the first paragraph. Your query must be 3-6 words and visually represent the core theme of the text.
+
+**IMPORTANT RULES:**
+1.  **DO NOT** invent subjects or concepts not explicitly mentioned in the text.
+2.  Base the query **ONLY** on the provided Title and Paragraph.
+3.  Think visually. What would a person search for to find an excellent photo for this article?
+4.  Avoid abstract terms.
+
+**EXAMPLE:**
+- **Title**: "The Ultimate Guide to Organic Gardening for Beginners"
+- **Paragraph**: "Starting a garden can feel overwhelming, but growing your own organic vegetables is a rewarding experience. This guide will walk you through the essential first steps, from preparing your soil to choosing the right plants for your climate."
+- **QUERY**: "beginner organic vegetable garden"
+
+**TASK:**
+- **Title**: {{{title}}}
+- **Paragraph**: {{{paragraph}}}
+- **QUERY**:`
 });
 
 const sectionImagePrompt = ai.definePrompt({
     name: 'sectionImageSearchQuery',
     input: { schema: GenerateImagePromptInputSchema },
     output: { schema: GenerateImagePromptOutputSchema },
-    prompt: `You are an AI assistant that generates precise and relevant image search queries for Pexels or Unsplash. I will give you a heading (H2 or H3) followed by a paragraph. Based on both the heading and the context of the paragraph, generate a short and specific search query (3–6 words) that best represents the ideal image that should appear with the content. Avoid abstract or generic terms like "concept" or "metaphor." Think visually, and suggest something a human would search to find a matching stock photo.
-Example Format:
-Heading: {{{title}}}
-Paragraph: {{{paragraph}}}
-Image Query: [your generated keyword phrase]
-Let’s begin.`
+    prompt: `Your task is to generate a short, specific, and relevant image search query for a stock photo website like Pexels or Unsplash.
+
+I will provide you with a section heading (H2 or H3) and its following paragraph. Your query must be 3-6 words and visually represent the core theme of the text.
+
+**IMPORTANT RULES:**
+1.  **DO NOT** invent subjects or concepts not explicitly mentioned in the text.
+2.  Base the query **ONLY** on the provided Heading and Paragraph.
+3.  Think visually. What would a person search for to find an excellent photo for this section?
+4.  Avoid abstract terms.
+
+**EXAMPLE:**
+- **Heading**: "Choosing the Right Soil"
+- **Paragraph**: "The foundation of any healthy garden is its soil. For organic gardening, this means looking for soil rich in compost and natural matter, avoiding synthetic fertilizers. You can test your soil's pH to understand its composition better."
+- **QUERY**: "hands holding rich garden soil"
+
+**TASK:**
+- **Heading**: {{{title}}}
+- **Paragraph**: {{{paragraph}}}
+- **QUERY**:`
 });
 
 
@@ -69,6 +96,9 @@ const generateImagePromptFlow = ai.defineFlow(
         promptToRun = sectionImagePrompt;
     }
     const {output} = await promptToRun(input);
-    return { query: output!.query };
+    // Sanitize output to remove any potential formatting issues or unwanted text from the model
+    const cleanQuery = output!.query.replace('Image Query:', '').trim();
+    return { query: cleanQuery };
   }
 );
+
