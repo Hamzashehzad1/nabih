@@ -2,6 +2,7 @@
 'use server';
 
 import { generateImagePrompt, GenerateImagePromptInput } from '@/ai/flows/generate-image-prompt';
+import { searchImages } from '@/ai/flows/search-images';
 import { z } from 'zod';
 
 // Define the schema for a single WordPress post
@@ -30,37 +31,41 @@ export interface WpPost {
     siteUrl: string;
 }
 
-// This function simulates fetching an image URL after getting a prompt.
-// In a real app, this would involve searching Pexels/Unsplash.
-async function getImageUrlFromPrompt(query: string): Promise<string> {
-    // Simulate API call and return a placeholder.
-    // The query can be used to make the placeholder more relevant.
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const queryHint = query.split(' ').slice(0, 2).join(' ');
-    const placeholderUrl = `https://placehold.co/600x400.png`;
-    
-    const urlWithHint = new URL(placeholderUrl);
-    urlWithHint.searchParams.set('data-ai-hint', queryHint);
-    return urlWithHint.toString();
+export interface ImageSearchResult {
+  url: string;
+  alt: string;
+  photographer: string;
+  photographerUrl: string;
+  source: 'Pexels' | 'Unsplash';
 }
 
-export async function getFeaturedImage(title: string, paragraph: string): Promise<string> {
+async function getImageUrlFromPrompt(query: string): Promise<ImageSearchResult | null> {
+    console.log(`Searching for images with query: "${query}"`);
+    const results = await searchImages({ query });
+    if (results.images.length > 0) {
+        // For now, just return the first image. Later, we'll show a selection UI.
+        return results.images[0];
+    }
+    return null;
+}
+
+export async function getFeaturedImage(title: string, paragraph: string): Promise<ImageSearchResult | null> {
   try {
     const result = await generateImagePrompt({ title, paragraph, type: 'featured' });
     return getImageUrlFromPrompt(result.query);
   } catch (error) {
     console.error('Error generating featured image query:', error);
-    return 'https://placehold.co/600x400.png';
+    return null;
   }
 }
 
-export async function getSectionImage(heading: string, paragraph: string): Promise<string> {
+export async function getSectionImage(heading: string, paragraph: string): Promise<ImageSearchResult | null> {
     try {
         const result = await generateImagePrompt({ title: heading, paragraph, type: 'section' });
         return getImageUrlFromPrompt(result.query);
     } catch (error) {
         console.error('Error generating section image query:', error);
-        return 'https://placehold.co/600x400.png';
+        return null;
     }
 }
 

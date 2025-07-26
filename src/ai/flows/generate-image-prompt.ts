@@ -69,7 +69,6 @@ const generateImagePromptFlow = ai.defineFlow(
         promptToRun = sectionImagePrompt;
     }
     const {output} = await promptToRun(input);
-    // For prototype, we just return the query. In a real app we'd use this to search.
     return { query: output!.query };
   }
 );

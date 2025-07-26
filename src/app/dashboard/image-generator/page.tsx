@@ -29,6 +29,7 @@ import {
   getSectionImage,
   fetchPostsFromWp,
   type WpPost,
+  type ImageSearchResult,
 } from './actions';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -39,8 +40,8 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
 interface ImageState {
-  featured: string | null;
-  sections: { [key: string]: string | null };
+  featured: ImageSearchResult | null;
+  sections: { [key: string]: ImageSearchResult | null };
 }
 
 interface Section {
@@ -236,11 +237,11 @@ export default function ImageGeneratorPage() {
       };
 
       setLoadingState(true);
-      toast({ title: 'Generating Image Query...', description: 'The AI is thinking of the perfect search term.' });
+      toast({ title: 'Generating Image Query & Searching...', description: 'The AI is finding the perfect image for you.' });
       
-      let imageUrl;
+      let imageResult: ImageSearchResult | null = null;
       if (type === 'featured') {
-        imageUrl = await getFeaturedImage(
+        imageResult = await getFeaturedImage(
           selectedPost.title,
           parsedContent.firstParagraph
         );
@@ -249,25 +250,25 @@ export default function ImageGeneratorPage() {
           (s) => s.heading === heading
         );
         if (section) {
-          imageUrl = await getSectionImage(
+          imageResult = await getSectionImage(
             section.heading,
             section.paragraph
           );
         }
       }
 
-      if (imageUrl) {
-        toast({ title: 'Image Added!', description: 'Placeholder image added. Next step: Pexels/Unsplash search!' });
+      if (imageResult) {
+        toast({ title: 'Image Added!', description: `Image from ${imageResult.source} by ${imageResult.photographer}` });
         if (type === 'featured') {
-          setPostImages((prev) => ({ ...prev, featured: imageUrl }));
+          setPostImages((prev) => ({ ...prev, featured: imageResult }));
         } else if (heading) {
           setPostImages((prev) => ({
             ...prev,
-            sections: { ...prev.sections, [heading]: imageUrl },
+            sections: { ...prev.sections, [heading]: imageResult },
           }));
         }
       } else {
-        toast({ title: 'Error', description: 'Could not generate an image.', variant: 'destructive'});
+        toast({ title: 'Error', description: 'Could not generate an image. No results found.', variant: 'destructive'});
       }
 
       setLoadingState(false);
@@ -283,7 +284,7 @@ export default function ImageGeneratorPage() {
           return { ...prev, featured: null };
         } else if (heading) {
           const newSections = { ...prev.sections };
-          delete newSections[heading];
+          newSections[heading] = null;
           return { ...prev, sections: newSections };
         }
         return prev;
@@ -310,20 +311,21 @@ export default function ImageGeneratorPage() {
             const isHeading = node.nodeName === 'H2' || node.nodeName === 'H3';
             const headingText = node.textContent || '';
             const outerHTML = (node as Element).outerHTML || node.textContent;
+            const imageForSection = currentPostImages.sections[headingText];
 
             return (
                 <div key={index}>
                 <div dangerouslySetInnerHTML={{ __html: outerHTML }} />
                 {isHeading && (
                     <div className="my-4">
-                    {currentPostImages.sections[headingText] ? (
+                    {imageForSection ? (
                         <Card className="p-4">
                         <div className="relative">
                             <Image
-                            src={currentPostImages.sections[headingText]!}
+                            src={imageForSection.url}
                             width={600}
                             height={300}
-                            alt={headingText}
+                            alt={imageForSection.alt}
                             className="rounded-md"
                             />
                             <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
@@ -433,7 +435,7 @@ export default function ImageGeneratorPage() {
               )}
               {!isFetchingPosts && !fetchError && filteredPosts.length > 0
                 ? (
-                    <>
+                    <Fragment>
                     {filteredPosts.map((post) => {
                         const postDetails = postDetailsMap.get(post.id) || {
                         requiredImages: 1,
@@ -497,7 +499,7 @@ export default function ImageGeneratorPage() {
                             {isFetchingPosts ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Load More'}
                         </Button>
                     )}
-                    </>
+                    </Fragment>
                 )
                 : !isFetchingPosts && !fetchError && sites.length > 0 && (
                     <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
@@ -536,12 +538,11 @@ export default function ImageGeneratorPage() {
                     <Card className="mt-2 p-4">
                       <div className="relative">
                         <Image
-                          src={currentPostImages.featured}
+                          src={currentPostImages.featured.url}
                           width={600}
                           height={300}
-                          alt="Featured Image"
+                          alt={currentPostImages.featured.alt}
                           className="rounded-md"
-                          data-ai-hint={new URL(currentPostImages.featured).searchParams.get('data-ai-hint') || ''}
                         />
                         <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                           <Button
