@@ -1,25 +1,50 @@
 
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Globe, FileText, ImageIcon, PlusCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useMemo } from "react";
 
 
-const stats = [
-  { title: "Blogs Generated", value: "42", icon: <FileText className="h-6 w-6 text-muted-foreground" /> },
-  { title: "Images Added", value: "128", icon: <ImageIcon className="h-6 w-6 text-muted-foreground" /> },
-  { title: "Connected Sites", value: "3", icon: <Globe className="h-6 w-6 text-muted-foreground" /> },
-];
+interface BlogPost {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+}
 
-const connectedSites = [
-  { name: "My Awesome Blog", url: "https://awesomeblog.com", status: "Connected" },
-  { name: "Tech Weekly", url: "https://techweekly.dev", status: "Connected" },
-  { name: "Foodie Adventures", url: "https://foodieadventures.net", status: "Connected" },
-];
+interface ImageState {
+  featured: string | null;
+  sections: { [key: string]: string | null };
+}
 
 export default function DashboardPage() {
+    const [posts] = useLocalStorage<BlogPost[]>('blog-posts', []);
+    const [images] = useLocalStorage<{[postId: string]: ImageState}>('post-images', {});
+
+    const totalImages = useMemo(() => {
+        return Object.values(images).reduce((acc, postImages) => {
+            const featuredCount = postImages.featured ? 1 : 0;
+            const sectionCount = Object.values(postImages.sections).filter(Boolean).length;
+            return acc + featuredCount + sectionCount;
+        }, 0);
+    }, [images]);
+
+  const stats = [
+    { title: "Blogs Generated", value: posts.length, icon: <FileText className="h-6 w-6 text-muted-foreground" /> },
+    { title: "Images Added", value: totalImages, icon: <ImageIcon className="h-6 w-6 text-muted-foreground" /> },
+    { title: "Connected Sites", value: "0", icon: <Globe className="h-6 w-6 text-muted-foreground" /> },
+  ];
+
+  const connectedSites = [
+    // This will be populated from a database in a real application
+  ];
+
   return (
     <div className="space-y-8">
       <div>
@@ -31,7 +56,7 @@ export default function DashboardPage() {
         <Globe className="h-4 w-4" />
         <AlertTitle>This is a Prototype!</AlertTitle>
         <AlertDescription>
-         The data on this page is for demonstration purposes. Features like saving posts and connecting to WordPress are not yet implemented.
+         The data on this page is stored in your browser's local storage. Features like connecting to WordPress are not yet implemented.
         </AlertDescription>
       </Alert>
 
@@ -62,37 +87,48 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Site Name</TableHead>
-                <TableHead>URL</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {connectedSites.map((site) => (
-                <TableRow key={site.url}>
-                  <TableCell className="font-medium">{site.name}</TableCell>
-                  <TableCell>
-                    <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
-                      {site.url}
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                      {site.status}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">Manage</Button>
-                  </TableCell>
+          {connectedSites.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Site Name</TableHead>
+                  <TableHead>URL</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {connectedSites.map((site: any) => (
+                  <TableRow key={site.url}>
+                    <TableCell className="font-medium">{site.name}</TableCell>
+                    <TableCell>
+                      <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+                        {site.url}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                        {site.status}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm">Manage</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+              <Globe className="mx-auto h-12 w-12" />
+              <h3 className="mt-4 text-lg font-semibold">No Connected Sites</h3>
+              <p className="mt-1 text-sm">Connect your WordPress site in the settings page to publish your content directly.</p>
+              <Button asChild size="sm" className="mt-4">
+                <Link href="/dashboard/settings">Go to Settings</Link>
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

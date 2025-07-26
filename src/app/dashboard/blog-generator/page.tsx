@@ -18,6 +18,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { generateBlogPost, GenerateBlogPostInput } from "@/ai/flows/generate-blog-post";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long."),
@@ -30,11 +31,20 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface BlogPost {
+    id: string;
+    title: string;
+    content: string;
+    date: string;
+}
+
 export default function BlogGeneratorPage() {
   const [generatedPost, setGeneratedPost] = useState("");
+  const [generatedTitle, setGeneratedTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const [posts, setPosts] = useLocalStorage<BlogPost[]>("blog-posts", []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -51,9 +61,11 @@ export default function BlogGeneratorPage() {
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setGeneratedPost("");
+    setGeneratedTitle("");
     try {
       const result = await generateBlogPost(data as GenerateBlogPostInput);
       setGeneratedPost(result.blogPost);
+      setGeneratedTitle(data.title);
     } catch (error) {
       console.error("Error generating blog post:", error);
       toast({
@@ -67,6 +79,7 @@ export default function BlogGeneratorPage() {
   };
   
   const copyToClipboard = () => {
+    if (!generatedPost) return;
     navigator.clipboard.writeText(generatedPost);
     toast({
       title: "Copied to clipboard!",
@@ -75,15 +88,33 @@ export default function BlogGeneratorPage() {
   };
 
   const handleSavePost = async () => {
+    if (!generatedPost || !generatedTitle) return;
     setIsSaving(true);
-    // In a real application, you would save the post to a database here.
-    // For this prototype, we'll just simulate a save operation.
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Simulate a save operation
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const newPost: BlogPost = {
+        id: new Date().toISOString(),
+        title: generatedTitle,
+        content: generatedPost.replace(/\n/g, '<br />'),
+        date: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        }),
+    };
+
+    setPosts([...posts, newPost]);
+
     setIsSaving(false);
     toast({
       title: "Post Saved!",
-      description: "Your new blog post has been saved.",
+      description: "Your new blog post has been saved locally.",
     });
+    // Clear the generated post to prevent re-saving
+    setGeneratedPost("");
+    setGeneratedTitle("");
   };
 
 
@@ -210,7 +241,7 @@ export default function BlogGeneratorPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || isSaving}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -239,7 +270,7 @@ export default function BlogGeneratorPage() {
                 <Button variant="outline" size="icon" onClick={copyToClipboard} aria-label="Copy to clipboard">
                     <Clipboard className="h-4 w-4" />
                 </Button>
-                <Button onClick={handleSavePost} disabled={isSaving} aria-label="Save post">
+                <Button onClick={handleSavePost} disabled={isSaving || isLoading}>
                     {isSaving ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (

@@ -36,11 +36,15 @@ import {
   getSectionImageQuery,
 } from './actions';
 import { Label } from '@/components/ui/label';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import Link from 'next/link';
 
-// Mock data as the blog generation is not connected to a DB
-const mockPosts: any[] = [
-  // In a real app, this would be fetched from a database
-];
+interface BlogPost {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+}
 
 interface ImageState {
   featured: string | null;
@@ -81,38 +85,51 @@ function parseContent(html: string): {
 }
 
 export default function ImageGeneratorPage() {
-  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
-  const [images, setImages] = useState<ImageState>({
-    featured: null,
-    sections: {},
-  });
+  const [posts] = useLocalStorage<BlogPost[]>('blog-posts', []);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [images, setImages] = useLocalStorage<{[postId: string]: ImageState}>('post-images', {});
+
   const [loading, setLoading] = useState<{
     featured: boolean;
     sections: { [key: string]: boolean };
   }>({ featured: false, sections: {} });
 
   const selectedPost = useMemo(
-    () => mockPosts.find((p) => p.id === selectedPostId),
-    [selectedPostId]
+    () => posts.find((p) => p.id === selectedPostId),
+    [selectedPostId, posts]
   );
   
+  const currentPostImages = useMemo(() => {
+    if (selectedPostId && images[selectedPostId]) {
+      return images[selectedPostId];
+    }
+    return { featured: null, sections: {} };
+  }, [selectedPostId, images]);
+
+
   const { firstParagraph, sections, requiredImages } = useMemo(
     () => (selectedPost ? parseContent(selectedPost.content) : { firstParagraph: '', sections: [], requiredImages: 1 }),
     [selectedPost]
   );
   
-  const generatedImagesCount = Object.values(images.sections).filter(Boolean).length + (images.featured ? 1 : 0);
+  const generatedImagesCount = Object.values(currentPostImages.sections).filter(Boolean).length + (currentPostImages.featured ? 1 : 0);
 
-  useEffect(() => {
-    // Reset images when post changes
-    setImages({ featured: null, sections: {} });
-  }, [selectedPostId]);
+  const setPostImages = (updater: (prev: ImageState) => ImageState) => {
+    if (!selectedPostId) return;
+    const currentImages = images[selectedPostId] || { featured: null, sections: {} };
+    const newImages = updater(currentImages);
+    setImages(prev => ({ ...prev, [selectedPostId]: newImages }));
+  };
 
   const generateImage = async (type: 'featured' | 'section', heading?: string) => {
     if (!selectedPost) return;
 
-    setLoading(prev => ({ ...prev, [type === 'featured' ? 'featured' : 'sections']: { ...prev.sections, ...(heading && {[heading]: true}) } }));
-    
+    if (type === 'featured') {
+      setLoading(prev => ({ ...prev, featured: true }));
+    } else if (heading) {
+      setLoading(prev => ({ ...prev, sections: { ...prev.sections, [heading]: true } }));
+    }
+
     let query;
     if (type === 'featured') {
       query = await getFeaturedImageQuery(selectedPost.title, firstParagraph);
@@ -124,25 +141,28 @@ export default function ImageGeneratorPage() {
     }
     
     if (query) {
-      // Using a placeholder service that generates images from a query
       const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}`;
       if (type === 'featured') {
-        setImages(prev => ({ ...prev, featured: imageUrl }));
+        setPostImages(prev => ({ ...prev, featured: imageUrl }));
       } else if (heading) {
-        setImages(prev => ({ ...prev, sections: { ...prev.sections, [heading]: imageUrl } }));
+        setPostImages(prev => ({ ...prev, sections: { ...prev.sections, [heading]: imageUrl } }));
       }
     }
 
-    setLoading(prev => ({ ...prev, [type === 'featured' ? 'featured' : 'sections']: { ...prev.sections, ...(heading && {[heading]: false}) } }));
+    if (type === 'featured') {
+      setLoading(prev => ({ ...prev, featured: false }));
+    } else if (heading) {
+      setLoading(prev => ({ ...prev, sections: { ...prev.sections, [heading]: false } }));
+    }
   };
   
   const deleteImage = (type: 'featured' | 'section', heading?: string) => {
     if (type === 'featured') {
-      setImages(prev => ({ ...prev, featured: null }));
+      setPostImages(prev => ({ ...prev, featured: null }));
     } else if (heading) {
-      setImages(prev => {
+      setPostImages(prev => {
         const newSections = { ...prev.sections };
-        delete newSections[heading];
+        delete newSections[heading!];
         return { ...prev, sections: newSections };
       });
     }
@@ -159,28 +179,11 @@ export default function ImageGeneratorPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2 mb-4">
-              <div className="relative w-full">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search posts..." className="pl-8" />
-              </div>
-              <Select defaultValue="not-completed">
-                <SelectTrigger className="w-[180px]">
-                  <ListFilter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="not-completed">Not Completed</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-4 max-h-[600px] overflow-y-auto">
-              {mockPosts.length > 0 ? mockPosts.map((post) => {
+              {posts.length > 0 ? posts.map((post) => {
                 const postDetails = parseContent(post.content);
-                // This is a mock progress, in a real app this would be persisted
-                const generatedCount = post.id === selectedPostId ? generatedImagesCount : 0;
+                const postImages = images[post.id] || { featured: null, sections: {} };
+                const generatedCount = Object.values(postImages.sections).filter(Boolean).length + (postImages.featured ? 1 : 0);
 
                 return (
                   <Card
@@ -218,6 +221,9 @@ export default function ImageGeneratorPage() {
                    <FileText className="mx-auto h-12 w-12" />
                    <h3 className="mt-4 text-lg font-semibold">No Posts Yet</h3>
                    <p className="mt-1 text-sm">Create and save a post in the Blog Generator to see it here.</p>
+                    <Button asChild size="sm" className="mt-4">
+                        <Link href="/dashboard/blog-generator">Go to Blog Generator</Link>
+                    </Button>
                  </div>
               )}
             </div>
@@ -238,11 +244,11 @@ export default function ImageGeneratorPage() {
               <div className="space-y-6">
                 <div>
                   <Label className="text-lg font-semibold">Featured Image</Label>
-                  {images.featured ? (
+                  {currentPostImages.featured ? (
                     <Card className="mt-2 p-4">
                       <div className="relative">
                         <Image
-                          src={images.featured}
+                          src={currentPostImages.featured}
                           width={600}
                           height={300}
                           alt="Featured Image"
@@ -279,7 +285,7 @@ export default function ImageGeneratorPage() {
                 </div>
 
                 <div
-                  className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none"
+                  className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md"
                   dangerouslySetInnerHTML={{ __html: selectedPost.content }}
                 />
 
@@ -290,10 +296,10 @@ export default function ImageGeneratorPage() {
                       <Label className="font-medium">
                         Image for "{section.heading}"
                       </Label>
-                      {images.sections[section.heading] ? (
+                      {currentPostImages.sections[section.heading] ? (
                          <Card className="mt-2 p-4">
                            <div className="relative">
-                               <Image src={images.sections[section.heading]!} width={600} height={300} alt={section.heading} className="rounded-md" unoptimized/>
+                               <Image src={currentPostImages.sections[section.heading]!} width={600} height={300} alt={section.heading} className="rounded-md" unoptimized/>
                                <div className="absolute top-2 right-2 flex gap-2">
                                    <Button variant="outline" size="sm" onClick={() => generateImage('section', section.heading)}>
                                       <Replace className="mr-2 h-4 w-4" /> Replace
@@ -320,10 +326,6 @@ export default function ImageGeneratorPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <Button size="lg">Save Changes</Button>
               </div>
             </CardContent>
           )}
