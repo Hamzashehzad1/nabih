@@ -39,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { ImageSearchDialog } from '@/components/image-search-dialog';
+import { ImageCropDialog } from '@/components/image-crop-dialog';
 import {
   Accordion,
   AccordionContent,
@@ -63,13 +64,19 @@ interface WpSite {
   appPassword?: string;
 }
 
-interface DialogState {
+interface SearchDialogState {
   open: boolean;
   type: 'featured' | 'section' | null;
   postId: string | null;
   heading?: string;
   initialQuery?: string;
   initialImages?: ImageSearchResult[];
+}
+
+interface CropDialogState {
+    open: boolean;
+    image: ImageSearchResult | null;
+    onCropComplete: ((croppedImageUrl: string, originalImage: ImageSearchResult) => void) | null;
 }
 
 interface PostDetails {
@@ -108,12 +115,22 @@ function parseContent(html: string): {
   let featuredUrl: string | null = null;
 
   const allElements = Array.from(doc.body.children);
-  const firstHeadingIndex = allElements.findIndex(el => el.tagName === 'H2' || el.tagName === 'H3');
+  const firstHeadingIndex = allElements.findIndex(el => ['H2', 'H3'].includes(el.tagName));
   
   const contentBeforeHeadings = firstHeadingIndex === -1 ? allElements : allElements.slice(0, firstHeadingIndex);
-  const firstImageContainer = contentBeforeHeadings.find(el => el.querySelector('img'));
-  if (firstImageContainer) {
-      featuredUrl = (firstImageContainer.querySelector('img') as HTMLImageElement).src;
+  
+  // Find an image that's either a direct child or wrapped in a figure/p tag.
+  for (const el of contentBeforeHeadings) {
+      let img = null;
+      if (el.tagName === 'IMG') {
+          img = el;
+      } else {
+          img = el.querySelector('img');
+      }
+      if (img) {
+          featuredUrl = (img as HTMLImageElement).src;
+          break; 
+      }
   }
   
   doc.querySelectorAll('h2, h3').forEach((header) => {
@@ -123,24 +140,29 @@ function parseContent(html: string): {
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
     let imageSrc: string | null = null;
-    let foundImage = false;
-
-    // Find the next paragraph and image before the next heading
-    while (nextElement && nextElement.tagName !== 'H2' && nextElement.tagName !== 'H3' && !foundImage) {
-        if (!paragraphText && nextElement.tagName === 'P') {
-            paragraphText = nextElement.textContent || '';
+    
+    // Find the next paragraph before any image or next heading.
+    let currentElementForP = header.nextElementSibling;
+    while(currentElementForP && !['H2', 'H3', 'FIGURE'].includes(currentElementForP.tagName) && currentElementForP.querySelector('img') === null) {
+        if (currentElementForP.tagName === 'P' && !paragraphText) {
+            paragraphText = currentElementForP.textContent || '';
         }
-        
-        // Look for an image directly or inside a figure tag
+        currentElementForP = currentElementForP.nextElementSibling;
+    }
+
+    // Find the next image before the next heading
+    let foundImage = false;
+    while (nextElement && !['H2', 'H3'].includes(nextElement.tagName) && !foundImage) {
+        let img = null;
         if (nextElement.tagName === 'IMG') {
-            imageSrc = (nextElement as HTMLImageElement).src;
-            foundImage = true;
+            img = nextElement;
         } else {
-            const img = nextElement.querySelector('img');
-            if (img) {
-                imageSrc = img.src;
-                foundImage = true;
-            }
+            img = nextElement.querySelector('img');
+        }
+
+        if (img) {
+            imageSrc = (img as HTMLImageElement).src;
+            foundImage = true;
         }
         
         nextElement = nextElement.nextElementSibling;
@@ -169,7 +191,8 @@ export default function ImageGeneratorPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMorePosts, setHasMorePosts] = useState(true);
-  const [dialogState, setDialogState] = useState<DialogState>({ open: false, type: null, postId: null });
+  const [searchDialogState, setSearchDialogState] = useState<SearchDialogState>({ open: false, type: null, postId: null });
+  const [cropDialogState, setCropDialogState] = useState<CropDialogState>({ open: false, image: null, onCropComplete: null });
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
 
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
@@ -178,7 +201,7 @@ export default function ImageGeneratorPage() {
     const { firstParagraph, sections, initialImages } = parseContent(post.content);
 
     const existingPostImages = images[post.id] || { featured: null, sections: {} };
-    let postImages = JSON.parse(JSON.stringify(existingPostImages)); 
+    let postImages: ImageState = JSON.parse(JSON.stringify(existingPostImages)); 
     let imagesUpdated = false;
 
     if (!postImages.featured && initialImages.featuredUrl) {
@@ -253,7 +276,7 @@ export default function ImageGeneratorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sites]);
 
-  const handleOpenDialog = useCallback(async (postId: string, type: 'featured' | 'section', heading?: string) => {
+  const handleOpenSearchDialog = useCallback(async (postId: string, type: 'featured' | 'section', heading?: string) => {
     const post = posts.find(p => p.id === postId);
     const postDetails = postDetailsMap.get(postId);
     if (!post || !postDetails) return;
@@ -273,7 +296,7 @@ export default function ImageGeneratorPage() {
     }
 
     if (result) {
-        setDialogState({
+        setSearchDialogState({
             open: true,
             type: type,
             postId: postId,
@@ -288,33 +311,41 @@ export default function ImageGeneratorPage() {
     setLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
   }, [posts, postDetailsMap, toast]);
 
-  const handleSelectImage = (image: ImageSearchResult) => {
-    const { postId, type, heading } = dialogState;
+  const handleSelectImageFromSearch = (image: ImageSearchResult) => {
+    const { postId, type, heading } = searchDialogState;
     if (!postId || !type) return;
 
-    setImages((prev) => {
-      const currentImages = prev[postId] || { featured: null, sections: {} };
-      let newImages: ImageState;
-      if (type === 'featured') {
-        newImages = { ...currentImages, featured: image };
-      } else if (heading) {
-        newImages = { ...currentImages, sections: { ...currentImages.sections, [heading]: image } };
-      } else {
-        newImages = currentImages;
-      }
-      return { ...prev, [postId]: newImages };
+    const onCropComplete = (croppedImageUrl: string, originalImage: ImageSearchResult) => {
+        const newImage: ImageSearchResult = { ...originalImage, url: croppedImageUrl };
+        setImages((prev) => {
+          const currentImages = prev[postId] || { featured: null, sections: {} };
+          let newImages: ImageState;
+          if (type === 'featured') {
+            newImages = { ...currentImages, featured: newImage };
+          } else if (heading) {
+            newImages = { ...currentImages, sections: { ...currentImages.sections, [heading]: newImage } };
+          } else {
+            newImages = currentImages;
+          }
+          return { ...prev, [postId]: newImages };
+        });
+
+        const post = posts.find(p => p.id === postId);
+        if (post) {
+            setTimeout(() => processAndSetPostDetails(post), 0);
+        }
+        toast({ title: 'Image Added!', description: `Image from ${newImage.source} by ${newImage.photographer}` });
+        setCropDialogState({ open: false, image: null, onCropComplete: null });
+    };
+
+    setCropDialogState({
+        open: true,
+        image: image,
+        onCropComplete: onCropComplete,
     });
-
-    const post = posts.find(p => p.id === postId);
-    if (post) {
-      // We must pass a new function to processAndSetPostDetails to trigger a re-render of details
-      setTimeout(() => processAndSetPostDetails(post), 0);
-    }
-
-    toast({ title: 'Image Added!', description: `Image from ${image.source} by ${image.photographer}` });
-    setDialogState({ open: false, type: null, postId: null });
+    setSearchDialogState({ open: false, type: null, postId: null });
   };
-
+  
   const deleteImage = useCallback((postId: string, type: 'featured' | 'section', heading?: string) => {
       setImages((prev) => {
         const currentImages = prev[postId] || { featured: null, sections: {} };
@@ -457,18 +488,21 @@ export default function ImageGeneratorPage() {
   
                                   {postImages.featured ? (
                                       <div className="relative">
-                                      <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt} className="rounded-md aspect-[2/1] object-cover" />
-                                      <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
-                                          <Button variant="outline" size="sm" onClick={() => handleOpenDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
-                                          {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />} Replace
-                                          </Button>
-                                          <Button variant="destructive" size="sm" onClick={() => deleteImage(post.id, 'featured')}>
-                                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                          </Button>
-                                      </div>
+                                          <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt} className="rounded-md aspect-[2/1] object-cover" />
+                                          <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
+                                              <Button variant="outline" size="sm" onClick={() => handleOpenSearchDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
+                                              {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />} Replace
+                                              </Button>
+                                              <Button variant="destructive" size="sm" onClick={() => deleteImage(post.id, 'featured')}>
+                                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                              </Button>
+                                          </div>
+                                          <p className="text-xs text-muted-foreground mt-1 italic">
+                                              Photo by <a href={postImages.featured.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">{postImages.featured.photographer}</a> on <a href={`https://www.${postImages.featured.source.toLowerCase()}.com`}  target="_blank" rel="noopener noreferrer" className="underline">{postImages.featured.source}</a>
+                                          </p>
                                       </div>
                                   ) : (
-                                      <Button onClick={() => handleOpenDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
+                                      <Button onClick={() => handleOpenSearchDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
                                       {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Featured Image
                                       </Button>
                                   )}
@@ -483,30 +517,37 @@ export default function ImageGeneratorPage() {
                                           const image = postImages.sections[heading];
                                           const loadingKeySection = `${post.id}-${heading}`;
                                           return (
-                                          <div key={heading} className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
-                                              <div className="flex items-center gap-2">
+                                          <div key={heading} className="flex items-start md:items-center justify-between gap-4 p-3 rounded-md border bg-muted/30 flex-col md:flex-row">
+                                              <div className="flex items-start gap-2 flex-grow">
                                                   {image ? (
-                                                      <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                                      <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-1" />
                                                   ) : (
-                                                      <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                                                      <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-1" />
                                                   )}
                                                   <p className="font-medium">{heading}</p>
                                               </div>
+                                              <div className="flex items-center gap-2 self-end md:self-center">
                                               {image ? (
-                                              <div className="flex items-center gap-2">
-                                                  <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
-                                                  <Button variant="outline" size="icon" onClick={() => handleOpenDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
-                                                  {loadingStates[loadingKeySection] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Replace className="h-4 w-4" />}
-                                                  </Button>
-                                                  <Button variant="destructive" size="icon" onClick={() => deleteImage(post.id, 'section', heading)}>
-                                                  <Trash2 className="h-4 w-4" />
-                                                  </Button>
-                                              </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-right">
+                                                        <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
+                                                        <p className="text-xs text-muted-foreground mt-1 italic whitespace-nowrap">
+                                                          Photo by {image.photographer}
+                                                        </p>
+                                                    </div>
+                                                    <Button variant="outline" size="icon" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
+                                                      {loadingStates[loadingKeySection] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Replace className="h-4 w-4" />}
+                                                    </Button>
+                                                    <Button variant="destructive" size="icon" onClick={() => deleteImage(post.id, 'section', heading)}>
+                                                      <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                               ) : (
-                                              <Button variant="secondary" size="sm" onClick={() => handleOpenDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
-                                                  {loadingStates[loadingKeySection] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Image
-                                              </Button>
+                                                <Button variant="secondary" size="sm" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
+                                                    {loadingStates[loadingKeySection] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Image
+                                                </Button>
                                               )}
+                                              </div>
                                           </div>
                                           );
                                       })}
@@ -542,15 +583,21 @@ export default function ImageGeneratorPage() {
   return (
     <>
     <ImageSearchDialog
-        open={dialogState.open}
-        onOpenChange={(open) => setDialogState({ ...dialogState, open })}
-        initialQuery={dialogState.initialQuery}
-        initialImages={dialogState.initialImages}
-        onSelectImage={handleSelectImage}
+        open={searchDialogState.open}
+        onOpenChange={(open) => setSearchDialogState({ ...searchDialogState, open })}
+        initialQuery={searchDialogState.initialQuery}
+        initialImages={searchDialogState.initialImages}
+        onSelectImage={handleSelectImageFromSearch}
         onSearch={async (query) => {
             const result = await searchImages({ query });
             return result.images;
         }}
+    />
+    <ImageCropDialog 
+        open={cropDialogState.open}
+        onOpenChange={(open) => setCropDialogState({ ...cropDialogState, open })}
+        image={cropDialogState.image}
+        onCropComplete={cropDialogState.onCropComplete}
     />
     <div className="space-y-8">
         <Card>
