@@ -284,7 +284,10 @@ export default function ImageGeneratorPage() {
 
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
-    return posts.filter((p) => p.status === filter || (filter === 'draft' && (p.status === 'draft' || p.status === 'pending')));
+    if (filter === 'published') return posts.filter((p) => p.status === 'publish');
+    if (filter === 'draft') return posts.filter((p) => p.status === 'draft' || p.status === 'pending');
+    if (filter === 'pending') return posts.filter((p) => p.status === 'pending');
+    return posts;
   }, [posts, filter]);
 
   return (
@@ -369,7 +372,7 @@ export default function ImageGeneratorPage() {
                             </h3>
                             <Badge
                               variant={
-                                post.status === 'published'
+                                post.status === 'publish'
                                   ? 'default'
                                   : 'secondary'
                               }

@@ -27,7 +27,7 @@ export interface WpPost {
     title: string;
     content: string;
     date: string;
-    status: 'published' | 'draft' | 'pending' | 'private';
+    status: 'publish' | 'draft' | 'pending' | 'private';
     siteUrl: string;
 }
 
@@ -90,7 +90,7 @@ export async function fetchPostsFromWp(
             title: post.title.rendered,
             content: post.content.rendered,
             date: new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-            status: post.status === 'publish' ? 'published' : post.status,
+            status: post.status,
             siteUrl: post.link,
         }));
         
