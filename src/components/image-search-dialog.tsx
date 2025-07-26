@@ -16,6 +16,7 @@ import { Search, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect, useCallback } from 'react';
 import type { ImageSearchResult } from '@/app/dashboard/image-generator/actions';
+import { Skeleton } from './ui/skeleton';
 
 interface ImageSearchDialogProps {
   open: boolean;
@@ -42,8 +43,15 @@ export function ImageSearchDialog({
     if (open) {
       setQuery(initialQuery);
       setImages(initialImages);
+      if (initialImages.length === 0 && initialQuery) {
+          setIsLoading(true);
+          onSearch(initialQuery).then(results => {
+              setImages(results);
+              setIsLoading(false);
+          });
+      }
     }
-  }, [open, initialQuery, initialImages]);
+  }, [open, initialQuery, initialImages, onSearch]);
 
   const handleSearch = useCallback(async () => {
     if (!query) return;
@@ -62,7 +70,7 @@ export function ImageSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[80vh]">
+      <DialogContent className="max-w-6xl h-[90vh]">
         <DialogHeader>
           <DialogTitle>Find the Perfect Image</DialogTitle>
           <DialogDescription>
@@ -87,9 +95,9 @@ export function ImageSearchDialog({
           </Button>
         </div>
         <ScrollArea className="flex-grow border rounded-md h-[calc(100%-150px)]">
-          <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {isLoading && images.length === 0 && Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="aspect-video bg-muted animate-pulse rounded-md" />
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {isLoading && images.length === 0 && Array.from({ length: 12 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-video bg-muted rounded-md" />
             ))}
             {images.map((image) => (
               <div

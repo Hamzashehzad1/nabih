@@ -30,7 +30,7 @@ export type SearchImagesOutput = z.infer<typeof SearchImagesOutputSchema>;
 
 async function searchPexels(query: string): Promise<SearchImagesOutput['images']> {
   try {
-    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=10&orientation=landscape`, {
+    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=15&orientation=landscape`, {
       headers: { Authorization: process.env.PEXELS_API_KEY! },
     });
     if (!response.ok) {
@@ -53,7 +53,7 @@ async function searchPexels(query: string): Promise<SearchImagesOutput['images']
 
 async function searchUnsplash(query: string): Promise<SearchImagesOutput['images']> {
   try {
-    const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=10&orientation=landscape`, {
+    const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=15&orientation=landscape`, {
       headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` },
     });
     if (!response.ok) {
