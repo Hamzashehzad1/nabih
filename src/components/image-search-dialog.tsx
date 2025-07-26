@@ -70,7 +70,7 @@ export function ImageSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh]">
+      <DialogContent className="max-w-none w-auto m-4 h-[90vh]">
         <DialogHeader>
           <DialogTitle>Find the Perfect Image</DialogTitle>
           <DialogDescription>
@@ -95,7 +95,7 @@ export function ImageSearchDialog({
           </Button>
         </div>
         <ScrollArea className="flex-grow border rounded-md h-[calc(100%-150px)]">
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {isLoading && images.length === 0 && Array.from({ length: 12 }).map((_, i) => (
                 <Skeleton key={i} className="aspect-video bg-muted rounded-md" />
             ))}
