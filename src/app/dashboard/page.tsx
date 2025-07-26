@@ -157,7 +157,7 @@ export default function DashboardPage() {
               <TableBody>
                 {sites.map((site: any) => (
                   <TableRow key={site.url}>
-                    <TableCell className="font-medium">{site.user}</TableCell>
+                    <TableCell className="font-medium">{new URL(site.url).hostname}</TableCell>
                     <TableCell>
                       <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
                         {site.url}
