@@ -23,9 +23,16 @@ interface ImageState {
   sections: { [key: string]: string | null };
 }
 
+interface WpSite {
+    id: string;
+    url: string;
+    user: string;
+}
+
 export default function DashboardPage() {
     const [posts] = useLocalStorage<BlogPost[]>('blog-posts', []);
     const [images] = useLocalStorage<{[postId: string]: ImageState}>('post-images', {});
+    const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
 
     const totalImages = useMemo(() => {
         return Object.values(images).reduce((acc, postImages) => {
@@ -38,11 +45,7 @@ export default function DashboardPage() {
   const stats = [
     { title: "Blogs Generated", value: posts.length, icon: <FileText className="h-6 w-6 text-muted-foreground" /> },
     { title: "Images Added", value: totalImages, icon: <ImageIcon className="h-6 w-6 text-muted-foreground" /> },
-    { title: "Connected Sites", value: "0", icon: <Globe className="h-6 w-6 text-muted-foreground" /> },
-  ];
-
-  const connectedSites = [
-    // This will be populated from a database in a real application
+    { title: "Connected Sites", value: sites.length, icon: <Globe className="h-6 w-6 text-muted-foreground" /> },
   ];
 
   return (
@@ -87,7 +90,7 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {connectedSites.length > 0 ? (
+          {sites.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -98,9 +101,9 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {connectedSites.map((site: any) => (
+                {sites.map((site: any) => (
                   <TableRow key={site.url}>
-                    <TableCell className="font-medium">{site.name}</TableCell>
+                    <TableCell className="font-medium">{site.user}</TableCell>
                     <TableCell>
                       <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
                         {site.url}
@@ -109,11 +112,11 @@ export default function DashboardPage() {
                     <TableCell>
                       <div className="flex items-center">
                         <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                        {site.status}
+                        Connected
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Manage</Button>
+                      <Button variant="ghost" size="sm" disabled>Manage</Button>
                     </TableCell>
                   </TableRow>
                 ))}

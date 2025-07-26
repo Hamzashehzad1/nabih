@@ -31,7 +31,7 @@ export default function SettingsPage() {
     const [imageFormat, setImageFormat] = useLocalStorage<string>('image-format', 'jpeg');
     const [sites, setSites] = useLocalStorage<WpSite[]>('wp-sites', []);
 
-    const [currentApiKeys, setCurrentApiKeys] = useState(apiKeys);
+    const [currentApiKeys, setCurrentApiKeys] = useState<ApiKeys>(apiKeys);
     const [newSiteUrl, setNewSiteUrl] = useState('');
     const [newSiteUser, setNewSiteUser] = useState('');
     const [newSitePassword, setNewSitePassword] = useState('');

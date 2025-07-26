@@ -27,12 +27,13 @@ export default function ProfilePage() {
       setUser(currentUser);
       if (currentUser) {
         setName(currentUser.displayName || '');
-        // We use local storage for avatar persistence in this prototype
-        // In a real app, photoURL would come from Firebase User object
+        if (!avatarUrl && currentUser.photoURL) {
+          setAvatarUrl(currentUser.photoURL);
+        }
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [avatarUrl, setAvatarUrl]);
 
   const handleSaveChanges = async () => {
     if (!user) return;
@@ -58,30 +59,25 @@ export default function ProfilePage() {
     if (!user || !event.target.files || event.target.files.length === 0) return;
     setIsUploading(true);
 
-    // This is a mock upload using client-side data URL. 
-    // In a real app, you would upload to Firebase Storage
-    // and then update the user's photoURL with the storage URL.
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     const file = event.target.files[0];
-    const localUrl = URL.createObjectURL(file);
-    setAvatarUrl(localUrl);
-
-    // To persist across sessions, we save to local storage.
-    // The commented out code is what you'd use with Firebase Storage.
-    // const storage = getStorage(app);
-    // const storageRef = ref(storage, `avatars/${user.uid}`);
-    // uploadBytes(storageRef, file).then(async (snapshot) => {
-    //   const downloadURL = await getDownloadURL(snapshot.ref);
-    //   await updateProfile(user, { photoURL: downloadURL });
-    //   setAvatarUrl(downloadURL); // Or just re-fetch user
-    // });
-    
-    setIsUploading(false);
-    toast({
-        title: "Success",
-        description: "Profile picture updated.",
-    });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      setAvatarUrl(dataUrl);
+       // In a real app, you'd upload to Firebase Storage and then call updateProfile
+      // with the photoURL. For this prototype, we update the profile with the dataURL
+      // which might not work for all auth providers but is good for demonstration.
+      updateProfile(user, { photoURL: dataUrl }).catch(console.error);
+      
+      setIsUploading(false);
+      toast({
+          title: "Success",
+          description: "Profile picture updated.",
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handlePasswordReset = async () => {
