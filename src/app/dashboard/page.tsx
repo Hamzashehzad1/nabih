@@ -101,12 +101,12 @@ export default function DashboardPage() {
                       <TableCell className="text-right">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button asChild variant="ghost" size="icon">
-                              <Link href={`/dashboard/blog-editor/${post.id}`} target="_blank" rel="noopener noreferrer">
+                            <Link href={`/dashboard/blog-editor/${post.id}`} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon">
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edit Post</span>
-                              </Link>
-                            </Button>
+                              </Button>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>Edit Post</p>
