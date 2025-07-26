@@ -57,7 +57,7 @@ function parseContent(html: string): {
   const domParser = new window.DOMParser();
   const doc = domParser.parseFromString(html.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
   
-  const paragraphs = doc.querySelectorAll('p');
+  const paragraphs = Array.from(doc.querySelectorAll('p'));
   const firstParagraph = paragraphs.length > 0 ? (paragraphs[0].textContent || '') : '';
   
   const sections: Section[] = [];

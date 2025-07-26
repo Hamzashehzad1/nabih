@@ -121,7 +121,7 @@ export default function ProfilePage() {
                 <Label htmlFor="name">Full Name</Label>
                 <Input 
                   id="name" 
-                  value={name}
+                  value={name || ''}
                   onChange={(e) => setName(e.target.value)}
                   disabled={isSaving}
                 />

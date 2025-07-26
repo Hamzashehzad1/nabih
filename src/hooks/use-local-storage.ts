@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 function getValue<T>(key: string, defaultValue: T): T {
     if (typeof window === 'undefined') {
@@ -21,7 +21,9 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, React.Disp
 
     useEffect(() => {
         try {
-            window.localStorage.setItem(key, JSON.stringify(value));
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, JSON.stringify(value));
+            }
         } catch(error) {
             console.warn(`Error setting localStorage key “${key}”:`, error);
         }
