@@ -31,11 +31,11 @@ import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from 
 import { app } from "@/lib/firebase"; // Make sure firebase config is in this file
 
 const navItems = [
-  { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
-  { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator" },
-  { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator" },
-  { href: "/dashboard/settings", icon: <Settings />, label: "Settings" },
-  { href: "/dashboard/profile", icon: <User />, label: "Profile" },
+  { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: { children: "Dashboard", side: "right" } },
+  { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
+  { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
+  { href: "/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: { children: "Settings", side: "right" } },
+  { href: "/dashboard/profile", icon: <User />, label: "Profile", tooltip: { children: "Profile", side: "right" } },
 ];
 
 export default function DashboardLayout({
@@ -90,7 +90,7 @@ export default function DashboardLayout({
                   <Link href={item.href}>
                     <SidebarMenuButton
                       isActive={pathname === item.href}
-                      tooltip={{ children: item.label, side:"right"}}
+                      tooltip={item.tooltip}
                     >
                       {item.icon}
                       <span>{item.label}</span>
