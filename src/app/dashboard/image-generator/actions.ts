@@ -56,6 +56,7 @@ export async function fetchPostsFromWp(
     const url = new URL(`${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`);
     url.searchParams.append('context', 'edit');
     url.searchParams.append('_fields', 'id,date,title,content,status,link');
+    url.searchParams.append('per_page', '10'); // Fetch 10 posts per page
     url.searchParams.append('page', page.toString());
     statuses.forEach(status => url.searchParams.append('status[]', status));
 
