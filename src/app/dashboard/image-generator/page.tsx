@@ -346,7 +346,7 @@ export default function ImageGeneratorPage() {
 
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
-                const hasFeaturedImage = !!postImages.featured || details.existingImageCount > details.sections.length;
+                const hasFeaturedImage = !!postImages.featured;
 
                 return (
                     <AccordionItem value={post.id} key={post.id}>
@@ -508,3 +508,5 @@ export default function ImageGeneratorPage() {
     </>
   );
 }
+
+    
