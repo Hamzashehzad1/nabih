@@ -536,7 +536,7 @@ export default function ImageGeneratorPage() {
       </div>
 
       <div className="lg:col-span-2">
-        <Card className="min-h-[780px]">
+        <Card>
           <CardHeader>
             <CardTitle>{selectedPost?.title || 'Select a Post'}</CardTitle>
             <CardDescription>
