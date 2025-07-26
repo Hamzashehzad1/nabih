@@ -2,7 +2,6 @@
 'use server';
 
 import { generateImagePrompt } from '@/ai/flows/generate-image-prompt';
-import { generateImage } from '@/ai/flows/generate-image';
 import { z } from 'zod';
 
 // Define the schema for a single WordPress post
@@ -31,24 +30,35 @@ export interface WpPost {
     siteUrl: string;
 }
 
-async function getImage(title: string, paragraph: string): Promise<string> {
+// This function simulates fetching an image URL after getting a prompt.
+// In a real app, this would involve searching Pexels/Unsplash.
+async function getImageUrlFromPrompt(query: string): Promise<string> {
+    // Simulate API call and return a placeholder.
+    // The query can be used to make the placeholder more relevant.
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const queryHint = query.split(' ').slice(0, 2).join(' ');
+    const placeholderUrl = `https://placehold.co/600x400.png?text=${encodeURIComponent(query)}`;
+    return placeholderUrl;
+}
+
+export async function getFeaturedImage(title: string, paragraph: string): Promise<string> {
   try {
-    const promptResult = await generateImagePrompt({ title, paragraph });
-    const imageResult = await generateImage({ prompt: promptResult.prompt });
-    return imageResult.imageUrl;
+    const result = await generateImagePrompt({ title, paragraph, type: 'featured' });
+    return getImageUrlFromPrompt(result.query);
   } catch (error) {
-    console.error('Error generating image:', error);
-    // Return a placeholder or handle the error as needed
+    console.error('Error generating featured image query:', error);
     return 'https://placehold.co/600x400.png';
   }
 }
 
-export async function getFeaturedImage(title: string, paragraph: string): Promise<string> {
-    return getImage(title, paragraph);
-}
-
 export async function getSectionImage(heading: string, paragraph: string): Promise<string> {
-    return getImage(heading, paragraph);
+    try {
+        const result = await generateImagePrompt({ title: heading, paragraph, type: 'section' });
+        return getImageUrlFromPrompt(result.query);
+    } catch (error) {
+        console.error('Error generating section image query:', error);
+        return 'https://placehold.co/600x400.png';
+    }
 }
 
 export async function fetchPostsFromWp(

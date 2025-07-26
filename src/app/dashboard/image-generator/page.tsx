@@ -119,8 +119,6 @@ export default function ImageGeneratorPage() {
       setHasMorePosts(true);
     }
     
-    // In a real app, you might fetch from one site or all sites.
-    // For this prototype, we'll fetch from the first connected site.
     const siteToFetch = sites[0];
     if (!siteToFetch.appPassword) {
       setFetchError("Application password not found for this site. Please add it in Settings.");
@@ -230,7 +228,8 @@ export default function ImageGeneratorPage() {
       };
 
       setLoadingState(true);
-
+      toast({ title: 'Generating Image Query...', description: 'The AI is thinking of the perfect search term.' });
+      
       let imageUrl;
       if (type === 'featured') {
         imageUrl = await getFeaturedImage(
@@ -250,6 +249,7 @@ export default function ImageGeneratorPage() {
       }
 
       if (imageUrl) {
+        toast({ title: 'Image Added!', description: 'Placeholder image added. Next step: Pexels/Unsplash search!' });
         if (type === 'featured') {
           setPostImages((prev) => ({ ...prev, featured: imageUrl }));
         } else if (heading) {
@@ -258,16 +258,18 @@ export default function ImageGeneratorPage() {
             sections: { ...prev.sections, [heading]: imageUrl },
           }));
         }
+      } else {
+        toast({ title: 'Error', description: 'Could not generate an image.', variant: 'destructive'});
       }
 
       setLoadingState(false);
     },
-    [selectedPost, parsedContent, setPostImages]
+    [selectedPost, parsedContent, setPostImages, toast]
   );
 
   const deleteImage = useCallback(
     (type: 'featured' | 'section', heading?: string) => {
-      if (!selectedPostId) return { featured: null, sections: {} };
+      if (!selectedPostId) return;
       setPostImages((prev) => {
         if (type === 'featured') {
           return { ...prev, featured: null };
@@ -281,17 +283,71 @@ export default function ImageGeneratorPage() {
     },
     [selectedPostId, setPostImages]
   );
-
+  
   const renderedContent = useMemo(() => {
     if (!selectedPost) return null;
-    return (
-      <div
-        dangerouslySetInnerHTML={{
-          __html: selectedPost.content.replace(/\n/g, '<br />'),
-        }}
-      />
-    );
-  }, [selectedPost]);
+    if (typeof window === 'undefined') {
+        return <div dangerouslySetInnerHTML={{ __html: selectedPost.content }} />;
+    }
+    
+    const doc = new DOMParser().parseFromString(selectedPost.content, 'text/html');
+    const nodes = Array.from(doc.body.children);
+    
+    return nodes.map((node, index) => {
+      const isHeading = node.tagName === 'H2' || node.tagName === 'H3';
+      const headingText = node.textContent || '';
+      
+      return (
+        <div key={index}>
+          <div dangerouslySetInnerHTML={{ __html: node.outerHTML }} />
+          {isHeading && (
+            <div className="my-4">
+              {currentPostImages.sections[headingText] ? (
+                <Card className="p-4">
+                  <div className="relative">
+                    <Image
+                      src={currentPostImages.sections[headingText]!}
+                      width={600}
+                      height={300}
+                      alt={headingText}
+                      className="rounded-md"
+                    />
+                    <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateImage('section', headingText)}
+                        disabled={loading.sections[headingText]}
+                      >
+                        {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
+                        Replace
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteImage('section', headingText)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <div className="text-center py-4">
+                  <Button
+                    variant="secondary"
+                    onClick={() => generateImage('section', headingText)}
+                    disabled={loading.sections[headingText]}
+                  >
+                    {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                    Add Image for "{headingText}"
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+    });
+  }, [selectedPost, currentPostImages, loading.sections, generateImage, deleteImage]);
 
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
@@ -469,17 +525,14 @@ export default function ImageGeneratorPage() {
                           alt="Featured Image"
                           className="rounded-md"
                         />
-                        <div className="absolute top-2 right-2 flex gap-2">
+                        <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => generateImage('featured')}
+                            disabled={loading.featured}
                           >
-                            {loading.featured ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Replace className="mr-2 h-4 w-4" />
-                            )}
+                            {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
                             Replace
                           </Button>
                           <Button
@@ -503,91 +556,17 @@ export default function ImageGeneratorPage() {
                         onClick={() => generateImage('featured')}
                         disabled={loading.featured}
                       >
-                        {loading.featured ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                        )}
+                        {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                         Add Featured Image
                       </Button>
                     </Card>
                   )}
                 </div>
 
-                <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md max-h-60 overflow-y-auto">
-                  {renderedContent}
+                <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md max-h-[400px] overflow-y-auto">
+                    {renderedContent ? renderedContent : <p>Select a post to see the content.</p>}
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Section Images</h3>
-                  {parsedContent.sections.map((section) => (
-                    <div key={section.heading}>
-                      <Label className="font-medium">
-                        Image for "{section.heading}"
-                      </Label>
-                      {currentPostImages.sections[section.heading] ? (
-                        <Card className="mt-2 p-4">
-                          <div className="relative">
-                            <Image
-                              src={
-                                currentPostImages.sections[section.heading]!
-                              }
-                              width={600}
-                              height={300}
-                              alt={section.heading}
-                              className="rounded-md"
-                            />
-                            <div className="absolute top-2 right-2 flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  generateImage('section', section.heading)
-                                }
-                                disabled={loading.sections[section.heading]}
-                              >
-                                {loading.sections[section.heading] ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Replace className="mr-2 h-4 w-4" />
-                                )}
-                                Replace
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() =>
-                                  deleteImage('section', section.heading)
-                                }
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </Button>
-                            </div>
-                          </div>
-                        </Card>
-                      ) : (
-                        <Card className="mt-2 p-4 flex flex-col items-center justify-center text-center border-dashed min-h-[150px]">
-                          <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() =>
-                              generateImage('section', section.heading)
-                            }
-                            disabled={loading.sections[section.heading]}
-                          >
-                            {loading.sections[section.heading] ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                            )}
-                            Add Image
-                          </Button>
-                        </Card>
-                      )}
-                    </div>
-                  ))}
-                </div>
               </div>
             </CardContent>
           )}
