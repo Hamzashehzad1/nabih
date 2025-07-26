@@ -48,6 +48,7 @@ export function ImageSearchDialog({
   const handleSearch = useCallback(async () => {
     if (!query) return;
     setIsLoading(true);
+    setImages([]); // Clear previous images while new ones are loading
     const results = await onSearch(query);
     setImages(results);
     setIsLoading(false);
