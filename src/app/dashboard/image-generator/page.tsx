@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
   PlusCircle,
-  ImageIcon,
   Loader2,
   Trash2,
   Replace,
@@ -25,7 +24,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState, useMemo, useCallback, useEffect, Fragment } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   generateAndSearch,
   fetchPostsFromWp,
@@ -78,13 +77,19 @@ interface PostDetails {
   sections: Section[];
   requiredImages: number;
   generatedCount: number;
-  existingImageCount: number;
 }
 
 
-function parseContent(html: string): { firstParagraph: string; sections: Section[], imageCount: number } {
+function parseContent(html: string): {
+    firstParagraph: string;
+    sections: Section[];
+    initialImages: {
+        featuredUrl: string | null;
+        sectionImageUrls: { [key: string]: string };
+    }
+} {
   if (typeof window === 'undefined') {
-    return { firstParagraph: '', sections: [], imageCount: 0 };
+    return { firstParagraph: '', sections: [], initialImages: { featuredUrl: null, sectionImageUrls: {} } };
   }
   const domParser = new window.DOMParser();
   const doc = domParser.parseFromString(
@@ -97,31 +102,52 @@ function parseContent(html: string): { firstParagraph: string; sections: Section
   if (firstP) {
     firstParagraph = firstP.textContent || '';
   }
-  
+
   const sections: Section[] = [];
+  const sectionImageUrls: { [key: string]: string } = {};
+  let featuredUrl: string | null = null;
+
+  // Try to find a featured image (first image before any h2/h3)
+  const allElements = Array.from(doc.body.children);
+  const firstHeadingIndex = allElements.findIndex(el => el.tagName === 'H2' || el.tagName === 'H3');
+  
+  const contentBeforeHeadings = firstHeadingIndex === -1 ? allElements : allElements.slice(0, firstHeadingIndex);
+  const firstImageElement = contentBeforeHeadings.find(el => el.tagName === 'IMG') as HTMLImageElement | undefined;
+  if (firstImageElement) {
+      featuredUrl = firstImageElement.src;
+  }
+  
   doc.querySelectorAll('h2, h3').forEach((header) => {
+    const headingText = header.textContent || '';
+    if (!headingText) return;
+
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
+    let imageSrc: string | null = null;
 
-    while(nextElement && nextElement.tagName.toLowerCase() !== 'p') {
-      nextElement = nextElement.nextElementSibling;
+    // Find the next paragraph and image before the next heading
+    while (nextElement && nextElement.tagName !== 'H2' && nextElement.tagName !== 'H3') {
+        if (!paragraphText && nextElement.tagName === 'P') {
+            paragraphText = nextElement.textContent || '';
+        }
+        if (!imageSrc && nextElement.tagName === 'IMG') {
+            imageSrc = (nextElement as HTMLImageElement).src;
+        }
+        nextElement = nextElement.nextElementSibling;
     }
-
-    if (nextElement && nextElement.tagName.toLowerCase() === 'p') {
-      paragraphText = (nextElement.textContent || '') + ' ';
-    }
-
-    if (header.textContent && paragraphText.trim()) {
-      sections.push({
-        heading: header.textContent,
-        paragraph: paragraphText.trim(),
-      });
+    
+    if (headingText) {
+        sections.push({
+            heading: headingText,
+            paragraph: paragraphText.trim(),
+        });
+        if (imageSrc) {
+            sectionImageUrls[headingText] = imageSrc;
+        }
     }
   });
 
-  const imageCount = doc.getElementsByTagName('img').length;
-
-  return { firstParagraph, sections, imageCount };
+  return { firstParagraph, sections, initialImages: { featuredUrl, sectionImageUrls } };
 }
 
 export default function ImageGeneratorPage() {
@@ -140,26 +166,53 @@ export default function ImageGeneratorPage() {
   const postDetailsMap = useMemo(() => {
     const map = new Map<string, PostDetails>();
     posts.forEach((post) => {
-      const { firstParagraph, sections, imageCount } = parseContent(post.content);
-      const postImages = images[post.id] || { featured: null, sections: {} };
-      const uiGeneratedCount =
-        Object.values(postImages.sections).filter(Boolean).length +
-        (postImages.featured ? 1 : 0);
-      
-      const requiredImages = sections.length + 1;
-      // We consider the greater of the two, so we don't double count.
-      const generatedCount = Math.max(uiGeneratedCount, imageCount);
-
-      map.set(post.id, {
-        firstParagraph,
-        sections,
-        requiredImages: requiredImages,
-        generatedCount,
-        existingImageCount: imageCount,
-      });
+        const { firstParagraph, sections } = parseContent(post.content);
+        const postImages = images[post.id] || { featured: null, sections: {} };
+        const generatedCount =
+            (postImages.featured ? 1 : 0) +
+            Object.values(postImages.sections).filter(Boolean).length;
+        
+        map.set(post.id, {
+            firstParagraph,
+            sections,
+            requiredImages: sections.length + 1,
+            generatedCount,
+        });
     });
     return map;
   }, [posts, images]);
+
+  const processFetchedPosts = useCallback((newPosts: WpPost[]) => {
+    const newImagesState = { ...images };
+    newPosts.forEach(post => {
+        if (images[post.id]) return; // Don't re-process if already in state
+
+        const { initialImages } = parseContent(post.content);
+        let postImageState: ImageState = { featured: null, sections: {} };
+
+        if (initialImages.featuredUrl) {
+            postImageState.featured = {
+                url: initialImages.featuredUrl,
+                alt: 'Existing image from post',
+                photographer: 'N/A',
+                photographerUrl: '#',
+                source: 'Unsplash' // Placeholder
+            };
+        }
+        Object.entries(initialImages.sectionImageUrls).forEach(([heading, url]) => {
+            postImageState.sections[heading] = {
+                url: url,
+                alt: 'Existing image from post',
+                photographer: 'N/A',
+                photographerUrl: '#',
+                source: 'Unsplash' // Placeholder
+            };
+        });
+        newImagesState[post.id] = postImageState;
+    });
+    setImages(newImagesState);
+  }, [images, setImages]);
+
 
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
     if (sites.length === 0) return;
@@ -183,7 +236,9 @@ export default function ImageGeneratorPage() {
         if(result.data.length === 0){
             setHasMorePosts(false);
         } else {
-            setPosts(prev => refresh ? result.data : [...prev, ...result.data]);
+            const newPosts = refresh ? result.data : [...posts, ...result.data];
+            setPosts(newPosts);
+            processFetchedPosts(result.data); // Process new posts
             setCurrentPage(page);
         }
     } else {
@@ -195,7 +250,7 @@ export default function ImageGeneratorPage() {
       })
     }
     setIsFetchingPosts(false);
-  }, [sites, toast]);
+  }, [sites, toast, posts, processFetchedPosts]);
 
   useEffect(() => {
     if (sites.length > 0) {
@@ -508,5 +563,3 @@ export default function ImageGeneratorPage() {
     </>
   );
 }
-
-    
