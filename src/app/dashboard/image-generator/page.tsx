@@ -103,17 +103,16 @@ function parseContent(html: string): {
 
 export default function ImageGeneratorPage() {
   const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
-  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [posts, setPosts] = useState<BlogPost[]>(MOCK_POSTS);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [images, setImages] = useLocalStorage<{[postId: string]: ImageState}>('post-images', {});
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
 
   useEffect(() => {
-    // Simulate fetching posts for connected sites
-    const connectedSitesUrls = sites.map(s => s.url.replace(/\/$/, ''));
-    const fetchedPosts = MOCK_POSTS.filter(p => connectedSitesUrls.some(siteUrl => p.siteUrl.includes(siteUrl)));
-    setPosts(fetchedPosts);
-  }, [sites]);
+    // In a real app, you would fetch posts here based on connected sites.
+    // For this prototype, we'll just use the MOCK_POSTS.
+    setPosts(MOCK_POSTS);
+  }, []);
 
 
   const [loading, setLoading] = useState<{
@@ -224,7 +223,7 @@ export default function ImageGeneratorPage() {
           <CardHeader>
             <CardTitle>Your Blog Posts</CardTitle>
             <CardDescription>
-              Select a post from a connected site to manage its images.
+              Select a post to manage its images.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -236,16 +235,17 @@ export default function ImageGeneratorPage() {
               </TabsList>
             </Tabs>
             <div className="space-y-4 max-h-[600px] overflow-y-auto mt-4">
-              {sites.length === 0 ? (
+              {sites.length === 0 && (
                 <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
                    <Globe className="mx-auto h-12 w-12" />
-                   <h3 className="mt-4 text-lg font-semibold">No Connected Sites</h3>
-                   <p className="mt-1 text-sm">Connect a WordPress site in settings to fetch and see your posts here.</p>
+                   <h3 className="mt-4 text-lg font-semibold">Connect a Site to Fetch Posts</h3>
+                   <p className="mt-1 text-sm">In a real app, connecting a site in settings would let you fetch your posts. For this prototype, we're using mock data.</p>
                     <Button asChild size="sm" className="mt-4">
                         <Link href="/dashboard/settings">Go to Settings</Link>
                     </Button>
                  </div>
-              ) : filteredPosts.length > 0 ? filteredPosts.map((post) => {
+              )}
+              {filteredPosts.length > 0 ? filteredPosts.map((post) => {
                 const postDetails = postDetailsMap.get(post.id) || { requiredImages: 1, generatedCount: 0 };
                 const { requiredImages, generatedCount } = postDetails;
                 
@@ -289,7 +289,7 @@ export default function ImageGeneratorPage() {
                  <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
                    <FileText className="mx-auto h-12 w-12" />
                    <h3 className="mt-4 text-lg font-semibold">No Posts Found</h3>
-                   <p className="mt-1 text-sm">No {filter} posts were found for your connected sites.</p>
+                   <p className="mt-1 text-sm">No {filter} posts were found.</p>
                  </div>
               )}
             </div>
