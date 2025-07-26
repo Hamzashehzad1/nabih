@@ -17,9 +17,10 @@ import {
   Trash2,
   Replace,
   FileText,
+  Globe,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   getFeaturedImage,
   getSectionImage,
@@ -27,12 +28,16 @@ import {
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 interface BlogPost {
   id: string;
   title: string;
   content: string;
   date: string;
+  status: 'published' | 'draft';
+  siteUrl: string;
 }
 
 interface ImageState {
@@ -44,6 +49,20 @@ interface Section {
   heading: string;
   paragraph: string;
 }
+
+interface WpSite {
+    id: string;
+    url: string;
+    user: string;
+}
+
+const MOCK_POSTS: BlogPost[] = [
+    { id: 'post-1', title: '10 Marketing Trends to Watch in 2024', content: `<h2>The Rise of AI</h2><p>AI is taking over the world of marketing...</p><h2>Video is King</h2><p>Short-form video continues to dominate social platforms.</p>`, date: '2024-07-20', status: 'published', siteUrl: 'https://myblog.com' },
+    { id: 'post-2', title: 'A Guide to Sustainable Web Design', content: `<h2>What is Green Hosting?</h2><p>Choosing a hosting provider that uses renewable energy...</p>`, date: '2024-07-18', status: 'published', siteUrl: 'https://myblog.com' },
+    { id: 'post-3', title: 'The Future of Remote Work (Draft)', content: `<h2>Hybrid Models</h2><p>Exploring the pros and cons of hybrid work environments.</p>`, date: '2024-07-22', status: 'draft', siteUrl: 'https://another-site.com' },
+    { id: 'post-4', title: 'Cooking the Perfect Steak (Draft)', content: `<h2>Choosing the Cut</h2><p>Not all steaks are created equal...</p>`, date: '2024-07-21', status: 'draft', siteUrl: 'https://myblog.com' },
+];
+
 
 function parseContent(html: string): {
   firstParagraph: string;
@@ -82,9 +101,19 @@ function parseContent(html: string): {
 
 
 export default function ImageGeneratorPage() {
-  const [posts] = useLocalStorage<BlogPost[]>('blog-posts', []);
+  const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [images, setImages] = useLocalStorage<{[postId: string]: ImageState}>('post-images', {});
+  const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
+
+  useEffect(() => {
+    // Simulate fetching posts for connected sites
+    const connectedSitesUrls = sites.map(s => s.url.replace(/\/$/, ''));
+    const fetchedPosts = MOCK_POSTS.filter(p => connectedSitesUrls.some(siteUrl => p.siteUrl.includes(siteUrl)));
+    setPosts(fetchedPosts);
+  }, [sites]);
+
 
   const [loading, setLoading] = useState<{
     featured: boolean;
@@ -109,10 +138,16 @@ export default function ImageGeneratorPage() {
     [selectedPost]
   );
   
-  const generatedImagesCount = useMemo(() => {
-    return Object.values(currentPostImages.sections).filter(Boolean).length + (currentPostImages.featured ? 1 : 0);
-  }, [currentPostImages]);
-
+  const postDetailsMap = useMemo(() => {
+    const map = new Map<string, { requiredImages: number, generatedCount: number }>();
+    posts.forEach(post => {
+      const details = parseContent(post.content);
+      const postImages = images[post.id] || { featured: null, sections: {} };
+      const generatedCount = Object.values(postImages.sections).filter(Boolean).length + (postImages.featured ? 1 : 0);
+      map.set(post.id, { requiredImages: details.requiredImages, generatedCount });
+    });
+    return map;
+  }, [posts, images]);
 
   const setPostImages = useCallback((updater: (prev: ImageState) => ImageState) => {
     if (!selectedPostId) return;
@@ -158,34 +193,28 @@ export default function ImageGeneratorPage() {
   }, [selectedPost, parsedContent, setPostImages]);
   
   const deleteImage = useCallback((type: 'featured' | 'section', heading?: string) => {
-    if (type === 'featured') {
-      setPostImages(prev => ({ ...prev, featured: null }));
-    } else {
-      setPostImages(prev => {
-        const newSections = { ...prev.sections };
-        if (heading) {
-          delete newSections[heading];
+    setPostImages(prev => {
+        if (type === 'featured') {
+            return { ...prev, featured: null };
+        } else if (heading) {
+            const newSections = { ...prev.sections };
+            delete newSections[heading];
+            return { ...prev, sections: newSections };
         }
-        return { ...prev, sections: newSections };
-      });
-    }
+        return prev;
+    });
   }, [setPostImages]);
 
   const renderedContent = useMemo(() => {
     if (!selectedPost) return null;
     return <div dangerouslySetInnerHTML={{ __html: selectedPost.content.replace(/\n/g, '<br />') }} />;
   }, [selectedPost]);
+  
+  const filteredPosts = useMemo(() => {
+    if (filter === 'all') return posts;
+    return posts.filter(p => p.status === filter);
+  }, [posts, filter]);
 
-  const postDetailsMap = useMemo(() => {
-    const map = new Map<string, { requiredImages: number, generatedCount: number }>();
-    posts.forEach(post => {
-      const details = parseContent(post.content);
-      const postImages = images[post.id] || { featured: null, sections: {} };
-      const generatedCount = Object.values(postImages.sections).filter(Boolean).length + (postImages.featured ? 1 : 0);
-      map.set(post.id, { requiredImages: details.requiredImages, generatedCount });
-    });
-    return map;
-  }, [posts, images]);
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -194,12 +223,28 @@ export default function ImageGeneratorPage() {
           <CardHeader>
             <CardTitle>Your Blog Posts</CardTitle>
             <CardDescription>
-              Select a post to manage its images.
+              Select a post from a connected site to manage its images.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto">
-              {posts.length > 0 ? posts.map((post) => {
+            <Tabs value={filter} onValueChange={(value) => setFilter(value as any)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="published">Published</TabsTrigger>
+                <TabsTrigger value="draft">Drafts</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto mt-4">
+              {sites.length === 0 ? (
+                <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+                   <Globe className="mx-auto h-12 w-12" />
+                   <h3 className="mt-4 text-lg font-semibold">No Connected Sites</h3>
+                   <p className="mt-1 text-sm">Connect a WordPress site in settings to fetch and see your posts here.</p>
+                    <Button asChild size="sm" className="mt-4">
+                        <Link href="/dashboard/settings">Go to Settings</Link>
+                    </Button>
+                 </div>
+              ) : filteredPosts.length > 0 ? filteredPosts.map((post) => {
                 const postDetails = postDetailsMap.get(post.id) || { requiredImages: 1, generatedCount: 0 };
                 const { requiredImages, generatedCount } = postDetails;
                 
@@ -214,9 +259,14 @@ export default function ImageGeneratorPage() {
                     onClick={() => setSelectedPostId(post.id)}
                   >
                     <CardContent className="p-4">
-                      <h3 className="font-semibold truncate">{post.title}</h3>
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-semibold truncate pr-2">{post.title}</h3>
+                        <Badge variant={post.status === 'published' ? 'default' : 'secondary'} className="capitalize">
+                            {post.status}
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        {post.date} - {generatedCount === requiredImages ? "Completed" : "Not Completed"}
+                        {new URL(post.siteUrl).hostname} - {post.date}
                       </p>
                       <div className="mt-2">
                         <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
@@ -235,13 +285,10 @@ export default function ImageGeneratorPage() {
                   </Card>
                 );
               }) : (
-                 <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+                 <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
                    <FileText className="mx-auto h-12 w-12" />
-                   <h3 className="mt-4 text-lg font-semibold">No Posts Yet</h3>
-                   <p className="mt-1 text-sm">Create and save a post in the Blog Generator to see it here.</p>
-                    <Button asChild size="sm" className="mt-4">
-                        <Link href="/dashboard/blog-generator">Go to Blog Generator</Link>
-                    </Button>
+                   <h3 className="mt-4 text-lg font-semibold">No Posts Found</h3>
+                   <p className="mt-1 text-sm">No {filter} posts were found for your connected sites.</p>
                  </div>
               )}
             </div>
