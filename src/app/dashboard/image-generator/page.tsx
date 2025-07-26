@@ -23,7 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, Fragment } from 'react';
 import {
   getFeaturedImage,
   getSectionImage,
@@ -69,18 +69,24 @@ function parseContent(html: string): {
     'text/html'
   );
 
-  const paragraphs = Array.from(doc.querySelectorAll('p'));
-  const firstParagraph =
-    paragraphs.length > 0 ? paragraphs[0].textContent || '' : '';
-
+  let firstParagraph = '';
+  const firstP = doc.querySelector('p');
+  if (firstP) {
+    firstParagraph = firstP.textContent || '';
+  }
+  
   const sections: Section[] = [];
   doc.querySelectorAll('h2, h3').forEach((header) => {
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
 
-    while (nextElement && nextElement.tagName.toLowerCase() === 'p') {
-      paragraphText += (nextElement.textContent || '') + ' ';
+    // Find the first paragraph after the header
+    while(nextElement && nextElement.tagName.toLowerCase() !== 'p') {
       nextElement = nextElement.nextElementSibling;
+    }
+
+    if (nextElement && nextElement.tagName.toLowerCase() === 'p') {
+      paragraphText = (nextElement.textContent || '') + ' ';
     }
 
     if (header.textContent && paragraphText.trim()) {
@@ -147,8 +153,10 @@ export default function ImageGeneratorPage() {
   }, [sites, toast]);
 
   useEffect(() => {
-    handleFetchPosts(1, true);
-  }, [handleFetchPosts]);
+    if (sites.length > 0) {
+      handleFetchPosts(1, true);
+    }
+  }, [sites, handleFetchPosts]);
 
   const [loading, setLoading] = useState<{
     featured: boolean;
@@ -291,66 +299,71 @@ export default function ImageGeneratorPage() {
     }
     
     const doc = new DOMParser().parseFromString(selectedPost.content, 'text/html');
-    const nodes = Array.from(doc.body.children);
+    const nodes = Array.from(doc.body.childNodes);
     
-    return <>
+    return <Fragment>
         {nodes.map((node, index) => {
-        const isHeading = node.tagName === 'H2' || node.tagName === 'H3';
-        const headingText = node.textContent || '';
-        
-        return (
-            <div key={index}>
-            <div dangerouslySetInnerHTML={{ __html: node.outerHTML }} />
-            {isHeading && (
-                <div className="my-4">
-                {currentPostImages.sections[headingText] ? (
-                    <Card className="p-4">
-                    <div className="relative">
-                        <Image
-                        src={currentPostImages.sections[headingText]!}
-                        width={600}
-                        height={300}
-                        alt={headingText}
-                        className="rounded-md"
-                        />
-                        <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
+            if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+                return null;
+            }
+
+            const isHeading = node.nodeName === 'H2' || node.nodeName === 'H3';
+            const headingText = node.textContent || '';
+            const outerHTML = (node as Element).outerHTML || node.textContent;
+
+            return (
+                <div key={index}>
+                <div dangerouslySetInnerHTML={{ __html: outerHTML }} />
+                {isHeading && (
+                    <div className="my-4">
+                    {currentPostImages.sections[headingText] ? (
+                        <Card className="p-4">
+                        <div className="relative">
+                            <Image
+                            src={currentPostImages.sections[headingText]!}
+                            width={600}
+                            height={300}
+                            alt={headingText}
+                            className="rounded-md"
+                            />
+                            <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => generateImage('section', headingText)}
+                                disabled={loading.sections[headingText]}
+                            >
+                                {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
+                                Replace
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => deleteImage('section', headingText)}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </Button>
+                            </div>
+                        </div>
+                        </Card>
+                    ) : (
+                        <div className="text-center py-4">
                         <Button
-                            variant="outline"
-                            size="sm"
+                            variant="secondary"
                             onClick={() => generateImage('section', headingText)}
                             disabled={loading.sections[headingText]}
                         >
-                            {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
-                            Replace
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deleteImage('section', headingText)}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                            Add Image for "{headingText}"
                         </Button>
                         </div>
-                    </div>
-                    </Card>
-                ) : (
-                    <div className="text-center py-4">
-                    <Button
-                        variant="secondary"
-                        onClick={() => generateImage('section', headingText)}
-                        disabled={loading.sections[headingText]}
-                    >
-                        {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                        Add Image for "{headingText}"
-                    </Button>
+                    )}
                     </div>
                 )}
                 </div>
-            )}
-            </div>
-        );
+            );
         })}
-    </>;
+    </Fragment>;
   }, [selectedPost, currentPostImages, loading.sections, generateImage, deleteImage]);
 
   const filteredPosts = useMemo(() => {
@@ -528,6 +541,7 @@ export default function ImageGeneratorPage() {
                           height={300}
                           alt="Featured Image"
                           className="rounded-md"
+                          data-ai-hint={new URL(currentPostImages.featured).searchParams.get('data-ai-hint') || ''}
                         />
                         <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                           <Button

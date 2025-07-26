@@ -20,7 +20,7 @@ interface BlogPost {
 
 interface ImageState {
   featured: string | null;
-  sections: { [key: string]: string | null };
+  sections: { [key:string]: string | null };
 }
 
 interface WpSite {
@@ -92,7 +92,7 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {posts.map((post: any) => (
+                {posts.map((post) => (
                   <TableRow key={post.id}>
                     <TableCell className="font-medium">{post.title}</TableCell>
                     <TableCell>{post.date}</TableCell>
@@ -149,8 +149,8 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sites.map((site: any) => (
-                  <TableRow key={site.url}>
+                {sites.map((site) => (
+                  <TableRow key={site.id}>
                     <TableCell className="font-medium">{new URL(site.url).hostname}</TableCell>
                     <TableCell>
                       <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">

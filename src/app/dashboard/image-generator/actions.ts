@@ -1,7 +1,7 @@
 
 'use server';
 
-import { generateImagePrompt } from '@/ai/flows/generate-image-prompt';
+import { generateImagePrompt, GenerateImagePromptInput } from '@/ai/flows/generate-image-prompt';
 import { z } from 'zod';
 
 // Define the schema for a single WordPress post
@@ -37,8 +37,11 @@ async function getImageUrlFromPrompt(query: string): Promise<string> {
     // The query can be used to make the placeholder more relevant.
     await new Promise(resolve => setTimeout(resolve, 1000));
     const queryHint = query.split(' ').slice(0, 2).join(' ');
-    const placeholderUrl = `https://placehold.co/600x400.png?text=${encodeURIComponent(query)}`;
-    return placeholderUrl;
+    const placeholderUrl = `https://placehold.co/600x400.png`;
+    
+    const urlWithHint = new URL(placeholderUrl);
+    urlWithHint.searchParams.set('data-ai-hint', queryHint);
+    return urlWithHint.toString();
 }
 
 export async function getFeaturedImage(title: string, paragraph: string): Promise<string> {
