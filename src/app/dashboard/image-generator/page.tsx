@@ -31,14 +31,19 @@ import {
   type ImageSearchResult,
 } from './actions';
 import { searchImages } from '@/ai/flows/search-images';
-import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { ImageSearchDialog } from '@/components/image-search-dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 interface ImageState {
   featured: ImageSearchResult | null;
@@ -60,18 +65,23 @@ interface WpSite {
 interface DialogState {
   open: boolean;
   type: 'featured' | 'section' | null;
+  postId: string | null;
   heading?: string;
   initialQuery?: string;
   initialImages?: ImageSearchResult[];
 }
 
-function parseContent(html: string): {
+interface PostDetails {
   firstParagraph: string;
   sections: Section[];
   requiredImages: number;
-} {
+  generatedCount: number;
+}
+
+
+function parseContent(html: string): { firstParagraph: string; sections: Section[] } {
   if (typeof window === 'undefined') {
-    return { firstParagraph: '', sections: [], requiredImages: 1 };
+    return { firstParagraph: '', sections: [] };
   }
   const domParser = new window.DOMParser();
   const doc = domParser.parseFromString(
@@ -106,31 +116,45 @@ function parseContent(html: string): {
     }
   });
 
-  return { firstParagraph, sections, requiredImages: sections.length + 1 };
+  return { firstParagraph, sections };
 }
 
 export default function ImageGeneratorPage() {
   const { toast } = useToast();
   const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
   const [posts, setPosts] = useState<WpPost[]>([]);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [images, setImages] = useLocalStorage<{ [postId: string]: ImageState }>(
-    'post-images',
-    {}
-  );
+  const [images, setImages] = useLocalStorage<{ [postId: string]: ImageState }>('post-images', {});
   const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'pending'>('all');
   const [isFetchingPosts, setIsFetchingPosts] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMorePosts, setHasMorePosts] = useState(true);
-  const [dialogState, setDialogState] = useState<DialogState>({ open: false, type: null });
+  const [dialogState, setDialogState] = useState<DialogState>({ open: false, type: null, postId: null });
+  const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
+
+  const postDetailsMap = useMemo(() => {
+    const map = new Map<string, PostDetails>();
+    posts.forEach((post) => {
+      const { firstParagraph, sections } = parseContent(post.content);
+      const postImages = images[post.id] || { featured: null, sections: {} };
+      const generatedCount =
+        Object.values(postImages.sections).filter(Boolean).length +
+        (postImages.featured ? 1 : 0);
+      map.set(post.id, {
+        firstParagraph,
+        sections,
+        requiredImages: sections.length + 1,
+        generatedCount,
+      });
+    });
+    return map;
+  }, [posts, images]);
 
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
     if (sites.length === 0) return;
     setIsFetchingPosts(true);
     if (refresh) {
       setPosts([]);
-      setSelectedPostId(null);
       setFetchError(null);
       setHasMorePosts(true);
     }
@@ -168,87 +192,20 @@ export default function ImageGeneratorPage() {
     }
   }, [sites, handleFetchPosts]);
 
-  const [loading, setLoading] = useState<{
-    featured: boolean;
-    sections: { [key: string]: boolean };
-  }>({ featured: false, sections: {} });
+  const handleOpenDialog = useCallback(async (postId: string, type: 'featured' | 'section', heading?: string) => {
+    const post = posts.find(p => p.id === postId);
+    const postDetails = postDetailsMap.get(postId);
+    if (!post || !postDetails) return;
 
-  const selectedPost = useMemo(
-    () => posts.find((p) => p.id === selectedPostId),
-    [selectedPostId, posts]
-  );
-
-  const currentPostImages = useMemo(() => {
-    if (selectedPostId && images[selectedPostId]) {
-      return images[selectedPostId];
-    }
-    return { featured: null, sections: {} };
-  }, [selectedPostId, images]);
-
-  const parsedContent = useMemo(
-    () =>
-      selectedPost
-        ? parseContent(selectedPost.content)
-        : { firstParagraph: '', sections: [], requiredImages: 1 },
-    [selectedPost]
-  );
-
-  const postDetailsMap = useMemo(() => {
-    const map = new Map<
-      string,
-      { requiredImages: number; generatedCount: number }
-    >();
-    posts.forEach((post) => {
-      const details = parseContent(post.content);
-      const postImages = images[post.id] || {
-        featured: null,
-        sections: {},
-      };
-      const generatedCount =
-        Object.values(postImages.sections).filter(Boolean).length +
-        (postImages.featured ? 1 : 0);
-      map.set(post.id, {
-        requiredImages: details.requiredImages,
-        generatedCount,
-      });
-    });
-    return map;
-  }, [posts, images]);
-
-  const setPostImages = useCallback(
-    (updater: (prev: ImageState) => ImageState) => {
-      if (!selectedPostId) return;
-      setImages((prev) => {
-        const currentImages = prev[selectedPostId] || {
-          featured: null,
-          sections: {},
-        };
-        const newImages = updater(currentImages);
-        return { ...prev, [selectedPostId]: newImages };
-      });
-    },
-    [selectedPostId, setImages]
-  );
-  
-  const handleOpenDialog = useCallback(async (type: 'featured' | 'section', heading?: string) => {
-    if (!selectedPost) return;
-
-    const setLoadingState = (isLoading: boolean) => {
-        if (type === 'featured') {
-            setLoading((prev) => ({ ...prev, featured: isLoading }));
-        } else if (heading) {
-            setLoading((prev) => ({...prev, sections: { ...prev.sections, [heading]: isLoading }}));
-        }
-    };
-
-    setLoadingState(true);
+    const loadingKey = heading ? `${postId}-${heading}` : `${postId}-featured`;
+    setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
     toast({ title: 'Generating Image Query & Searching...', description: 'The AI is finding the perfect image for you.' });
     
     let result: {query: string, images: ImageSearchResult[]} | null = null;
     if (type === 'featured') {
-        result = await generateAndSearch({ title: selectedPost.title, paragraph: parsedContent.firstParagraph, type: 'featured' });
+        result = await generateAndSearch({ title: post.title, paragraph: postDetails.firstParagraph, type: 'featured' });
     } else if (heading) {
-        const section = parsedContent.sections.find((s) => s.heading === heading);
+        const section = postDetails.sections.find((s) => s.heading === heading);
         if (section) {
             result = await generateAndSearch({ title: section.heading, paragraph: section.paragraph, type: 'section' });
         }
@@ -258,6 +215,7 @@ export default function ImageGeneratorPage() {
         setDialogState({
             open: true,
             type: type,
+            postId: postId,
             heading: heading,
             initialQuery: result.query,
             initialImages: result.images
@@ -266,114 +224,50 @@ export default function ImageGeneratorPage() {
         toast({ title: 'Error', description: 'Could not generate an image query.', variant: 'destructive'});
     }
 
-    setLoadingState(false);
-  }, [selectedPost, parsedContent, toast]);
+    setLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
+  }, [posts, postDetailsMap, toast]);
 
   const handleSelectImage = (image: ImageSearchResult) => {
-    if (!dialogState.type) return;
-    
-    if (dialogState.type === 'featured') {
-        setPostImages((prev) => ({ ...prev, featured: image }));
-    } else if (dialogState.heading) {
-        setPostImages((prev) => ({...prev, sections: { ...prev.sections, [dialogState.heading!]: image }}));
-    }
+    const { postId, type, heading } = dialogState;
+    if (!postId || !type) return;
+
+    setImages((prev) => {
+      const currentImages = prev[postId] || { featured: null, sections: {} };
+      let newImages: ImageState;
+      if (type === 'featured') {
+        newImages = { ...currentImages, featured: image };
+      } else if (heading) {
+        newImages = { ...currentImages, sections: { ...currentImages.sections, [heading]: image } };
+      } else {
+        newImages = currentImages;
+      }
+      return { ...prev, [postId]: newImages };
+    });
+
     toast({ title: 'Image Added!', description: `Image from ${image.source} by ${image.photographer}` });
-    setDialogState({ open: false, type: null });
+    setDialogState({ open: false, type: null, postId: null });
   };
 
-  const deleteImage = useCallback(
-    (type: 'featured' | 'section', heading?: string) => {
-      if (!selectedPostId) return;
-      setPostImages((prev) => {
+  const deleteImage = useCallback((postId: string, type: 'featured' | 'section', heading?: string) => {
+      setImages((prev) => {
+        const currentImages = prev[postId] || { featured: null, sections: {} };
+        let newImages: ImageState;
+
         if (type === 'featured') {
-          return { ...prev, featured: null };
+          newImages = { ...currentImages, featured: null };
         } else if (heading) {
-          const newSections = { ...prev.sections };
-          newSections[heading] = null;
-          return { ...prev, sections: newSections };
+          const newSections = { ...currentImages.sections };
+          delete newSections[heading];
+          newImages = { ...currentImages, sections: newSections };
+        } else {
+          newImages = currentImages;
         }
-        return prev;
+        return { ...prev, [postId]: newImages };
       });
     },
-    [selectedPostId, setPostImages]
+    [setImages]
   );
   
-  const renderedContent = useMemo(() => {
-    if (!selectedPost) return null;
-    if (typeof window === 'undefined') {
-        return <div dangerouslySetInnerHTML={{ __html: selectedPost.content }} />;
-    }
-    
-    const doc = new DOMParser().parseFromString(selectedPost.content, 'text/html');
-    const nodes = Array.from(doc.body.childNodes);
-    
-    return <Fragment>
-        {nodes.map((node, index) => {
-            if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
-                return null;
-            }
-
-            const isHeading = node.nodeName === 'H2' || node.nodeName === 'H3';
-            const headingText = node.textContent || '';
-            const outerHTML = (node as Element).outerHTML || node.textContent || '';
-            const imageForSection = currentPostImages.sections[headingText];
-
-            return (
-                <div key={index}>
-                <div dangerouslySetInnerHTML={{ __html: outerHTML }} />
-                {isHeading && (
-                    <div className="my-4">
-                    {imageForSection ? (
-                        <Card className="p-4">
-                        <div className="relative">
-                            <Image
-                            src={imageForSection.url}
-                            width={600}
-                            height={300}
-                            alt={imageForSection.alt}
-                            className="rounded-md"
-                            />
-                            <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenDialog('section', headingText)}
-                                disabled={loading.sections[headingText]}
-                            >
-                                {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
-                                Replace
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => deleteImage('section', headingText)}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </Button>
-                            </div>
-                        </div>
-                        </Card>
-                    ) : (
-                        <div className="text-center py-4">
-                        <Button
-                            variant="secondary"
-                            onClick={() => handleOpenDialog('section', headingText)}
-                            disabled={loading.sections[headingText]}
-                        >
-                            {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                            Add Image for "{headingText}"
-                        </Button>
-                        </div>
-                    )}
-                    </div>
-                )}
-                </div>
-            );
-        })}
-    </Fragment>;
-  }, [selectedPost, currentPostImages.sections, loading.sections, handleOpenDialog, deleteImage]);
-
-
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
     if (filter === 'published') return posts.filter((p) => p.status === 'publish');
@@ -381,6 +275,167 @@ export default function ImageGeneratorPage() {
     if (filter === 'pending') return posts.filter((p) => p.status === 'pending');
     return posts;
   }, [posts, filter]);
+
+  const renderPostList = () => {
+    if (isFetchingPosts && posts.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground p-8">
+          <Loader2 className="mx-auto h-12 w-12 animate-spin" />
+          <h3 className="mt-4 text-lg font-semibold">Fetching Posts...</h3>
+        </div>
+      );
+    }
+
+    if (!isFetchingPosts && sites.length === 0) {
+        return (
+            <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+            <Globe className="mx-auto h-12 w-12" />
+            <h3 className="mt-4 text-lg font-semibold">
+                Connect a Site to Fetch Posts
+            </h3>
+            <p className="mt-1 text-sm">
+                Connect your WordPress site in settings to fetch your posts.
+            </p>
+            <Button asChild size="sm" className="mt-4">
+                <Link href="/dashboard/settings">Go to Settings</Link>
+            </Button>
+            </div>
+        );
+    }
+    
+    if (!isFetchingPosts && fetchError) {
+      return (
+        <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4"/>
+            <AlertTitle>Error Fetching Posts</AlertTitle>
+            <AlertDescription>{fetchError}</AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (!isFetchingPosts && !fetchError && filteredPosts.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
+          <FileText className="mx-auto h-12 w-12" />
+          <h3 className="mt-4 text-lg font-semibold">
+            No Posts Found
+          </h3>
+          <p className="mt-1 text-sm">
+            No {filter !== 'all' ? filter : ''} posts were found on the connected site.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+        <Accordion type="single" collapsible className="w-full">
+            {filteredPosts.map(post => {
+                const details = postDetailsMap.get(post.id);
+                if (!details) return null;
+
+                const postImages = images[post.id] || { featured: null, sections: {} };
+                const loadingKeyFeatured = `${post.id}-featured`;
+
+                return (
+                    <AccordionItem value={post.id} key={post.id}>
+                        <AccordionTrigger>
+                            <div className="flex-grow text-left">
+                                <div className="flex items-center gap-2">
+                                     <Badge
+                                        variant={post.status === 'publish' ? 'default' : 'secondary'}
+                                        className="capitalize"
+                                        >
+                                        {post.status}
+                                    </Badge>
+                                    <h3 className="font-semibold truncate pr-2">{post.title}</h3>
+                                </div>
+                                <div className="mt-2 pr-4">
+                                    <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                                    <span>Image Progress</span>
+                                    <span>
+                                        {details.generatedCount}/{details.requiredImages}
+                                    </span>
+                                    </div>
+                                    <Progress value={(details.generatedCount / (details.requiredImages || 1)) * 100} />
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                           <Card className="bg-muted/50">
+                             <CardContent className="p-4 space-y-6">
+                                {/* Featured Image Section */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                <h4 className="font-semibold text-lg mb-2">Featured Image</h4>
+                                {postImages.featured ? (
+                                    <div className="relative">
+                                    <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt} className="rounded-md aspect-[2/1] object-cover" />
+                                    <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
+                                        <Button variant="outline" size="sm" onClick={() => handleOpenDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
+                                        {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />} Replace
+                                        </Button>
+                                        <Button variant="destructive" size="sm" onClick={() => deleteImage(post.id, 'featured')}>
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                        </Button>
+                                    </div>
+                                    </div>
+                                ) : (
+                                    <Button onClick={() => handleOpenDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
+                                    {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Featured Image
+                                    </Button>
+                                )}
+                                </div>
+                                
+                                {/* Section Images Section */}
+                                {details.sections.length > 0 && (
+                                <div className="p-4 border rounded-lg bg-background">
+                                     <h4 className="font-semibold text-lg mb-4">Section Images</h4>
+                                    <div className="space-y-4">
+                                    {details.sections.map(({ heading }) => {
+                                        const image = postImages.sections[heading];
+                                        const loadingKeySection = `${post.id}-${heading}`;
+                                        return (
+                                        <div key={heading} className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
+                                            <p className="font-medium">{heading}</p>
+                                            {image ? (
+                                            <div className="flex items-center gap-2">
+                                                <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
+                                                <Button variant="outline" size="icon" onClick={() => handleOpenDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
+                                                {loadingStates[loadingKeySection] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Replace className="h-4 w-4" />}
+                                                </Button>
+                                                <Button variant="destructive" size="icon" onClick={() => deleteImage(post.id, 'section', heading)}>
+                                                <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            ) : (
+                                            <Button variant="secondary" size="sm" onClick={() => handleOpenDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
+                                                {loadingStates[loadingKeySection] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Image
+                                            </Button>
+                                            )}
+                                        </div>
+                                        );
+                                    })}
+                                    </div>
+                                </div>
+                                )}
+                             </CardContent>
+                           </Card>
+                        </AccordionContent>
+                    </AccordionItem>
+                );
+            })}
+             {hasMorePosts && (
+                <Button
+                    variant="outline"
+                    className="w-full mt-4"
+                    onClick={() => handleFetchPosts(currentPage + 1)}
+                    disabled={isFetchingPosts}
+                >
+                    {isFetchingPosts ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Load More'}
+                </Button>
+            )}
+        </Accordion>
+    );
+  };
 
   return (
     <>
@@ -395,13 +450,12 @@ export default function ImageGeneratorPage() {
             return result.images;
         }}
     />
-    <div className="grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-1">
+    <div className="space-y-8">
         <Card>
           <CardHeader>
              <div className="flex justify-between items-center">
                  <div>
-                    <CardTitle>Your Blog Posts</CardTitle>
+                    <CardTitle>Image Generator</CardTitle>
                     <CardDescription>
                       Select a post to manage its images.
                     </CardDescription>
@@ -412,216 +466,17 @@ export default function ImageGeneratorPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Tabs
-              value={filter}
-              onValueChange={(value) => setFilter(value as any)}
-            >
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs value={filter} onValueChange={(value) => setFilter(value as any)}>
+              <TabsList className="grid w-full grid-cols-4 mb-4">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="published">Published</TabsTrigger>
                 <TabsTrigger value="draft">Drafts</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="space-y-2 max-h-[600px] overflow-y-auto mt-4 p-1">
-              {isFetchingPosts && posts.length === 0 && (
-                <div className="text-center text-muted-foreground p-8">
-                  <Loader2 className="mx-auto h-12 w-12 animate-spin" />
-                  <h3 className="mt-4 text-lg font-semibold">Fetching Posts...</h3>
-                </div>
-              )}
-              {!isFetchingPosts && sites.length === 0 && (
-                <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
-                  <Globe className="mx-auto h-12 w-12" />
-                  <h3 className="mt-4 text-lg font-semibold">
-                    Connect a Site to Fetch Posts
-                  </h3>
-                  <p className="mt-1 text-sm">
-                    Connect your WordPress site in settings to fetch your posts.
-                  </p>
-                  <Button asChild size="sm" className="mt-4">
-                    <Link href="/dashboard/settings">Go to Settings</Link>
-                  </Button>
-                </div>
-              )}
-              {!isFetchingPosts && fetchError && (
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4"/>
-                    <AlertTitle>Error Fetching Posts</AlertTitle>
-                    <AlertDescription>{fetchError}</AlertDescription>
-                </Alert>
-              )}
-              {!isFetchingPosts && !fetchError && filteredPosts.length > 0
-                ? (
-                    <Fragment>
-                    {filteredPosts.map((post) => {
-                        const postDetails = postDetailsMap.get(post.id) || {
-                        requiredImages: 1,
-                        generatedCount: 0,
-                        };
-                        const { requiredImages, generatedCount } = postDetails;
-
-                        return (
-                        <Card
-                            key={post.id}
-                            className={`cursor-pointer ${
-                            post.id === selectedPostId
-                                ? 'border-primary'
-                                : 'hover:border-primary/50'
-                            }`}
-                            onClick={() => setSelectedPostId(post.id)}
-                        >
-                            <CardContent className="p-4">
-                            <div className="flex justify-between items-start">
-                                <h3 className="font-semibold truncate pr-2">
-                                {post.title}
-                                </h3>
-                                <Badge
-                                variant={
-                                    post.status === 'publish'
-                                    ? 'default'
-                                    : 'secondary'
-                                }
-                                className="capitalize"
-                                >
-                                {post.status}
-                                </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                {new URL(post.siteUrl).hostname} - {post.date}
-                            </p>
-                            <div className="mt-2">
-                                <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                                <span>Image Progress</span>
-                                <span>
-                                    {generatedCount}/{requiredImages}
-                                </span>
-                                </div>
-                                <Progress
-                                value={
-                                    (generatedCount / (requiredImages || 1)) * 100
-                                }
-                                />
-                            </div>
-                            </CardContent>
-                        </Card>
-                        );
-                    })}
-                    {hasMorePosts && (
-                        <Button
-                            variant="outline"
-                            className="w-full mt-4"
-                            onClick={() => handleFetchPosts(currentPage + 1)}
-                            disabled={isFetchingPosts}
-                        >
-                            {isFetchingPosts ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Load More'}
-                        </Button>
-                    )}
-                    </Fragment>
-                )
-                : !isFetchingPosts && !fetchError && sites.length > 0 && (
-                    <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
-                      <FileText className="mx-auto h-12 w-12" />
-                      <h3 className="mt-4 text-lg font-semibold">
-                        No Posts Found
-                      </h3>
-                      <p className="mt-1 text-sm">
-                        No {filter} posts were found on the connected site.
-                      </p>
-                    </div>
-                  )}
-            </div>
+            {renderPostList()}
           </CardContent>
         </Card>
-      </div>
-
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{selectedPost?.title || 'Select a Post'}</CardTitle>
-            <CardDescription>
-              {selectedPost
-                ? 'Add, replace, or remove images for this post.'
-                : 'Please select a post from the list on the left.'}
-            </CardDescription>
-          </CardHeader>
-          {selectedPost && (
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <Label className="text-lg font-semibold">
-                    Featured Image
-                  </Label>
-                  {currentPostImages.featured ? (
-                    <Card className="mt-2 p-4">
-                      <div className="relative">
-                        <Image
-                          src={currentPostImages.featured.url}
-                          width={600}
-                          height={300}
-                          alt={currentPostImages.featured.alt}
-                          className="rounded-md"
-                        />
-                        <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenDialog('featured')}
-                            disabled={loading.featured}
-                          >
-                            {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
-                            Replace
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deleteImage('featured')}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  ) : (
-                    <Card className="mt-2 p-4 flex flex-col items-center justify-center text-center border-dashed min-h-[200px]">
-                      <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
-                      <h3 className="font-semibold">No Featured Image</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Click below to generate and add one.
-                      </p>
-                      <Button
-                        onClick={() => handleOpenDialog('featured')}
-                        disabled={loading.featured}
-                      >
-                        {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                        Add Featured Image
-                      </Button>
-                    </Card>
-                  )}
-                </div>
-
-                <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md max-h-[400px] overflow-y-auto">
-                    {renderedContent ? renderedContent : <p>Select a post to see the content.</p>}
-                </div>
-
-              </div>
-            </CardContent>
-          )}
-           {!selectedPost && (
-             <CardContent>
-                <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md min-h-[400px] flex flex-col justify-center items-center">
-                    <FileText className="mx-auto h-12 w-12" />
-                    <h3 className="mt-4 text-lg font-semibold">
-                        Select a Post
-                    </h3>
-                    <p className="mt-1 text-sm">
-                        Please select a post from the list on the left to start adding images.
-                    </p>
-                </div>
-             </CardContent>
-           )}
-        </Card>
-      </div>
     </div>
     </>
   );
