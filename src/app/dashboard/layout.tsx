@@ -1,7 +1,8 @@
+// src/app/dashboard/layout.tsx
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -23,7 +24,11 @@ import {
   FileText,
   ImageIcon,
   LogOut,
+  Loader2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
+import { app } from "@/lib/firebase"; // Make sure firebase config is in this file
 
 const navItems = [
   { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
@@ -39,6 +44,37 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const auth = getAuth(app);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser(user);
+      } else {
+        router.push("/login");
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  const handleLogout = async () => {
+    const auth = getAuth(app);
+    await signOut(auth);
+    router.push("/");
+  };
+  
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -67,17 +103,15 @@ export default function DashboardLayout({
           <SidebarFooter>
             <div className="flex items-center gap-3 p-2 rounded-md transition-colors hover:bg-sidebar-accent">
                 <Avatar className="h-10 w-10">
-                    <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarImage src={user?.photoURL || undefined} />
+                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="overflow-hidden group-data-[collapsible=icon]:hidden">
-                    <p className="font-semibold text-sm truncate">User Name</p>
-                    <p className="text-xs text-muted-foreground truncate">user@email.com</p>
+                    <p className="font-semibold text-sm truncate">{user?.displayName || "User"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="ml-auto group-data-[collapsible=icon]:hidden" asChild>
-                  <Link href="/">
+                <Button variant="ghost" size="icon" className="ml-auto group-data-[collapsible=icon]:hidden" onClick={handleLogout}>
                     <LogOut className="h-4 w-4" />
-                  </Link>
                 </Button>
             </div>
           </SidebarFooter>
