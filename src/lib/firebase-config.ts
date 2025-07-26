@@ -1,8 +1,8 @@
 // src/lib/firebase-config.ts
 export const firebaseConfig = {
-  projectId: "content-forge-xnfzf",
-  appId: "1:524735337008:web:02a97cd03b0468f569d3f5",
-  storageBucket: "content-forge-xnfzf.firebasestorage.app",
-  apiKey: "AIzaSyCptpuyJ_xbK6aacUXN3mCxz5r7KYq7c2s",
-  authDomain: "content-forge-xnfzf.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
 };
