@@ -168,17 +168,18 @@ export default function ImageGeneratorPage() {
   const processAndSetPostDetails = useCallback((post: WpPost) => {
     const { firstParagraph, sections, initialImages } = parseContent(post.content);
 
-    // Initialize images from content if not already set
-    const postImages = images[post.id] || { featured: null, sections: {} };
+    // Initialize images from content if not already set in our state
+    const existingPostImages = images[post.id] || { featured: null, sections: {} };
+    let postImages = JSON.parse(JSON.stringify(existingPostImages)); // Deep copy
     let imagesUpdated = false;
 
     if (!postImages.featured && initialImages.featuredUrl) {
-      postImages.featured = { url: initialImages.featuredUrl, alt: 'Existing featured image', photographer: 'N/A', photographerUrl: '#', source: 'Unsplash' };
+      postImages.featured = { url: initialImages.featuredUrl, alt: 'Existing featured image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
       imagesUpdated = true;
     }
     sections.forEach(section => {
       if (!postImages.sections[section.heading] && initialImages.sectionImageUrls[section.heading]) {
-        postImages.sections[section.heading] = { url: initialImages.sectionImageUrls[section.heading], alt: 'Existing section image', photographer: 'N/A', photographerUrl: '#', source: 'Unsplash' };
+        postImages.sections[section.heading] = { url: initialImages.sectionImageUrls[section.heading], alt: 'Existing section image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
         imagesUpdated = true;
       }
     });
