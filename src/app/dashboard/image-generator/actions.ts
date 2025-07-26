@@ -15,7 +15,7 @@ const PostSchema = z.object({
   content: z.object({
     rendered: z.string(),
   }),
-  status: z.enum(['publish', 'draft', 'pending', 'private']),
+  status: z.enum(['publish', 'draft', 'pending', 'private', 'future']),
   link: z.string(),
 });
 
@@ -27,7 +27,7 @@ export interface WpPost {
     title: string;
     content: string;
     date: string;
-    status: 'publish' | 'draft' | 'pending' | 'private';
+    status: 'publish' | 'draft' | 'pending' | 'private' | 'future';
     siteUrl: string;
 }
 
@@ -54,12 +54,18 @@ export async function getSectionImage(heading: string, paragraph: string): Promi
 export async function fetchPostsFromWp(
     siteUrl: string,
     username: string,
-    appPassword: string
+    appPassword: string,
+    page: number = 1
 ): Promise<{ success: true; data: WpPost[] } | { success: false; error: string }> {
-    const apiUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts?context=edit&status=publish,draft,pending&_fields=id,date,title,content,status,link`;
-    
+    const statuses = ['publish', 'draft', 'pending'];
+    const url = new URL(`${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`);
+    url.searchParams.append('context', 'edit');
+    url.searchParams.append('_fields', 'id,date,title,content,status,link');
+    url.searchParams.append('page', page.toString());
+    statuses.forEach(status => url.searchParams.append('status[]', status));
+
     try {
-        const response = await fetch(apiUrl, {
+        const response = await fetch(url.toString(), {
             headers: {
                 'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
                 'Content-Type': 'application/json',
@@ -79,9 +85,16 @@ export async function fetchPostsFromWp(
         }
 
         const data = await response.json();
+        
+        // If data is empty, it means no more posts
+        if (Array.isArray(data) && data.length === 0) {
+            return { success: true, data: [] };
+        }
+        
         const parsedData = PostsSchema.safeParse(data);
 
         if (!parsedData.success) {
+            console.error('WP Parse Error:', parsedData.error);
             return { success: false, error: 'Failed to parse posts from WordPress.' };
         }
         

@@ -106,14 +106,19 @@ export default function ImageGeneratorPage() {
   const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'pending'>('all');
   const [isFetchingPosts, setIsFetchingPosts] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  
-  const handleFetchPosts = useCallback(async () => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+
+  const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
     if (sites.length === 0) return;
     setIsFetchingPosts(true);
-    setFetchError(null);
-    setPosts([]);
-    setSelectedPostId(null);
-
+    if (refresh) {
+      setPosts([]);
+      setSelectedPostId(null);
+      setFetchError(null);
+      setHasMorePosts(true);
+    }
+    
     // In a real app, you might fetch from one site or all sites.
     // For this prototype, we'll fetch from the first connected site.
     const siteToFetch = sites[0];
@@ -123,10 +128,15 @@ export default function ImageGeneratorPage() {
       return;
     }
     
-    const result = await fetchPostsFromWp(siteToFetch.url, siteToFetch.user, siteToFetch.appPassword);
+    const result = await fetchPostsFromWp(siteToFetch.url, siteToFetch.user, siteToFetch.appPassword, page);
 
     if (result.success) {
-      setPosts(result.data);
+        if(result.data.length === 0){
+            setHasMorePosts(false);
+        } else {
+            setPosts(prev => refresh ? result.data : [...prev, ...result.data]);
+            setCurrentPage(page);
+        }
     } else {
       setFetchError(result.error);
       toast({
@@ -139,7 +149,7 @@ export default function ImageGeneratorPage() {
   }, [sites, toast]);
 
   useEffect(() => {
-    handleFetchPosts();
+    handleFetchPosts(1, true);
   }, [handleFetchPosts]);
 
   const [loading, setLoading] = useState<{
@@ -257,6 +267,7 @@ export default function ImageGeneratorPage() {
 
   const deleteImage = useCallback(
     (type: 'featured' | 'section', heading?: string) => {
+      if (!selectedPostId) return { featured: null, sections: {} };
       setPostImages((prev) => {
         if (type === 'featured') {
           return { ...prev, featured: null };
@@ -268,7 +279,7 @@ export default function ImageGeneratorPage() {
         return prev;
       });
     },
-    [setPostImages]
+    [selectedPostId, setPostImages]
   );
 
   const renderedContent = useMemo(() => {
@@ -302,8 +313,8 @@ export default function ImageGeneratorPage() {
                       Select a post to manage its images.
                     </CardDescription>
                  </div>
-                 <Button onClick={handleFetchPosts} size="icon" variant="outline" disabled={isFetchingPosts}>
-                    {isFetchingPosts ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
+                 <Button onClick={() => handleFetchPosts(1, true)} size="icon" variant="outline" disabled={isFetchingPosts}>
+                    {isFetchingPosts && posts.length === 0 ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
                  </Button>
             </div>
           </CardHeader>
@@ -319,8 +330,8 @@ export default function ImageGeneratorPage() {
                 <TabsTrigger value="pending">Pending</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto mt-4">
-              {isFetchingPosts && (
+            <div className="space-y-2 max-h-[600px] overflow-y-auto mt-4 p-1">
+              {isFetchingPosts && posts.length === 0 && (
                 <div className="text-center text-muted-foreground p-8">
                   <Loader2 className="mx-auto h-12 w-12 animate-spin" />
                   <h3 className="mt-4 text-lg font-semibold">Fetching Posts...</h3>
@@ -348,59 +359,73 @@ export default function ImageGeneratorPage() {
                 </Alert>
               )}
               {!isFetchingPosts && !fetchError && filteredPosts.length > 0
-                ? filteredPosts.map((post) => {
-                    const postDetails = postDetailsMap.get(post.id) || {
-                      requiredImages: 1,
-                      generatedCount: 0,
-                    };
-                    const { requiredImages, generatedCount } = postDetails;
+                ? (
+                    <>
+                    {filteredPosts.map((post) => {
+                        const postDetails = postDetailsMap.get(post.id) || {
+                        requiredImages: 1,
+                        generatedCount: 0,
+                        };
+                        const { requiredImages, generatedCount } = postDetails;
 
-                    return (
-                      <Card
-                        key={post.id}
-                        className={`cursor-pointer ${
-                          post.id === selectedPostId
-                            ? 'border-primary'
-                            : 'hover:border-primary/50'
-                        }`}
-                        onClick={() => setSelectedPostId(post.id)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <h3 className="font-semibold truncate pr-2">
-                              {post.title}
-                            </h3>
-                            <Badge
-                              variant={
-                                post.status === 'publish'
-                                  ? 'default'
-                                  : 'secondary'
-                              }
-                              className="capitalize"
-                            >
-                              {post.status}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {new URL(post.siteUrl).hostname} - {post.date}
-                          </p>
-                          <div className="mt-2">
-                            <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                              <span>Image Progress</span>
-                              <span>
-                                {generatedCount}/{requiredImages}
-                              </span>
+                        return (
+                        <Card
+                            key={post.id}
+                            className={`cursor-pointer ${
+                            post.id === selectedPostId
+                                ? 'border-primary'
+                                : 'hover:border-primary/50'
+                            }`}
+                            onClick={() => setSelectedPostId(post.id)}
+                        >
+                            <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                                <h3 className="font-semibold truncate pr-2">
+                                {post.title}
+                                </h3>
+                                <Badge
+                                variant={
+                                    post.status === 'publish'
+                                    ? 'default'
+                                    : 'secondary'
+                                }
+                                className="capitalize"
+                                >
+                                {post.status}
+                                </Badge>
                             </div>
-                            <Progress
-                              value={
-                                (generatedCount / (requiredImages || 1)) * 100
-                              }
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
+                            <p className="text-sm text-muted-foreground">
+                                {new URL(post.siteUrl).hostname} - {post.date}
+                            </p>
+                            <div className="mt-2">
+                                <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                                <span>Image Progress</span>
+                                <span>
+                                    {generatedCount}/{requiredImages}
+                                </span>
+                                </div>
+                                <Progress
+                                value={
+                                    (generatedCount / (requiredImages || 1)) * 100
+                                }
+                                />
+                            </div>
+                            </CardContent>
+                        </Card>
+                        );
+                    })}
+                    {hasMorePosts && (
+                        <Button
+                            variant="outline"
+                            className="w-full mt-4"
+                            onClick={() => handleFetchPosts(currentPage + 1)}
+                            disabled={isFetchingPosts}
+                        >
+                            {isFetchingPosts ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Load More'}
+                        </Button>
+                    )}
+                    </>
+                )
                 : !isFetchingPosts && !fetchError && sites.length > 0 && (
                     <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
                       <FileText className="mx-auto h-12 w-12" />
@@ -489,7 +514,7 @@ export default function ImageGeneratorPage() {
                   )}
                 </div>
 
-                <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md">
+                <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md max-h-60 overflow-y-auto">
                   {renderedContent}
                 </div>
 
@@ -566,6 +591,19 @@ export default function ImageGeneratorPage() {
               </div>
             </CardContent>
           )}
+           {!selectedPost && (
+             <CardContent>
+                <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md min-h-[400px] flex flex-col justify-center items-center">
+                    <FileText className="mx-auto h-12 w-12" />
+                    <h3 className="mt-4 text-lg font-semibold">
+                        Select a Post
+                    </h3>
+                    <p className="mt-1 text-sm">
+                        Please select a post from the list on the left to start adding images.
+                    </p>
+                </div>
+             </CardContent>
+           )}
         </Card>
       </div>
     </div>

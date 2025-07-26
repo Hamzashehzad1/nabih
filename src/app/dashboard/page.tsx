@@ -55,14 +55,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Here's a snapshot of your content empire.</p>
       </div>
 
-      <Alert>
-        <Globe className="h-4 w-4" />
-        <AlertTitle>This is a Prototype!</AlertTitle>
-        <AlertDescription>
-         The data on this page is stored in your browser's local storage. Features like connecting to WordPress are not yet implemented.
-        </AlertDescription>
-      </Alert>
-
       <div className="grid gap-4 md:grid-cols-3">
         {stats.map((stat) => (
           <Card key={stat.title}>
@@ -105,8 +97,10 @@ export default function DashboardPage() {
                     <TableCell className="font-medium">{post.title}</TableCell>
                     <TableCell>{post.date}</TableCell>
                     <TableCell className="text-right">
-                       <Button variant="outline" size="sm">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/dashboard/blog-editor/${post.id}`}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -133,7 +127,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground pt-1">Manage your sites or add a new one.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">
+            <Button variant="outline" disabled>
                 <RefreshCw className="mr-2 h-4 w-4" /> Sync from WordPress
             </Button>
             <Button asChild>
@@ -170,7 +164,9 @@ export default function DashboardPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" disabled>Manage</Button>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href="/dashboard/settings">Manage</Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
