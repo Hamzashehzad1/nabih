@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   XCircle,
   Save,
-  Send
+  Send,
+  Power
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -51,6 +52,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
+
 
 interface ImageState {
   featured: ImageSearchResult | null;
@@ -64,7 +67,7 @@ interface Section {
 
 interface WpSite {
   id: string;
-  url: string;
+  url:string;
   user: string;
   appPassword?: string;
 }
@@ -103,10 +106,9 @@ function constructPostHtml(originalContent: string, postImages: ImageState): str
     const domParser = new window.DOMParser();
     const doc = domParser.parseFromString(originalContent.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
 
-    // This function will create or update a figure element
     const createFigure = (image: ImageSearchResult) => {
       const figure = doc.createElement('figure');
-      figure.className = "wp-block-image size-large content-forge-image"; // Add a marker class
+      figure.className = "wp-block-image size-large content-forge-image"; 
       const img = doc.createElement('img');
       img.src = image.url;
       img.alt = image.alt;
@@ -122,20 +124,21 @@ function constructPostHtml(originalContent: string, postImages: ImageState): str
 
     // Remove only images previously added by this tool to avoid duplicates
     doc.querySelectorAll('.content-forge-image').forEach(el => el.remove());
+    
+    const firstParagraphEl = body.querySelector('p');
 
-    // Add featured image
     if (postImages.featured) {
         const figure = createFigure(postImages.featured);
-        // Add featured image at the top
-        body.insertBefore(figure, body.firstChild);
+        if (firstParagraphEl) {
+            firstParagraphEl.parentNode?.insertBefore(figure, firstParagraphEl.nextSibling);
+        } else {
+            body.insertBefore(figure, body.firstChild);
+        }
     }
     
-    // Add section images
     const headings = Array.from(doc.querySelectorAll('h2, h3'));
     
-    // Reverse loop to insert elements without messing up indices
-    for (let i = headings.length - 1; i >= 0; i--) {
-        const headingElement = headings[i];
+    for (const headingElement of headings) {
         const headingText = headingElement.textContent?.trim() || '';
         const image = postImages.sections[headingText];
 
@@ -178,30 +181,26 @@ function parseContent(post: WpPost): {
     const headingText = header.textContent?.trim() || '';
     if (!headingText) return;
 
-    let nextElement = header.nextElementSibling;
     let paragraphText = '';
-    let imageSrc: string | null = null;
     
-    // Find the next paragraph before any image or next heading.
     let currentElementForP = header.nextElementSibling;
     while(currentElementForP && !['H2', 'H3'].includes(currentElementForP.tagName)) {
         if (currentElementForP.tagName === 'P' && !paragraphText) {
             paragraphText = currentElementForP.textContent || '';
-        }
-        if (currentElementForP.querySelector('img')) {
-            break; // Stop if we hit an image container
+            break; 
         }
         currentElementForP = currentElementForP.nextElementSibling;
     }
 
-    // Find the next image before the next heading
+    let nextElement = header.nextElementSibling;
+    let imageSrc: string | null = null;
     let foundImage = false;
     while (nextElement && !['H2', 'H3'].includes(nextElement.tagName) && !foundImage) {
         let img = null;
-        if (nextElement.tagName === 'IMG') {
-            img = nextElement;
-        } else if (['FIGURE', 'P', 'DIV'].includes(nextElement.tagName)) { // Check inside DIVs too
+        if (nextElement.tagName === 'FIGURE') {
             img = nextElement.querySelector('img');
+        } else if (nextElement.tagName === 'IMG') {
+            img = nextElement;
         }
 
         if (img) {
@@ -228,6 +227,7 @@ function parseContent(post: WpPost): {
 export default function ImageGeneratorPage() {
   const { toast } = useToast();
   const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [posts, setPosts] = useState<WpPost[]>([]);
   const [images, setImages] = useLocalStorage<{ [postId: string]: ImageState }>('post-images', {});
   const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'pending'>('all');
@@ -239,8 +239,9 @@ export default function ImageGeneratorPage() {
   const [cropDialogState, setCropDialogState] = useState<CropDialogState>({ open: false, image: null, onCropComplete: null });
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ isUpdating: false, postId: null, type: null });
-
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
+
+  const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
   const processAndSetPostDetails = useCallback((post: WpPost) => {
     const { firstParagraph, sections, initialImages } = parseContent(post);
@@ -264,7 +265,7 @@ export default function ImageGeneratorPage() {
         setImages(prevImages => ({...prevImages, [post.id]: postImages}));
     }
 
-    const requiredImages = sections.length + (post.featuredImageUrl ? 1 : 1);
+    const requiredImages = sections.length + 1; // Always require a featured image slot
     const generatedCount =
       (postImages.featured ? 1 : 0) +
       Object.values(postImages.sections).filter(Boolean).length;
@@ -279,7 +280,7 @@ export default function ImageGeneratorPage() {
 
 
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
-    if (sites.length === 0) return;
+    if (!selectedSite) return;
     setIsFetchingPosts(true);
     if (refresh) {
       setPosts([]);
@@ -288,14 +289,13 @@ export default function ImageGeneratorPage() {
       setPostDetailsMap(new Map());
     }
     
-    const siteToFetch = sites[0];
-    if (!siteToFetch.appPassword) {
+    if (!selectedSite.appPassword) {
       setFetchError("Application password not found for this site. Please add it in Settings.");
       setIsFetchingPosts(false);
       return;
     }
     
-    const result = await fetchPostsFromWp(siteToFetch.url, siteToFetch.user, siteToFetch.appPassword, page);
+    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, page);
 
     if (result.success) {
         if(result.data.length === 0){
@@ -313,14 +313,14 @@ export default function ImageGeneratorPage() {
       })
     }
     setIsFetchingPosts(false);
-  }, [sites, toast]);
+  }, [selectedSite, toast]);
 
   useEffect(() => {
-    if (sites.length > 0) {
+    if (selectedSiteId) {
       handleFetchPosts(1, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sites]);
+  }, [selectedSiteId]);
 
   const handleOpenSearchDialog = useCallback(async (postId: string, type: 'featured' | 'section', heading?: string) => {
     const post = posts.find(p => p.id === postId);
@@ -417,11 +417,10 @@ export default function ImageGeneratorPage() {
   );
   
   const handleUpdatePost = async (postId: string, status: 'publish' | 'draft') => {
-      const site = sites[0];
       const post = posts.find(p => p.id === postId);
       let postImages = images[postId];
 
-      if (!site || !post || !postImages || !site.appPassword) {
+      if (!selectedSite || !post || !postImages || !selectedSite.appPassword) {
           toast({ title: "Error", description: "Missing required information to update post.", variant: "destructive" });
           return;
       }
@@ -441,7 +440,7 @@ export default function ImageGeneratorPage() {
                 const fileName = `${post.title.replace(/\s+/g, '-').toLowerCase().slice(0, 20)}-${imageKey}`;
                 const caption = `Photo by <a href="${image.photographerUrl}" target="_blank">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank">${image.source}</a>`;
                 
-                const uploadResult = await uploadImageToWp(site.url, site.user, site.appPassword!, {
+                const uploadResult = await uploadImageToWp(selectedSite.url, selectedSite.user, selectedSite.appPassword!, {
                     base64Data: image.url,
                     fileName: fileName,
                     altText: image.alt,
@@ -479,7 +478,7 @@ export default function ImageGeneratorPage() {
         }
 
         const newContent = constructPostHtml(post.content, uploadedImages);
-        const result = await updatePostOnWp(site.url, site.user, site.appPassword, postId, newContent, status);
+        const result = await updatePostOnWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, postId, newContent, status);
 
         if (result.success) {
             toast({ title: "Success!", description: `Post has been successfully ${status === 'publish' ? 'published' : 'saved as a draft'}.` });
@@ -513,23 +512,6 @@ export default function ImageGeneratorPage() {
         </div>
       );
     }
-
-    if (!isFetchingPosts && sites.length === 0) {
-        return (
-            <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
-            <Globe className="mx-auto h-12 w-12" />
-            <h3 className="mt-4 text-lg font-semibold">
-                Connect a Site to Fetch Posts
-            </h3>
-            <p className="mt-1 text-sm">
-                Connect your WordPress site in settings to fetch your posts.
-            </p>
-            <Button asChild size="sm" className="mt-4">
-                <Link href="/dashboard/settings">Go to Settings</Link>
-            </Button>
-            </div>
-        );
-    }
     
     if (!isFetchingPosts && fetchError) {
       return (
@@ -556,6 +538,20 @@ export default function ImageGeneratorPage() {
     }
 
     return (
+      <>
+        <div className="flex justify-between items-center mb-4">
+            <Tabs value={filter} onValueChange={(value) => setFilter(value as any)}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="published">Published</TabsTrigger>
+                <TabsTrigger value="draft">Draft</TabsTrigger>
+                <TabsTrigger value="pending">Pending</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button onClick={() => handleFetchPosts(1, true)} size="icon" variant="outline" disabled={isFetchingPosts}>
+                <RefreshCw className="h-4 w-4" />
+            </Button>
+        </div>
         <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
             if (value) {
                 const post = posts.find(p => p.id === value);
@@ -568,7 +564,6 @@ export default function ImageGeneratorPage() {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
-                const isReadyToPublish = details && details.generatedCount >= details.requiredImages;
 
                 return (
                     <AccordionItem value={post.id} key={post.id}>
@@ -718,8 +713,53 @@ export default function ImageGeneratorPage() {
                  </div>
             )}
         </Accordion>
+      </>
     );
   };
+  
+  const renderSiteSelection = () => {
+    if (sites.length === 0) {
+        return (
+            <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+                <Globe className="mx-auto h-12 w-12" />
+                <h3 className="mt-4 text-lg font-semibold">
+                    Connect a Site to Begin
+                </h3>
+                <p className="mt-1 text-sm">
+                    Go to settings to connect your WordPress site.
+                </p>
+                <Button asChild size="sm" className="mt-4">
+                    <Link href="/dashboard/settings">Go to Settings</Link>
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <h2 className="text-2xl font-headline font-bold mb-4">Select a Site to Manage</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sites.map(site => (
+                    <Card 
+                        key={site.id} 
+                        onClick={() => setSelectedSiteId(site.id)}
+                        className="cursor-pointer hover:border-primary transition-colors"
+                    >
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Globe className="h-5 w-5 text-primary" />
+                                {new URL(site.url).hostname}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground truncate">{site.url}</p>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+  }
 
   return (
     <>
@@ -744,27 +784,21 @@ export default function ImageGeneratorPage() {
         <Card>
           <CardHeader>
              <div className="flex justify-between items-center">
-                 <div>
+                <div>
                     <CardTitle>Image Generator</CardTitle>
                     <CardDescription>
-                      Select a post to manage its images.
+                      {selectedSite ? `Managing images for ${selectedSite.url}` : 'Select a site to manage its images.'}
                     </CardDescription>
-                 </div>
-                 <Button onClick={() => handleFetchPosts(1, true)} size="icon" variant="outline" disabled={isFetchingPosts}>
-                    {isFetchingPosts && posts.length === 0 ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
-                 </Button>
+                </div>
+                 {selectedSite && (
+                    <Button onClick={() => setSelectedSiteId(null)} variant="outline">
+                        <Power className="mr-2 h-4 w-4" /> Change Site
+                    </Button>
+                 )}
             </div>
           </CardHeader>
           <CardContent>
-            <Tabs value={filter} onValueChange={(value) => setFilter(value as any)}>
-              <TabsList className="grid w-full grid-cols-4 mb-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="published">Published</TabsTrigger>
-                <TabsTrigger value="draft">Draft</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {renderPostList()}
+            {selectedSiteId ? renderPostList() : renderSiteSelection()}
           </CardContent>
         </Card>
     </div>
