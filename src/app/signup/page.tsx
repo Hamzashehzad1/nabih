@@ -35,11 +35,23 @@ export default function SignupPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      toast({
+        title: 'Sign Up Failed',
+        description: 'Password must be at least 6 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setLoading(true);
     const auth = getAuth(app);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: name });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: name });
+      }
+      // Re-fetch user to ensure profile is updated
+      await userCredential.user.reload();
       router.push('/dashboard');
     } catch (error: any) {
       toast({
@@ -47,6 +59,7 @@ export default function SignupPage() {
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -64,6 +77,7 @@ export default function SignupPage() {
             description: error.message,
             variant: 'destructive',
         });
+    } finally {
         setGoogleLoading(false);
     }
 };

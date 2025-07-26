@@ -52,7 +52,8 @@ export default function LoginPage() {
         description: error.message,
         variant: 'destructive',
       });
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -69,6 +70,7 @@ export default function LoginPage() {
             description: error.message,
             variant: 'destructive',
         });
+    } finally {
         setGoogleLoading(false);
     }
 };
