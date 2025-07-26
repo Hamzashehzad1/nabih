@@ -98,60 +98,53 @@ interface UpdateStatus {
 }
 
 function constructPostHtml(originalContent: string, postImages: ImageState): string {
+    if (typeof window === 'undefined') return originalContent;
+
     const domParser = new window.DOMParser();
     const doc = domParser.parseFromString(originalContent.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
 
-    // Remove existing images to avoid duplication if user is replacing them.
-    doc.querySelectorAll('img, figure').forEach(el => {
-        // Simple removal. A more robust solution might check if the image is one we're about to add.
-        // For this UX, we assume we're replacing all content-managed images.
-        if (el.closest('.wp-block-image')) {
-            el.closest('.wp-block-image')?.remove();
-        } else {
-            el.remove();
-        }
-    });
+    // This function will create or update a figure element
+    const createFigure = (image: ImageSearchResult) => {
+      const figure = doc.createElement('figure');
+      figure.className = "wp-block-image size-large content-forge-image"; // Add a marker class
+      const img = doc.createElement('img');
+      img.src = image.url;
+      img.alt = image.alt;
+      figure.appendChild(img);
+      
+      const figcaption = doc.createElement('figcaption');
+      figcaption.innerHTML = `Photo by <a href="${image.photographerUrl}" target="_blank" rel="noopener noreferrer">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank" rel="noopener noreferrer">${image.source}</a>`;
+      figure.appendChild(figcaption);
+      return figure;
+    };
 
     const body = doc.body;
 
+    // Remove only images previously added by this tool to avoid duplicates
+    doc.querySelectorAll('.content-forge-image').forEach(el => el.remove());
+
     // Add featured image
     if (postImages.featured) {
-        const figure = doc.createElement('figure');
-        figure.className = "wp-block-image size-large";
-        const img = doc.createElement('img');
-        img.src = postImages.featured.url;
-        img.alt = postImages.featured.alt;
-        figure.appendChild(img);
-
-        const figcaption = doc.createElement('figcaption');
-        figcaption.innerHTML = `Photo by <a href="${postImages.featured.photographerUrl}" target="_blank" rel="noopener noreferrer">${postImages.featured.photographer}</a> on <a href="https://www.${postImages.featured.source.toLowerCase()}.com" target="_blank" rel="noopener noreferrer">${postImages.featured.source}</a>`;
-        figure.appendChild(figcaption);
-        
+        const figure = createFigure(postImages.featured);
+        // Add featured image at the top
         body.insertBefore(figure, body.firstChild);
     }
     
     // Add section images
-    postImages.sections && Object.entries(postImages.sections).forEach(([heading, image]) => {
-        if (!image) return;
-        
-        const headingElement = Array.from(doc.querySelectorAll('h2, h3')).find(h => h.textContent?.trim() === heading);
+    const headings = Array.from(doc.querySelectorAll('h2, h3'));
+    
+    // Reverse loop to insert elements without messing up indices
+    for (let i = headings.length - 1; i >= 0; i--) {
+        const headingElement = headings[i];
+        const headingText = headingElement.textContent?.trim() || '';
+        const image = postImages.sections[headingText];
 
-        if (headingElement) {
-            const figure = doc.createElement('figure');
-            figure.className = "wp-block-image size-large";
-            const img = doc.createElement('img');
-            img.src = image.url;
-            img.alt = image.alt;
-            figure.appendChild(img);
-
-            const figcaption = doc.createElement('figcaption');
-            figcaption.innerHTML = `Photo by <a href="${image.photographerUrl}" target="_blank" rel="noopener noreferrer">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank" rel="noopener noreferrer">${image.source}</a>`;
-            figure.appendChild(figcaption);
-            
+        if (image) {
+            const figure = createFigure(image);
             headingElement.parentNode?.insertBefore(figure, headingElement.nextSibling);
         }
-    });
-
+    }
+    
     return doc.body.innerHTML;
 }
 
@@ -207,7 +200,7 @@ function parseContent(post: WpPost): {
         let img = null;
         if (nextElement.tagName === 'IMG') {
             img = nextElement;
-        } else if (['FIGURE', 'P'].includes(nextElement.tagName)) {
+        } else if (['FIGURE', 'P', 'DIV'].includes(nextElement.tagName)) { // Check inside DIVs too
             img = nextElement.querySelector('img');
         }
 
@@ -271,7 +264,7 @@ export default function ImageGeneratorPage() {
         setImages(prevImages => ({...prevImages, [post.id]: postImages}));
     }
 
-    const requiredImages = sections.length + 1;
+    const requiredImages = sections.length + (post.featuredImageUrl ? 1 : 1);
     const generatedCount =
       (postImages.featured ? 1 : 0) +
       Object.values(postImages.sections).filter(Boolean).length;
@@ -445,7 +438,7 @@ export default function ImageGeneratorPage() {
         const processImage = async (imageKey: 'featured' | string) => {
             const image = imageKey === 'featured' ? postImages.featured : postImages.sections[imageKey];
             if (image && image.url.startsWith('data:image')) {
-                const fileName = `${post.title.replace(/\s+/g, '-').toLowerCase()}-${imageKey}`;
+                const fileName = `${post.title.replace(/\s+/g, '-').toLowerCase().slice(0, 20)}-${imageKey}`;
                 const caption = `Photo by <a href="${image.photographerUrl}" target="_blank">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank">${image.source}</a>`;
                 
                 const uploadResult = await uploadImageToWp(site.url, site.user, site.appPassword!, {
@@ -481,6 +474,7 @@ export default function ImageGeneratorPage() {
 
         if (uploadsFailed) {
              setUpdateStatus({ isUpdating: false, postId: null, type: null });
+             toast({ title: "Update Canceled", description: "Post update canceled due to image upload failure.", variant: "destructive" });
              return;
         }
 
@@ -505,7 +499,8 @@ export default function ImageGeneratorPage() {
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
     if (filter === 'published') return posts.filter((p) => p.status === 'publish');
-    if (filter === 'draft' || filter === 'pending') return posts.filter((p) => p.status === 'draft' || p.status === 'pending');
+    if (filter === 'draft') return posts.filter((p) => p.status === 'draft');
+    if (filter === 'pending') return posts.filter((p) => p.status === 'pending');
     return posts;
   }, [posts, filter]);
 
@@ -573,7 +568,7 @@ export default function ImageGeneratorPage() {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
-                const isReadyToPublish = details && details.generatedCount === details.requiredImages;
+                const isReadyToPublish = details && details.generatedCount >= details.requiredImages;
 
                 return (
                     <AccordionItem value={post.id} key={post.id}>
@@ -688,16 +683,16 @@ export default function ImageGeneratorPage() {
                                     <Button 
                                         variant="secondary" 
                                         onClick={() => handleUpdatePost(post.id, 'draft')}
-                                        disabled={!isReadyToPublish || updateStatus.isUpdating}
+                                        disabled={updateStatus.isUpdating}
                                     >
-                                        {updateStatus.isUpdating && updateStatus.type === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                        {updateStatus.isUpdating && updateStatus.postId === post.id && updateStatus.type === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                         Save Draft
                                     </Button>
                                     <Button 
                                         onClick={() => handleUpdatePost(post.id, 'publish')}
-                                        disabled={!isReadyToPublish || updateStatus.isUpdating}
+                                        disabled={updateStatus.isUpdating}
                                     >
-                                        {updateStatus.isUpdating && updateStatus.type === 'publish' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                        {updateStatus.isUpdating && updateStatus.postId === post.id && updateStatus.type === 'publish' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                         Publish
                                     </Button>
                                </CardFooter>
