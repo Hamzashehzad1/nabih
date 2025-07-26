@@ -21,6 +21,8 @@ import {
   Globe,
   AlertTriangle,
   RefreshCw,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useMemo, useCallback, useEffect, Fragment } from 'react';
@@ -344,6 +346,7 @@ export default function ImageGeneratorPage() {
 
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
+                const hasFeaturedImage = !!postImages.featured || details.existingImageCount > details.sections.length;
 
                 return (
                     <AccordionItem value={post.id} key={post.id}>
@@ -374,7 +377,15 @@ export default function ImageGeneratorPage() {
                              <CardContent className="p-4 space-y-6">
                                 {/* Featured Image Section */}
                                 <div className="p-4 border rounded-lg bg-background">
-                                <h4 className="font-semibold text-lg mb-2">Featured Image</h4>
+                                <div className="flex items-center gap-2 mb-2">
+                                    {hasFeaturedImage ? (
+                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                    ) : (
+                                        <XCircle className="h-5 w-5 text-destructive" />
+                                    )}
+                                    <h4 className="font-semibold text-lg">Featured Image</h4>
+                                </div>
+
                                 {postImages.featured ? (
                                     <div className="relative">
                                     <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt} className="rounded-md aspect-[2/1] object-cover" />
@@ -404,7 +415,14 @@ export default function ImageGeneratorPage() {
                                         const loadingKeySection = `${post.id}-${heading}`;
                                         return (
                                         <div key={heading} className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
-                                            <p className="font-medium">{heading}</p>
+                                            <div className="flex items-center gap-2">
+                                                {image ? (
+                                                    <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                                ) : (
+                                                    <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                                                )}
+                                                <p className="font-medium">{heading}</p>
+                                            </div>
                                             {image ? (
                                             <div className="flex items-center gap-2">
                                                 <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
