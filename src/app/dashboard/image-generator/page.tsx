@@ -1,3 +1,4 @@
+
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -26,6 +27,7 @@ import {
   Loader2,
   Trash2,
   Replace,
+  FileText,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState, useMemo } from 'react';
@@ -36,45 +38,8 @@ import {
 import { Label } from '@/components/ui/label';
 
 // Mock data as the blog generation is not connected to a DB
-const mockPosts = [
-  {
-    id: 1,
-    title: '10 Ways to Boost Your SEO in 2024',
-    status: 'Completed',
-    date: '2024-05-20',
-    content: `<h1>10 Ways to Boost Your SEO in 2024</h1>
-    <p>Search engine optimization (SEO) is an ever-evolving field. To stay ahead of the curve, you need to adapt your strategy. Here are 10 ways to boost your SEO in 2024.</p>
-    <h2>1. Focus on User Experience</h2><p>Google's algorithm increasingly prioritizes pages that offer a great user experience. This means fast load times, mobile-friendliness, and intuitive navigation are more important than ever.</p>
-    <h2>2. Create High-Quality, Authoritative Content</h2><p>Content is still king. Focus on creating in-depth, well-researched articles that fully answer a user's query. This establishes your site as an authority in your niche.</p>`,
-  },
-  {
-    id: 2,
-    title: 'The Ultimate Guide to Content Marketing',
-    status: 'Not Completed',
-    date: '2024-05-18',
-    content: `<h1>The Ultimate Guide to Content Marketing</h1>
-    <p>Content marketing is a strategic marketing approach focused on creating and distributing valuable, relevant, and consistent content to attract and retain a clearly defined audience — and, ultimately, to drive profitable customer action.</p>
-    <h2>Understanding Your Audience</h2>
-    <p>Before you write a single word, you need to know who you're writing for. Creating audience personas can help you tailor your content to the right people. Think about their goals, challenges, and what they want to learn.</p>
-    <h2>Keyword Research and SEO</h2>
-    <p>Good content is useless if no one can find it. This is where keyword research comes in. Use tools to find what your audience is searching for and build your content around those topics. This will improve your ranking on search engines.</p>
-    <h3>Long-tail vs. Short-tail Keywords</h3>
-    <p>Long-tail keywords are more specific and usually have less competition. For example, instead of targeting "marketing," target "content marketing strategies for small business." You'll attract a more qualified audience.</p>`,
-  },
-  {
-    id: 3,
-    title: 'Getting Started with AI-Powered Writing',
-    status: 'Draft',
-    date: '2024-05-15',
-    content: `<h1>Getting Started with AI-Powered Writing</h1><p>AI writing assistants are transforming how we create content. From brainstorming ideas to drafting entire articles, these tools can significantly speed up the writing process.</p><h2>Choosing the Right Tool</h2><p>There are many AI writing tools available, each with its own strengths. Consider factors like ease of use, output quality, and integration capabilities when making your choice.</p>`,
-  },
-  {
-    id: 4,
-    title: 'Why Your Business Needs a Blog',
-    status: 'Published',
-    date: '2024-05-10',
-    content: `<h1>Why Your Business Needs a Blog</h1><p>A blog is one of the most powerful marketing tools for any business. It helps you attract organic traffic, build authority, and connect with your audience on a deeper level.</p><h2>Drive Traffic to Your Website</h2><p>Every blog post you publish is another indexed page on your website, which means another opportunity to show up in search engine results and drive traffic to your site.</p>`,
-  },
+const mockPosts: any[] = [
+  // In a real app, this would be fetched from a database
 ];
 
 interface ImageState {
@@ -116,7 +81,7 @@ function parseContent(html: string): {
 }
 
 export default function ImageGeneratorPage() {
-  const [selectedPostId, setSelectedPostId] = useState(mockPosts[1].id);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [images, setImages] = useState<ImageState>({
     featured: null,
     sections: {},
@@ -127,11 +92,12 @@ export default function ImageGeneratorPage() {
   }>({ featured: false, sections: {} });
 
   const selectedPost = useMemo(
-    () => mockPosts.find((p) => p.id === selectedPostId)!,
+    () => mockPosts.find((p) => p.id === selectedPostId),
     [selectedPostId]
   );
+  
   const { firstParagraph, sections, requiredImages } = useMemo(
-    () => parseContent(selectedPost.content),
+    () => (selectedPost ? parseContent(selectedPost.content) : { firstParagraph: '', sections: [], requiredImages: 1 }),
     [selectedPost]
   );
   
@@ -143,6 +109,8 @@ export default function ImageGeneratorPage() {
   }, [selectedPostId]);
 
   const generateImage = async (type: 'featured' | 'section', heading?: string) => {
+    if (!selectedPost) return;
+
     setLoading(prev => ({ ...prev, [type === 'featured' ? 'featured' : 'sections']: { ...prev.sections, ...(heading && {[heading]: true}) } }));
     
     let query;
@@ -156,6 +124,7 @@ export default function ImageGeneratorPage() {
     }
     
     if (query) {
+      // Using a placeholder service that generates images from a query
       const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}`;
       if (type === 'featured') {
         setImages(prev => ({ ...prev, featured: imageUrl }));
@@ -208,7 +177,7 @@ export default function ImageGeneratorPage() {
               </Select>
             </div>
             <div className="space-y-4 max-h-[600px] overflow-y-auto">
-              {mockPosts.map((post) => {
+              {mockPosts.length > 0 ? mockPosts.map((post) => {
                 const postDetails = parseContent(post.content);
                 // This is a mock progress, in a real app this would be persisted
                 const generatedCount = post.id === selectedPostId ? generatedImagesCount : 0;
@@ -244,112 +213,120 @@ export default function ImageGeneratorPage() {
                     </CardContent>
                   </Card>
                 );
-              })}
+              }) : (
+                 <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+                   <FileText className="mx-auto h-12 w-12" />
+                   <h3 className="mt-4 text-lg font-semibold">No Posts Yet</h3>
+                   <p className="mt-1 text-sm">Create and save a post in the Blog Generator to see it here.</p>
+                 </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="lg:col-span-2">
-        <Card>
+        <Card className="min-h-[780px]">
           <CardHeader>
-            <CardTitle>{selectedPost.title}</CardTitle>
+            <CardTitle>{selectedPost?.title || "Select a Post"}</CardTitle>
             <CardDescription>
-              Add, replace, or remove images for this post.
+              {selectedPost ? "Add, replace, or remove images for this post." : "Please select a post from the list on the left."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <Label className="text-lg font-semibold">Featured Image</Label>
-                {images.featured ? (
-                  <Card className="mt-2 p-4">
-                    <div className="relative">
-                      <Image
-                        src={images.featured}
-                        width={600}
-                        height={300}
-                        alt="Featured Image"
-                        className="rounded-md"
-                        unoptimized
-                      />
-                      <div className="absolute top-2 right-2 flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => generateImage('featured')}>
-                          <Replace className="mr-2 h-4 w-4" /> Replace
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => deleteImage('featured')}>
-                           <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </Button>
+          {selectedPost && (
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <Label className="text-lg font-semibold">Featured Image</Label>
+                  {images.featured ? (
+                    <Card className="mt-2 p-4">
+                      <div className="relative">
+                        <Image
+                          src={images.featured}
+                          width={600}
+                          height={300}
+                          alt="Featured Image"
+                          className="rounded-md"
+                          unoptimized
+                        />
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => generateImage('featured')}>
+                            <Replace className="mr-2 h-4 w-4" /> Replace
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => deleteImage('featured')}>
+                             <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                ) : (
-                  <Card className="mt-2 p-4 flex flex-col items-center justify-center text-center border-dashed min-h-[200px]">
-                    <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
-                    <h3 className="font-semibold">No Featured Image</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Click below to generate and add one.
-                    </p>
-                    <Button onClick={() => generateImage('featured')} disabled={loading.featured}>
-                      {loading.featured ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    </Card>
+                  ) : (
+                    <Card className="mt-2 p-4 flex flex-col items-center justify-center text-center border-dashed min-h-[200px]">
+                      <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
+                      <h3 className="font-semibold">No Featured Image</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Click below to generate and add one.
+                      </p>
+                      <Button onClick={() => generateImage('featured')} disabled={loading.featured}>
+                        {loading.featured ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Add Featured Image
+                      </Button>
+                    </Card>
+                  )}
+                </div>
+
+                <div
+                  className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none"
+                  dangerouslySetInnerHTML={{ __html: selectedPost.content }}
+                />
+
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Section Images</h3>
+                  {sections.map((section) => (
+                    <div key={section.heading}>
+                      <Label className="font-medium">
+                        Image for "{section.heading}"
+                      </Label>
+                      {images.sections[section.heading] ? (
+                         <Card className="mt-2 p-4">
+                           <div className="relative">
+                               <Image src={images.sections[section.heading]!} width={600} height={300} alt={section.heading} className="rounded-md" unoptimized/>
+                               <div className="absolute top-2 right-2 flex gap-2">
+                                   <Button variant="outline" size="sm" onClick={() => generateImage('section', section.heading)}>
+                                      <Replace className="mr-2 h-4 w-4" /> Replace
+                                    </Button>
+                                   <Button variant="destructive" size="sm" onClick={() => deleteImage('section', section.heading)}>
+                                     <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                   </Button>
+                               </div>
+                           </div>
+                        </Card>
                       ) : (
-                        <PlusCircle className="mr-2 h-4 w-4" />
+                        <Card className="mt-2 p-4 flex flex-col items-center justify-center text-center border-dashed min-h-[150px]">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                          <Button variant="secondary" size="sm" onClick={() => generateImage('section', section.heading)} disabled={loading.sections[section.heading]}>
+                            {loading.sections[section.heading] ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                            )}
+                             Add Image
+                          </Button>
+                        </Card>
                       )}
-                      Add Featured Image
-                    </Button>
-                  </Card>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div
-                className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none"
-                dangerouslySetInnerHTML={{ __html: selectedPost.content }}
-              />
-
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Section Images</h3>
-                {sections.map((section) => (
-                  <div key={section.heading}>
-                    <Label className="font-medium">
-                      Image for "{section.heading}"
-                    </Label>
-                    {images.sections[section.heading] ? (
-                       <Card className="mt-2 p-4">
-                         <div className="relative">
-                             <Image src={images.sections[section.heading]!} width={600} height={300} alt={section.heading} className="rounded-md" unoptimized/>
-                             <div className="absolute top-2 right-2 flex gap-2">
-                                 <Button variant="outline" size="sm" onClick={() => generateImage('section', section.heading)}>
-                                    <Replace className="mr-2 h-4 w-4" /> Replace
-                                  </Button>
-                                 <Button variant="destructive" size="sm" onClick={() => deleteImage('section', section.heading)}>
-                                   <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                 </Button>
-                             </div>
-                         </div>
-                      </Card>
-                    ) : (
-                      <Card className="mt-2 p-4 flex flex-col items-center justify-center text-center border-dashed min-h-[150px]">
-                        <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                        <Button variant="secondary" size="sm" onClick={() => generateImage('section', section.heading)} disabled={loading.sections[section.heading]}>
-                          {loading.sections[section.heading] ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                          )}
-                           Add Image
-                        </Button>
-                      </Card>
-                    )}
-                  </div>
-                ))}
+              <div className="mt-8 flex justify-end">
+                <Button size="lg">Save Changes</Button>
               </div>
-            </div>
-
-            <div className="mt-8 flex justify-end">
-              <Button size="lg">Save Changes</Button>
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
       </div>
     </div>

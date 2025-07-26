@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, Clipboard, Loader2 } from "lucide-react";
+import { Bot, Clipboard, Loader2, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function BlogGeneratorPage() {
   const [generatedPost, setGeneratedPost] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -71,6 +73,19 @@ export default function BlogGeneratorPage() {
       description: "The blog post has been copied to your clipboard.",
     });
   };
+
+  const handleSavePost = async () => {
+    setIsSaving(true);
+    // In a real application, you would save the post to a database here.
+    // For this prototype, we'll just simulate a save operation.
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsSaving(false);
+    toast({
+      title: "Post Saved!",
+      description: "Your new blog post has been saved.",
+    });
+  };
+
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
@@ -220,9 +235,19 @@ export default function BlogGeneratorPage() {
             <CardDescription>Your AI-generated blog post will appear here.</CardDescription>
           </div>
           {generatedPost && (
-            <Button variant="outline" size="icon" onClick={copyToClipboard}>
-              <Clipboard className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={copyToClipboard} aria-label="Copy to clipboard">
+                    <Clipboard className="h-4 w-4" />
+                </Button>
+                <Button onClick={handleSavePost} disabled={isSaving} aria-label="Save post">
+                    {isSaving ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save Post
+                </Button>
+            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -239,7 +264,9 @@ export default function BlogGeneratorPage() {
                 <p className="mt-4 text-muted-foreground">Your generated content will be displayed here.</p>
               </div>
             )}
-            {generatedPost}
+            {generatedPost && (
+              <div dangerouslySetInnerHTML={{ __html: generatedPost.replace(/\n/g, '<br />') }} />
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,8 +1,11 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Globe, FileText, ImageIcon, PlusCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 const stats = [
   { title: "Blogs Generated", value: "42", icon: <FileText className="h-6 w-6 text-muted-foreground" /> },
@@ -20,9 +23,17 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-headline font-bold">Welcome back, User!</h1>
+        <h1 className="text-3xl font-headline font-bold">Welcome back!</h1>
         <p className="text-muted-foreground">Here's a snapshot of your content empire.</p>
       </div>
+
+      <Alert>
+        <Globe className="h-4 w-4" />
+        <AlertTitle>This is a Prototype!</AlertTitle>
+        <AlertDescription>
+         The data on this page is for demonstration purposes. Features like saving posts and connecting to WordPress are not yet implemented.
+        </AlertDescription>
+      </Alert>
 
       <div className="grid gap-4 md:grid-cols-3">
         {stats.map((stat) => (
