@@ -2,7 +2,7 @@
 'use server';
 
 import { generateImagePrompt, GenerateImagePromptInput } from '@/ai/flows/generate-image-prompt';
-import { searchImages } from '@/ai/flows/search-images';
+import { searchImages, SearchImagesOutput } from '@/ai/flows/search-images';
 import { z } from 'zod';
 
 // Define the schema for a single WordPress post
@@ -31,43 +31,20 @@ export interface WpPost {
     siteUrl: string;
 }
 
-export interface ImageSearchResult {
-  url: string;
-  alt: string;
-  photographer: string;
-  photographerUrl: string;
-  source: 'Pexels' | 'Unsplash';
-}
+export type ImageSearchResult = SearchImagesOutput['images'][0];
 
-async function getImageUrlFromPrompt(query: string): Promise<ImageSearchResult | null> {
-    console.log(`Searching for images with query: "${query}"`);
-    const results = await searchImages({ query });
-    if (results.images.length > 0) {
-        // For now, just return the first image. Later, we'll show a selection UI.
-        return results.images[0];
-    }
-    return null;
-}
 
-export async function getFeaturedImage(title: string, paragraph: string): Promise<ImageSearchResult | null> {
-  try {
-    const result = await generateImagePrompt({ title, paragraph, type: 'featured' });
-    return getImageUrlFromPrompt(result.query);
-  } catch (error) {
-    console.error('Error generating featured image query:', error);
-    return null;
-  }
-}
-
-export async function getSectionImage(heading: string, paragraph: string): Promise<ImageSearchResult | null> {
+export async function generateAndSearch(input: GenerateImagePromptInput): Promise<{query: string, images: ImageSearchResult[]}> {
     try {
-        const result = await generateImagePrompt({ title: heading, paragraph, type: 'section' });
-        return getImageUrlFromPrompt(result.query);
+        const { query } = await generateImagePrompt(input);
+        const searchResult = await searchImages({ query });
+        return { query, images: searchResult.images };
     } catch (error) {
-        console.error('Error generating section image query:', error);
-        return null;
+        console.error('Error in generateAndSearch:', error);
+        return { query: '', images: [] };
     }
 }
+
 
 export async function fetchPostsFromWp(
     siteUrl: string,

@@ -1,4 +1,3 @@
-
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -25,12 +24,12 @@ import {
 import Image from 'next/image';
 import { useState, useMemo, useCallback, useEffect, Fragment } from 'react';
 import {
-  getFeaturedImage,
-  getSectionImage,
+  generateAndSearch,
   fetchPostsFromWp,
   type WpPost,
   type ImageSearchResult,
 } from './actions';
+import { searchImages } from '@/ai/flows/search-images';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
@@ -38,6 +37,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { ImageSearchDialog } from '@/components/image-search-dialog';
 
 interface ImageState {
   featured: ImageSearchResult | null;
@@ -53,7 +53,15 @@ interface WpSite {
   id: string;
   url: string;
   user: string;
-  appPassword?: string; // App password should be stored securely
+  appPassword?: string;
+}
+
+interface DialogState {
+  open: boolean;
+  type: 'featured' | 'section' | null;
+  heading?: string;
+  initialQuery?: string;
+  initialImages?: ImageSearchResult[];
 }
 
 function parseContent(html: string): {
@@ -81,7 +89,6 @@ function parseContent(html: string): {
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
 
-    // Find the first paragraph after the header
     while(nextElement && nextElement.tagName.toLowerCase() !== 'p') {
       nextElement = nextElement.nextElementSibling;
     }
@@ -115,6 +122,7 @@ export default function ImageGeneratorPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [dialogState, setDialogState] = useState<DialogState>({ open: false, type: null });
 
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
     if (sites.length === 0) return;
@@ -220,61 +228,57 @@ export default function ImageGeneratorPage() {
     },
     [selectedPostId, setImages]
   );
+  
+  const handleOpenDialog = useCallback(async (type: 'featured' | 'section', heading?: string) => {
+    if (!selectedPost) return;
 
-  const generateImage = useCallback(
-    async (type: 'featured' | 'section', heading?: string) => {
-      if (!selectedPost) return;
-
-      const setLoadingState = (isLoading: boolean) => {
+    const setLoadingState = (isLoading: boolean) => {
         if (type === 'featured') {
-          setLoading((prev) => ({ ...prev, featured: isLoading }));
+            setLoading((prev) => ({ ...prev, featured: isLoading }));
         } else if (heading) {
-          setLoading((prev) => ({
-            ...prev,
-            sections: { ...prev.sections, [heading]: isLoading },
-          }));
+            setLoading((prev) => ({...prev, sections: { ...prev.sections, [heading]: isLoading }}));
         }
-      };
+    };
 
-      setLoadingState(true);
-      toast({ title: 'Generating Image Query & Searching...', description: 'The AI is finding the perfect image for you.' });
-      
-      let imageResult: ImageSearchResult | null = null;
-      if (type === 'featured') {
-        imageResult = await getFeaturedImage(
-          selectedPost.title,
-          parsedContent.firstParagraph
-        );
-      } else if (heading) {
-        const section = parsedContent.sections.find(
-          (s) => s.heading === heading
-        );
+    setLoadingState(true);
+    toast({ title: 'Generating Image Query & Searching...', description: 'The AI is finding the perfect image for you.' });
+    
+    let result: {query: string, images: ImageSearchResult[]} | null = null;
+    if (type === 'featured') {
+        result = await generateAndSearch({ title: selectedPost.title, paragraph: parsedContent.firstParagraph, type: 'featured' });
+    } else if (heading) {
+        const section = parsedContent.sections.find((s) => s.heading === heading);
         if (section) {
-          imageResult = await getSectionImage(
-            section.heading,
-            section.paragraph
-          );
+            result = await generateAndSearch({ title: section.heading, paragraph: section.paragraph, type: 'section' });
         }
-      }
+    }
 
-      if (imageResult) {
-        toast({ title: 'Image Added!', description: `Image from ${imageResult.source} by ${imageResult.photographer}` });
-        if (type === 'featured') {
-          setPostImages((prev) => ({ ...prev, featured: imageResult }));
-        } else if (heading) {
-          setPostImages((prev) => ({
-            ...prev,
-            sections: { ...prev.sections, [heading]: imageResult },
-          }));
-        }
-      } else {
-        toast({ title: 'Error', description: 'Could not generate an image. No results found.', variant: 'destructive'});
-      }
+    if (result) {
+        setDialogState({
+            open: true,
+            type: type,
+            heading: heading,
+            initialQuery: result.query,
+            initialImages: result.images
+        })
+    } else {
+        toast({ title: 'Error', description: 'Could not generate an image query.', variant: 'destructive'});
+    }
 
-      setLoadingState(false);
-    },
-    [selectedPost, parsedContent, setPostImages, toast]
-  );
+    setLoadingState(false);
+  }, [selectedPost, parsedContent, toast]);
+
+  const handleSelectImage = (image: ImageSearchResult) => {
+    if (!dialogState.type) return;
+    
+    if (dialogState.type === 'featured') {
+        setPostImages((prev) => ({ ...prev, featured: image }));
+    } else if (dialogState.heading) {
+        setPostImages((prev) => ({...prev, sections: { ...prev.sections, [dialogState.heading!]: image }}));
+    }
+    toast({ title: 'Image Added!', description: `Image from ${image.source} by ${image.photographer}` });
+    setDialogState({ open: false, type: null });
+  };
 
   const deleteImage = useCallback(
     (type: 'featured' | 'section', heading?: string) => {
@@ -310,7 +314,7 @@ export default function ImageGeneratorPage() {
 
             const isHeading = node.nodeName === 'H2' || node.nodeName === 'H3';
             const headingText = node.textContent || '';
-            const outerHTML = (node as Element).outerHTML || node.textContent;
+            const outerHTML = (node as Element).outerHTML || node.textContent || '';
             const imageForSection = currentPostImages.sections[headingText];
 
             return (
@@ -332,7 +336,7 @@ export default function ImageGeneratorPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => generateImage('section', headingText)}
+                                onClick={() => handleOpenDialog('section', headingText)}
                                 disabled={loading.sections[headingText]}
                             >
                                 {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
@@ -352,7 +356,7 @@ export default function ImageGeneratorPage() {
                         <div className="text-center py-4">
                         <Button
                             variant="secondary"
-                            onClick={() => generateImage('section', headingText)}
+                            onClick={() => handleOpenDialog('section', headingText)}
                             disabled={loading.sections[headingText]}
                         >
                             {loading.sections[headingText] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
@@ -366,7 +370,8 @@ export default function ImageGeneratorPage() {
             );
         })}
     </Fragment>;
-  }, [selectedPost, currentPostImages, loading.sections, generateImage, deleteImage]);
+  }, [selectedPost, currentPostImages.sections, loading.sections, handleOpenDialog, deleteImage]);
+
 
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
@@ -377,6 +382,18 @@ export default function ImageGeneratorPage() {
   }, [posts, filter]);
 
   return (
+    <>
+    <ImageSearchDialog
+        open={dialogState.open}
+        onOpenChange={(open) => setDialogState({ ...dialogState, open })}
+        initialQuery={dialogState.initialQuery}
+        initialImages={dialogState.initialImages}
+        onSelectImage={handleSelectImage}
+        onSearch={async (query) => {
+            const result = await searchImages({ query });
+            return result.images;
+        }}
+    />
     <div className="grid gap-8 lg:grid-cols-3">
       <div className="lg:col-span-1">
         <Card>
@@ -548,7 +565,7 @@ export default function ImageGeneratorPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => generateImage('featured')}
+                            onClick={() => handleOpenDialog('featured')}
                             disabled={loading.featured}
                           >
                             {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
@@ -572,7 +589,7 @@ export default function ImageGeneratorPage() {
                         Click below to generate and add one.
                       </p>
                       <Button
-                        onClick={() => generateImage('featured')}
+                        onClick={() => handleOpenDialog('featured')}
                         disabled={loading.featured}
                       >
                         {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
@@ -605,5 +622,6 @@ export default function ImageGeneratorPage() {
         </Card>
       </div>
     </div>
+    </>
   );
 }

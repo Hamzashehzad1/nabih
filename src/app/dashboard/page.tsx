@@ -98,7 +98,7 @@ export default function DashboardPage() {
                     <TableCell>{post.date}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/blog-editor/${post.id}`}>
+                        <Link href={`/dashboard/blog-editor/${post.id}`} target="_blank" rel="noopener noreferrer">
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </Link>
                       </Button>

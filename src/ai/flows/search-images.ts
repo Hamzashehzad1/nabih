@@ -30,7 +30,7 @@ export type SearchImagesOutput = z.infer<typeof SearchImagesOutputSchema>;
 
 async function searchPexels(query: string): Promise<SearchImagesOutput['images']> {
   try {
-    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=10`, {
+    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=10&orientation=landscape`, {
       headers: { Authorization: process.env.PEXELS_API_KEY! },
     });
     if (!response.ok) {
@@ -39,7 +39,7 @@ async function searchPexels(query: string): Promise<SearchImagesOutput['images']
     }
     const data = await response.json();
     return data.photos.map((photo: any) => ({
-      url: photo.src.large2x,
+      url: photo.src.large, // Use large for better preview in dialog
       alt: photo.alt,
       photographer: photo.photographer,
       photographerUrl: photo.photographer_url,
@@ -53,7 +53,7 @@ async function searchPexels(query: string): Promise<SearchImagesOutput['images']
 
 async function searchUnsplash(query: string): Promise<SearchImagesOutput['images']> {
   try {
-    const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=10`, {
+    const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=10&orientation=landscape`, {
       headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` },
     });
     if (!response.ok) {
@@ -74,13 +74,7 @@ async function searchUnsplash(query: string): Promise<SearchImagesOutput['images
   }
 }
 
-export const searchImages = ai.defineFlow(
-  {
-    name: 'searchImagesFlow',
-    inputSchema: SearchImagesInputSchema,
-    outputSchema: SearchImagesOutputSchema,
-  },
-  async ({ query }) => {
+export async function searchImages({ query }: SearchImagesInput): Promise<SearchImagesOutput> {
     const [pexelsImages, unsplashImages] = await Promise.all([
       searchPexels(query),
       searchUnsplash(query),
@@ -97,4 +91,3 @@ export const searchImages = ai.defineFlow(
 
     return { images };
   }
-);
