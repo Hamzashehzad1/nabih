@@ -70,15 +70,15 @@ export function ImageSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-auto m-4 h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] max-w-7xl h-[90vh] flex flex-col p-4">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Find the Perfect Image</DialogTitle>
           <DialogDescription>
             Use the AI-generated query below or create your own to search Pexels
             and Unsplash.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -94,39 +94,41 @@ export function ImageSearchDialog({
             Search
           </Button>
         </div>
-        <ScrollArea className="flex-grow border rounded-md h-[calc(100%-150px)]">
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {isLoading && images.length === 0 && Array.from({ length: 12 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-video bg-muted rounded-md" />
-            ))}
-            {images.map((image) => (
-              <div
-                key={image.url}
-                className="group relative cursor-pointer"
-                onClick={() => onSelectImage(image)}
-              >
-                <Image
-                  src={image.url}
-                  alt={image.alt}
-                  width={300}
-                  height={200}
-                  className="rounded-md object-cover aspect-video transition-transform group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <p className="text-white font-bold">Select Image</p>
+        <div className="flex-grow mt-4 border rounded-md overflow-hidden">
+            <ScrollArea className="h-full">
+            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {isLoading && images.length === 0 && Array.from({ length: 12 }).map((_, i) => (
+                    <Skeleton key={i} className="aspect-[16/10] bg-muted rounded-md" />
+                ))}
+                {images.map((image) => (
+                <div
+                    key={image.url}
+                    className="group relative cursor-pointer"
+                    onClick={() => onSelectImage(image)}
+                >
+                    <Image
+                    src={image.url}
+                    alt={image.alt}
+                    width={400}
+                    height={250}
+                    className="rounded-md object-cover aspect-[16/10] transition-transform group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <p className="text-white font-bold">Select Image</p>
+                    </div>
+                    <Badge className="absolute top-2 left-2" variant={image.source === 'Pexels' ? 'default' : 'secondary'}>
+                    {image.source}
+                    </Badge>
                 </div>
-                <Badge className="absolute top-2 left-2" variant={image.source === 'Pexels' ? 'default' : 'secondary'}>
-                  {image.source}
-                </Badge>
-              </div>
-            ))}
-          </div>
-          {!isLoading && images.length === 0 && (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p>No images found for this query.</p>
+                ))}
             </div>
-          )}
-        </ScrollArea>
+            {!isLoading && images.length === 0 && (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>No images found for this query.</p>
+                </div>
+            )}
+            </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
