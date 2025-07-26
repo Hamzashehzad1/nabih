@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 function getValue<T>(key: string, defaultValue: T): T {
     if (typeof window === 'undefined') {
@@ -17,11 +17,7 @@ function getValue<T>(key: string, defaultValue: T): T {
 }
 
 export function useLocalStorage<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-    const [value, setValue] = useState<T>(defaultValue);
-
-    useEffect(() => {
-        setValue(getValue(key, defaultValue));
-    }, [key, defaultValue]);
+    const [value, setValue] = useState(() => getValue(key, defaultValue));
 
     useEffect(() => {
         try {

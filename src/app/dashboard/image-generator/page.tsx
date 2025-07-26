@@ -1,3 +1,4 @@
+
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -9,13 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import {
   PlusCircle,
@@ -26,7 +20,7 @@ import {
   FileText,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   getFeaturedImageQuery,
   getSectionImageQuery,
@@ -62,12 +56,17 @@ function parseContent(html: string): {
   }
   const domParser = new window.DOMParser();
   const doc = domParser.parseFromString(html.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
-  const firstParagraph = doc.querySelector('p')?.textContent || '';
+  
+  const paragraphs = doc.querySelectorAll('p');
+  const firstParagraph = paragraphs.length > 0 ? (paragraphs[0].textContent || '') : '';
+  
   const sections: Section[] = [];
   doc.querySelectorAll('h2, h3').forEach((header) => {
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
-    while (nextElement && nextElement.tagName.toLowerCase() === 'p') {
+    
+    // Concatenate all <p> tags until the next heading
+    while (nextElement && (nextElement.tagName.toLowerCase() === 'p')) {
       paragraphText += (nextElement.textContent || '') + ' ';
       nextElement = nextElement.nextElementSibling;
     }
@@ -79,8 +78,10 @@ function parseContent(html: string): {
       });
     }
   });
+
   return { firstParagraph, sections, requiredImages: sections.length + 1 };
 }
+
 
 export default function ImageGeneratorPage() {
   const [posts] = useLocalStorage<BlogPost[]>('blog-posts', []);
@@ -105,21 +106,23 @@ export default function ImageGeneratorPage() {
   }, [selectedPostId, images]);
 
 
-  const { firstParagraph, sections, requiredImages } = useMemo(
+  const parsedContent = useMemo(
     () => (selectedPost ? parseContent(selectedPost.content) : { firstParagraph: '', sections: [], requiredImages: 1 }),
     [selectedPost]
   );
   
   const generatedImagesCount = Object.values(currentPostImages.sections).filter(Boolean).length + (currentPostImages.featured ? 1 : 0);
 
-  const setPostImages = (updater: (prev: ImageState) => ImageState) => {
+  const setPostImages = useCallback((updater: (prev: ImageState) => ImageState) => {
     if (!selectedPostId) return;
-    const currentImages = images[selectedPostId] || { featured: null, sections: {} };
-    const newImages = updater(currentImages);
-    setImages(prev => ({ ...prev, [selectedPostId]: newImages }));
-  };
+    setImages(prev => {
+        const currentImages = prev[selectedPostId] || { featured: null, sections: {} };
+        const newImages = updater(currentImages);
+        return { ...prev, [selectedPostId]: newImages };
+    });
+  }, [selectedPostId, setImages]);
 
-  const generateImage = async (type: 'featured' | 'section', heading?: string) => {
+  const generateImage = useCallback(async (type: 'featured' | 'section', heading?: string) => {
     if (!selectedPost) return;
 
     if (type === 'featured') {
@@ -130,9 +133,9 @@ export default function ImageGeneratorPage() {
 
     let query;
     if (type === 'featured') {
-      query = await getFeaturedImageQuery(selectedPost.title, firstParagraph);
+      query = await getFeaturedImageQuery(selectedPost.title, parsedContent.firstParagraph);
     } else if (heading) {
-      const section = sections.find(s => s.heading === heading);
+      const section = parsedContent.sections.find(s => s.heading === heading);
       if (section) {
         query = await getSectionImageQuery(section.heading, section.paragraph);
       }
@@ -152,24 +155,37 @@ export default function ImageGeneratorPage() {
     } else if (heading) {
       setLoading(prev => ({ ...prev, sections: { ...prev.sections, [heading]: false } }));
     }
-  };
+  }, [selectedPost, parsedContent, setPostImages]);
   
-  const deleteImage = (type: 'featured' | 'section', heading?: string) => {
+  const deleteImage = useCallback((type: 'featured' | 'section', heading?: string) => {
     if (type === 'featured') {
       setPostImages(prev => ({ ...prev, featured: null }));
     } else if (heading) {
       setPostImages(prev => {
         const newSections = { ...prev.sections };
-        delete newSections[heading!];
+        if (heading) {
+          delete newSections[heading];
+        }
         return { ...prev, sections: newSections };
       });
     }
-  };
+  }, [setPostImages]);
 
   const renderedContent = useMemo(() => {
     if (!selectedPost) return null;
     return <div dangerouslySetInnerHTML={{ __html: selectedPost.content.replace(/\n/g, '<br />') }} />;
   }, [selectedPost]);
+
+  const postDetailsMap = useMemo(() => {
+    const map = new Map<string, { requiredImages: number, generatedCount: number }>();
+    posts.forEach(post => {
+      const details = parseContent(post.content);
+      const postImages = images[post.id] || { featured: null, sections: {} };
+      const generatedCount = Object.values(postImages.sections).filter(Boolean).length + (postImages.featured ? 1 : 0);
+      map.set(post.id, { requiredImages: details.requiredImages, generatedCount });
+    });
+    return map;
+  }, [posts, images]);
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -184,10 +200,9 @@ export default function ImageGeneratorPage() {
           <CardContent>
             <div className="space-y-4 max-h-[600px] overflow-y-auto">
               {posts.length > 0 ? posts.map((post) => {
-                const postDetails = parseContent(post.content);
-                const postImages = images[post.id] || { featured: null, sections: {} };
-                const generatedCount = Object.values(postImages.sections).filter(Boolean).length + (postImages.featured ? 1 : 0);
-
+                const postDetails = postDetailsMap.get(post.id) || { requiredImages: 1, generatedCount: 0 };
+                const { requiredImages, generatedCount } = postDetails;
+                
                 return (
                   <Card
                     key={post.id}
@@ -201,18 +216,18 @@ export default function ImageGeneratorPage() {
                     <CardContent className="p-4">
                       <h3 className="font-semibold truncate">{post.title}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {post.date} - {generatedCount === postDetails.requiredImages ? "Completed" : "Not Completed"}
+                        {post.date} - {generatedCount === requiredImages ? "Completed" : "Not Completed"}
                       </p>
                       <div className="mt-2">
                         <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
                           <span>Image Progress</span>
                           <span>
-                            {generatedCount}/{postDetails.requiredImages}
+                            {generatedCount}/{requiredImages}
                           </span>
                         </div>
                         <Progress
                           value={
-                            (generatedCount / postDetails.requiredImages) * 100
+                            (generatedCount / requiredImages) * 100
                           }
                         />
                       </div>
@@ -295,7 +310,7 @@ export default function ImageGeneratorPage() {
 
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Section Images</h3>
-                  {sections.map((section) => (
+                  {parsedContent.sections.map((section) => (
                     <div key={section.heading}>
                       <Label className="font-medium">
                         Image for "{section.heading}"
