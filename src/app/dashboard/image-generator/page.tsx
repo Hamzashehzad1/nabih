@@ -284,7 +284,7 @@ export default function ImageGeneratorPage() {
 
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
-    return posts.filter((p) => p.status === filter || (filter === 'draft' && p.status === 'pending'));
+    return posts.filter((p) => p.status === filter || (filter === 'draft' && (p.status === 'draft' || p.status === 'pending')));
   }, [posts, filter]);
 
   return (

@@ -56,7 +56,7 @@ export async function fetchPostsFromWp(
     username: string,
     appPassword: string
 ): Promise<{ success: true; data: WpPost[] } | { success: false; error: string }> {
-    const apiUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts?context=edit&_fields=id,date,title,content,status,link`;
+    const apiUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts?context=edit&status=publish,draft,pending&_fields=id,date,title,content,status,link`;
     
     try {
         const response = await fetch(apiUrl, {
