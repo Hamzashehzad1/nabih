@@ -1,25 +1,25 @@
-// src/app/dashboard/image-generator/actions.ts
 'use server';
 
-import { generateImageSearchQuery } from '@/ai/flows/generate-image-search-query';
-import { generateImageSearchQueryH2H3 } from '@/ai/flows/generate-image-search-query-h2-h3';
+import { generateImagePrompt } from '@/ai/flows/generate-image-prompt';
+import { generateImage } from '@/ai/flows/generate-image';
 
-export async function getFeaturedImageQuery(title: string, paragraph: string): Promise<string> {
+async function getImage(title: string, paragraph: string): Promise<string> {
   try {
-    const result = await generateImageSearchQuery({ title, paragraph });
-    return result.query;
+    const promptResult = await generateImagePrompt({ title, paragraph });
+    const imageResult = await generateImage({ prompt: promptResult.prompt });
+    return imageResult.imageUrl;
   } catch (error) {
-    console.error('Error generating featured image query:', error);
-    return 'abstract modern art';
+    console.error('Error generating image:', error);
+    // Return a placeholder or handle the error as needed
+    return 'https://placehold.co/600x400.png';
   }
 }
 
-export async function getSectionImageQuery(heading: string, paragraph: string): Promise<string> {
-  try {
-    const result = await generateImageSearchQueryH2H3({ heading, paragraph });
-    return result.searchQuery;
-  } catch (error) {
-    console.error('Error generating section image query:', error);
-    return 'abstract technology background';
-  }
+
+export async function getFeaturedImage(title: string, paragraph: string): Promise<string> {
+    return getImage(title, paragraph);
+}
+
+export async function getSectionImage(heading: string, paragraph: string): Promise<string> {
+    return getImage(heading, paragraph);
 }

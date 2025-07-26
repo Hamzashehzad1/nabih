@@ -1,4 +1,3 @@
-
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -22,8 +21,8 @@ import {
 import Image from 'next/image';
 import { useState, useMemo, useCallback } from 'react';
 import {
-  getFeaturedImageQuery,
-  getSectionImageQuery,
+  getFeaturedImage,
+  getSectionImage,
 } from './actions';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -51,7 +50,7 @@ function parseContent(html: string): {
   sections: Section[];
   requiredImages: number;
 } {
-  if (typeof window === 'undefined') {
+   if (typeof window === 'undefined') {
     return { firstParagraph: '', sections: [], requiredImages: 1 };
   }
   const domParser = new window.DOMParser();
@@ -65,7 +64,6 @@ function parseContent(html: string): {
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
     
-    // Concatenate all <p> tags until the next heading
     while (nextElement && (nextElement.tagName.toLowerCase() === 'p')) {
       paragraphText += (nextElement.textContent || '') + ' ';
       nextElement = nextElement.nextElementSibling;
@@ -111,7 +109,10 @@ export default function ImageGeneratorPage() {
     [selectedPost]
   );
   
-  const generatedImagesCount = Object.values(currentPostImages.sections).filter(Boolean).length + (currentPostImages.featured ? 1 : 0);
+  const generatedImagesCount = useMemo(() => {
+    return Object.values(currentPostImages.sections).filter(Boolean).length + (currentPostImages.featured ? 1 : 0);
+  }, [currentPostImages]);
+
 
   const setPostImages = useCallback((updater: (prev: ImageState) => ImageState) => {
     if (!selectedPostId) return;
@@ -125,24 +126,27 @@ export default function ImageGeneratorPage() {
   const generateImage = useCallback(async (type: 'featured' | 'section', heading?: string) => {
     if (!selectedPost) return;
 
-    if (type === 'featured') {
-      setLoading(prev => ({ ...prev, featured: true }));
-    } else if (heading) {
-      setLoading(prev => ({ ...prev, sections: { ...prev.sections, [heading]: true } }));
-    }
+    const setLoadingState = (isLoading: boolean) => {
+        if (type === 'featured') {
+            setLoading(prev => ({ ...prev, featured: isLoading }));
+        } else if (heading) {
+            setLoading(prev => ({ ...prev, sections: { ...prev.sections, [heading]: isLoading } }));
+        }
+    };
 
-    let query;
+    setLoadingState(true);
+
+    let imageUrl;
     if (type === 'featured') {
-      query = await getFeaturedImageQuery(selectedPost.title, parsedContent.firstParagraph);
+      imageUrl = await getFeaturedImage(selectedPost.title, parsedContent.firstParagraph);
     } else if (heading) {
       const section = parsedContent.sections.find(s => s.heading === heading);
       if (section) {
-        query = await getSectionImageQuery(section.heading, section.paragraph);
+        imageUrl = await getSectionImage(section.heading, section.paragraph);
       }
     }
     
-    if (query) {
-      const imageUrl = `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}`;
+    if (imageUrl) {
       if (type === 'featured') {
         setPostImages(prev => ({ ...prev, featured: imageUrl }));
       } else if (heading) {
@@ -150,17 +154,13 @@ export default function ImageGeneratorPage() {
       }
     }
 
-    if (type === 'featured') {
-      setLoading(prev => ({ ...prev, featured: false }));
-    } else if (heading) {
-      setLoading(prev => ({ ...prev, sections: { ...prev.sections, [heading]: false } }));
-    }
+    setLoadingState(false);
   }, [selectedPost, parsedContent, setPostImages]);
   
   const deleteImage = useCallback((type: 'featured' | 'section', heading?: string) => {
     if (type === 'featured') {
       setPostImages(prev => ({ ...prev, featured: null }));
-    } else if (heading) {
+    } else {
       setPostImages(prev => {
         const newSections = { ...prev.sections };
         if (heading) {
@@ -227,7 +227,7 @@ export default function ImageGeneratorPage() {
                         </div>
                         <Progress
                           value={
-                            (generatedCount / requiredImages) * 100
+                            (generatedCount / (requiredImages || 1)) * 100
                           }
                         />
                       </div>
@@ -271,11 +271,11 @@ export default function ImageGeneratorPage() {
                           height={300}
                           alt="Featured Image"
                           className="rounded-md"
-                          unoptimized
                         />
                         <div className="absolute top-2 right-2 flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => generateImage('featured')}>
-                            <Replace className="mr-2 h-4 w-4" /> Replace
+                            {loading.featured ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
+                             Replace
                           </Button>
                           <Button variant="destructive" size="sm" onClick={() => deleteImage('featured')}>
                              <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -318,10 +318,11 @@ export default function ImageGeneratorPage() {
                       {currentPostImages.sections[section.heading] ? (
                          <Card className="mt-2 p-4">
                            <div className="relative">
-                               <Image src={currentPostImages.sections[section.heading]!} width={600} height={300} alt={section.heading} className="rounded-md" unoptimized/>
+                               <Image src={currentPostImages.sections[section.heading]!} width={600} height={300} alt={section.heading} className="rounded-md"/>
                                <div className="absolute top-2 right-2 flex gap-2">
-                                   <Button variant="outline" size="sm" onClick={() => generateImage('section', section.heading)}>
-                                      <Replace className="mr-2 h-4 w-4" /> Replace
+                                   <Button variant="outline" size="sm" onClick={() => generateImage('section', section.heading)} disabled={loading.sections[section.heading]}>
+                                      {loading.sections[section.heading] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
+                                       Replace
                                     </Button>
                                    <Button variant="destructive" size="sm" onClick={() => deleteImage('section', section.heading)}>
                                      <Trash2 className="mr-2 h-4 w-4" /> Delete
