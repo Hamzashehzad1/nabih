@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Globe, FileText, ImageIcon, PlusCircle } from "lucide-react";
+import { Globe, FileText, ImageIcon, PlusCircle, RefreshCw, Edit } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -77,17 +77,71 @@ export default function DashboardPage() {
         ))}
       </div>
 
+       <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div >
+            <CardTitle>Generated Blog Posts</CardTitle>
+            <p className="text-sm text-muted-foreground pt-1">Here are the posts you've created.</p>
+          </div>
+           <Button asChild>
+            <Link href="/dashboard/blog-generator">
+              <PlusCircle className="mr-2 h-4 w-4" /> New Post
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {posts.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Date Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {posts.map((post: any) => (
+                  <TableRow key={post.id}>
+                    <TableCell className="font-medium">{post.title}</TableCell>
+                    <TableCell>{post.date}</TableCell>
+                    <TableCell className="text-right">
+                       <Button variant="outline" size="sm">
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
+              <FileText className="mx-auto h-12 w-12" />
+              <h3 className="mt-4 text-lg font-semibold">No Posts Generated Yet</h3>
+              <p className="mt-1 text-sm">Head over to the Blog Generator to create your first post.</p>
+              <Button asChild size="sm" className="mt-4">
+                <Link href="/dashboard/blog-generator">Go to Blog Generator</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div >
             <CardTitle>Connected WordPress Sites</CardTitle>
             <p className="text-sm text-muted-foreground pt-1">Manage your sites or add a new one.</p>
           </div>
-          <Button asChild>
-            <Link href="/dashboard/settings">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Site
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline">
+                <RefreshCw className="mr-2 h-4 w-4" /> Sync from WordPress
+            </Button>
+            <Button asChild>
+                <Link href="/dashboard/settings">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Site
+                </Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {sites.length > 0 ? (
