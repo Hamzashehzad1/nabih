@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ interface WpSite {
     id: string;
     url: string;
     user: string;
+    appPassword?: string;
 }
 
 export default function SettingsPage() {
@@ -56,16 +58,17 @@ export default function SettingsPage() {
         }
         setIsConnecting(true);
         setTimeout(() => {
-            const newSite = {
+            const newSite: WpSite = {
                 id: new Date().toISOString(),
                 url: newSiteUrl,
-                user: newSiteUser
+                user: newSiteUser,
+                appPassword: newSitePassword, // Storing password in local storage is not secure for production
             };
             setSites([...sites, newSite]);
             setIsConnecting(false);
             setNewSiteUrl('');
             setNewSiteUser('');
-            setNewSitePassword('');
+            setNewSitePassword(''); // Clear password field after adding
             toast({ title: 'Site Connected', description: `${newSite.url} has been connected.` });
         }, 1500);
     };
@@ -133,7 +136,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Connect WordPress Site</CardTitle>
-          <CardDescription>Add a new WordPress site to publish your content to.</CardDescription>
+          <CardDescription>Add a new WordPress site to publish your content to. Storing passwords here is insecure; this is for prototype purposes only.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
