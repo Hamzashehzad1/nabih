@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -22,12 +23,15 @@ import {
   RefreshCw,
   CheckCircle2,
   XCircle,
+  Save,
+  Send
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   generateAndSearch,
   fetchPostsFromWp,
+  updatePostOnWp,
   type WpPost,
   type ImageSearchResult,
 } from './actions';
@@ -86,6 +90,69 @@ interface PostDetails {
   generatedCount: number;
 }
 
+interface UpdateStatus {
+    isUpdating: boolean;
+    postId: string | null;
+    type: 'draft' | 'publish' | null;
+}
+
+function constructPostHtml(originalContent: string, postImages: ImageState): string {
+    const domParser = new window.DOMParser();
+    const doc = domParser.parseFromString(originalContent.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
+
+    // Remove existing images to avoid duplication if user is replacing them.
+    doc.querySelectorAll('img, figure').forEach(el => {
+        // Simple removal. A more robust solution might check if the image is one we're about to add.
+        // For this UX, we assume we're replacing all content-managed images.
+        if (el.closest('.wp-block-image')) {
+            el.closest('.wp-block-image')?.remove();
+        } else {
+            el.remove();
+        }
+    });
+
+    const body = doc.body;
+
+    // Add featured image
+    if (postImages.featured) {
+        const figure = doc.createElement('figure');
+        figure.className = "wp-block-image size-large";
+        const img = doc.createElement('img');
+        img.src = postImages.featured.url;
+        img.alt = postImages.featured.alt;
+        figure.appendChild(img);
+
+        const figcaption = doc.createElement('figcaption');
+        figcaption.innerHTML = `Photo by <a href="${postImages.featured.photographerUrl}" target="_blank" rel="noopener noreferrer">${postImages.featured.photographer}</a> on <a href="https://www.${postImages.featured.source.toLowerCase()}.com" target="_blank" rel="noopener noreferrer">${postImages.featured.source}</a>`;
+        figure.appendChild(figcaption);
+        
+        body.insertBefore(figure, body.firstChild);
+    }
+    
+    // Add section images
+    postImages.sections && Object.entries(postImages.sections).forEach(([heading, image]) => {
+        if (!image) return;
+        
+        const headingElement = Array.from(doc.querySelectorAll('h2, h3')).find(h => h.textContent?.trim() === heading);
+
+        if (headingElement) {
+            const figure = doc.createElement('figure');
+            figure.className = "wp-block-image size-large";
+            const img = doc.createElement('img');
+            img.src = image.url;
+            img.alt = image.alt;
+            figure.appendChild(img);
+
+            const figcaption = doc.createElement('figcaption');
+            figcaption.innerHTML = `Photo by <a href="${image.photographerUrl}" target="_blank" rel="noopener noreferrer">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank" rel="noopener noreferrer">${image.source}</a>`;
+            figure.appendChild(figcaption);
+            
+            headingElement.parentNode?.insertBefore(figure, headingElement.nextSibling);
+        }
+    });
+
+    return doc.body.innerHTML;
+}
 
 function parseContent(html: string): {
     firstParagraph: string;
@@ -124,6 +191,8 @@ function parseContent(html: string): {
       let img = null;
       if (el.tagName === 'IMG') {
           img = el;
+      } else if (el.tagName === 'FIGURE') {
+          img = el.querySelector('img');
       } else {
           img = el.querySelector('img');
       }
@@ -156,6 +225,8 @@ function parseContent(html: string): {
         let img = null;
         if (nextElement.tagName === 'IMG') {
             img = nextElement;
+        } else if (nextElement.tagName === 'FIGURE') {
+            img = nextElement.querySelector('img');
         } else {
             img = nextElement.querySelector('img');
         }
@@ -194,6 +265,7 @@ export default function ImageGeneratorPage() {
   const [searchDialogState, setSearchDialogState] = useState<SearchDialogState>({ open: false, type: null, postId: null });
   const [cropDialogState, setCropDialogState] = useState<CropDialogState>({ open: false, image: null, onCropComplete: null });
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ isUpdating: false, postId: null, type: null });
 
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
 
@@ -219,6 +291,7 @@ export default function ImageGeneratorPage() {
         setImages(prevImages => ({...prevImages, [post.id]: postImages}));
     }
 
+    const requiredImages = sections.length + 1;
     const generatedCount =
       (postImages.featured ? 1 : 0) +
       Object.values(postImages.sections).filter(Boolean).length;
@@ -226,7 +299,7 @@ export default function ImageGeneratorPage() {
     setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {
       firstParagraph,
       sections,
-      requiredImages: sections.length + 1,
+      requiredImages,
       generatedCount,
     }));
   }, [images, setImages]);
@@ -370,6 +443,37 @@ export default function ImageGeneratorPage() {
     [setImages, posts, processAndSetPostDetails]
   );
   
+  const handleUpdatePost = async (postId: string, status: 'publish' | 'draft') => {
+      const site = sites[0];
+      const post = posts.find(p => p.id === postId);
+      const postImages = images[postId];
+
+      if (!site || !post || !postImages || !site.appPassword) {
+          toast({ title: "Error", description: "Missing required information to update post.", variant: "destructive" });
+          return;
+      }
+
+      setUpdateStatus({ isUpdating: true, postId, type: status });
+
+      try {
+        const newContent = constructPostHtml(post.content, postImages);
+        const result = await updatePostOnWp(site.url, site.user, site.appPassword, postId, newContent, status);
+
+        if (result.success) {
+            toast({ title: "Success!", description: `Post has been successfully ${status === 'publish' ? 'published' : 'saved as a draft'}.` });
+             // Optionally refresh posts
+            handleFetchPosts(1, true);
+        } else {
+            toast({ title: "Update Failed", description: result.error, variant: "destructive" });
+        }
+      } catch (error) {
+          console.error("Failed to update post:", error);
+          toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+      } finally {
+          setUpdateStatus({ isUpdating: false, postId: null, type: null });
+      }
+  }
+
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
     if (filter === 'published') return posts.filter((p) => p.status === 'publish');
@@ -442,6 +546,7 @@ export default function ImageGeneratorPage() {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
+                const isReadyToPublish = details && details.generatedCount === details.requiredImages;
 
                 return (
                     <AccordionItem value={post.id} key={post.id}>
@@ -529,18 +634,15 @@ export default function ImageGeneratorPage() {
                                               <div className="flex items-center gap-2 self-end md:self-center">
                                               {image ? (
                                                 <div className="flex items-center gap-2">
-                                                    <div className="text-right">
-                                                        <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
-                                                        <p className="text-xs text-muted-foreground mt-1 italic whitespace-nowrap">
-                                                          Photo by {image.photographer}
-                                                        </p>
+                                                    <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
+                                                     <div className="flex flex-col gap-1">
+                                                        <Button variant="outline" size="icon" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
+                                                        {loadingStates[loadingKeySection] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Replace className="h-4 w-4" />}
+                                                        </Button>
+                                                        <Button variant="destructive" size="icon" onClick={() => deleteImage(post.id, 'section', heading)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                        </Button>
                                                     </div>
-                                                    <Button variant="outline" size="icon" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
-                                                      {loadingStates[loadingKeySection] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Replace className="h-4 w-4" />}
-                                                    </Button>
-                                                    <Button variant="destructive" size="icon" onClick={() => deleteImage(post.id, 'section', heading)}>
-                                                      <Trash2 className="h-4 w-4" />
-                                                    </Button>
                                                 </div>
                                               ) : (
                                                 <Button variant="secondary" size="sm" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
@@ -555,6 +657,23 @@ export default function ImageGeneratorPage() {
                                   </div>
                                   )}
                                </CardContent>
+                               <CardFooter className="flex justify-end gap-2 pt-4">
+                                    <Button 
+                                        variant="secondary" 
+                                        onClick={() => handleUpdatePost(post.id, 'draft')}
+                                        disabled={!isReadyToPublish || updateStatus.isUpdating}
+                                    >
+                                        {updateStatus.isUpdating && updateStatus.type === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                        Save Draft
+                                    </Button>
+                                    <Button 
+                                        onClick={() => handleUpdatePost(post.id, 'publish')}
+                                        disabled={!isReadyToPublish || updateStatus.isUpdating}
+                                    >
+                                        {updateStatus.isUpdating && updateStatus.type === 'publish' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                        Publish
+                                    </Button>
+                               </CardFooter>
                              </Card>
                            )}
                         </AccordionContent>

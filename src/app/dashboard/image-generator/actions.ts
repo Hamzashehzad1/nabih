@@ -113,3 +113,43 @@ export async function fetchPostsFromWp(
         return { success: false, error: 'An unknown error occurred while fetching posts.' };
     }
 }
+
+
+export async function updatePostOnWp(
+  siteUrl: string,
+  username: string,
+  appPassword: string,
+  postId: string,
+  newContent: string,
+  status: 'publish' | 'draft'
+): Promise<{ success: true } | { success: false; error: string }> {
+  const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts/${postId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: newContent,
+        status: status,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, error: errorData.message || `HTTP error! status: ${response.status}` };
+    }
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error updating WP post:', error);
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unknown error occurred while updating the post.' };
+  }
+}
