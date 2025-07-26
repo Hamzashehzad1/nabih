@@ -32,6 +32,7 @@ import {
   generateAndSearch,
   fetchPostsFromWp,
   updatePostOnWp,
+  uploadImageToWp,
   type WpPost,
   type ImageSearchResult,
 } from './actions';
@@ -191,11 +192,10 @@ function parseContent(html: string): {
       let img = null;
       if (el.tagName === 'IMG') {
           img = el;
-      } else if (el.tagName === 'FIGURE') {
-          img = el.querySelector('img');
-      } else {
+      } else if (el.tagName === 'FIGURE' || el.tagName === 'P') {
           img = el.querySelector('img');
       }
+      
       if (img) {
           featuredUrl = (img as HTMLImageElement).src;
           break; 
@@ -203,7 +203,7 @@ function parseContent(html: string): {
   }
   
   doc.querySelectorAll('h2, h3').forEach((header) => {
-    const headingText = header.textContent || '';
+    const headingText = header.textContent?.trim() || '';
     if (!headingText) return;
 
     let nextElement = header.nextElementSibling;
@@ -212,9 +212,12 @@ function parseContent(html: string): {
     
     // Find the next paragraph before any image or next heading.
     let currentElementForP = header.nextElementSibling;
-    while(currentElementForP && !['H2', 'H3', 'FIGURE'].includes(currentElementForP.tagName) && currentElementForP.querySelector('img') === null) {
+    while(currentElementForP && !['H2', 'H3'].includes(currentElementForP.tagName)) {
         if (currentElementForP.tagName === 'P' && !paragraphText) {
             paragraphText = currentElementForP.textContent || '';
+        }
+        if (currentElementForP.querySelector('img')) {
+            break; // Stop if we hit an image container
         }
         currentElementForP = currentElementForP.nextElementSibling;
     }
@@ -225,9 +228,7 @@ function parseContent(html: string): {
         let img = null;
         if (nextElement.tagName === 'IMG') {
             img = nextElement;
-        } else if (nextElement.tagName === 'FIGURE') {
-            img = nextElement.querySelector('img');
-        } else {
+        } else if (nextElement.tagName === 'FIGURE' || nextElement.tagName === 'P') {
             img = nextElement.querySelector('img');
         }
 
@@ -446,7 +447,7 @@ export default function ImageGeneratorPage() {
   const handleUpdatePost = async (postId: string, status: 'publish' | 'draft') => {
       const site = sites[0];
       const post = posts.find(p => p.id === postId);
-      const postImages = images[postId];
+      let postImages = images[postId];
 
       if (!site || !post || !postImages || !site.appPassword) {
           toast({ title: "Error", description: "Missing required information to update post.", variant: "destructive" });
@@ -454,9 +455,57 @@ export default function ImageGeneratorPage() {
       }
 
       setUpdateStatus({ isUpdating: true, postId, type: status });
+      toast({ title: 'Updating Post...', description: 'Uploading images to WordPress and saving content. This may take a moment.' });
 
       try {
-        const newContent = constructPostHtml(post.content, postImages);
+        const uploadedImages: ImageState = JSON.parse(JSON.stringify(postImages));
+        let uploadsFailed = false;
+
+        const uploadPromises: Promise<void>[] = [];
+        
+        const processImage = async (imageKey: 'featured' | string) => {
+            const image = imageKey === 'featured' ? postImages.featured : postImages.sections[imageKey];
+            if (image && image.url.startsWith('data:image')) {
+                const fileName = `${post.title.replace(/\s+/g, '-').toLowerCase()}-${imageKey}`;
+                const caption = `Photo by <a href="${image.photographerUrl}" target="_blank">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank">${image.source}</a>`;
+                
+                const uploadResult = await uploadImageToWp(site.url, site.user, site.appPassword!, {
+                    base64Data: image.url,
+                    fileName: fileName,
+                    altText: image.alt,
+                    caption: caption,
+                });
+
+                if (uploadResult.success) {
+                    if (imageKey === 'featured') {
+                        uploadedImages.featured!.url = uploadResult.data.source_url;
+                    } else {
+                        uploadedImages.sections[imageKey]!.url = uploadResult.data.source_url;
+                    }
+                } else {
+                    uploadsFailed = true;
+                    toast({ title: 'Image Upload Failed', description: `Could not upload image for ${imageKey}. Reason: ${uploadResult.error}`, variant: 'destructive' });
+                }
+            }
+        };
+
+        if (postImages.featured && postImages.featured.url.startsWith('data:image')) {
+            uploadPromises.push(processImage('featured'));
+        }
+        for (const heading in postImages.sections) {
+            if (postImages.sections[heading] && postImages.sections[heading]!.url.startsWith('data:image')) {
+                uploadPromises.push(processImage(heading));
+            }
+        }
+        
+        await Promise.all(uploadPromises);
+
+        if (uploadsFailed) {
+             setUpdateStatus({ isUpdating: false, postId: null, type: null });
+             return;
+        }
+
+        const newContent = constructPostHtml(post.content, uploadedImages);
         const result = await updatePostOnWp(site.url, site.user, site.appPassword, postId, newContent, status);
 
         if (result.success) {
@@ -477,8 +526,7 @@ export default function ImageGeneratorPage() {
   const filteredPosts = useMemo(() => {
     if (filter === 'all') return posts;
     if (filter === 'published') return posts.filter((p) => p.status === 'publish');
-    if (filter === 'draft') return posts.filter((p) => p.status === 'draft' || p.status === 'pending');
-    if (filter === 'pending') return posts.filter((p) => p.status === 'pending');
+    if (filter === 'draft' || filter === 'pending') return posts.filter((p) => p.status === 'draft' || p.status === 'pending');
     return posts;
   }, [posts, filter]);
 

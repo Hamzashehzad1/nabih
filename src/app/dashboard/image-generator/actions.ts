@@ -4,6 +4,7 @@
 import { generateImagePrompt, GenerateImagePromptInput } from '@/ai/flows/generate-image-prompt';
 import { searchImages, SearchImagesOutput } from '@/ai/flows/search-images';
 import { z } from 'zod';
+import { Readable } from 'stream';
 
 // Define the schema for a single WordPress post
 const PostSchema = z.object({
@@ -112,6 +113,70 @@ export async function fetchPostsFromWp(
         }
         return { success: false, error: 'An unknown error occurred while fetching posts.' };
     }
+}
+
+export async function uploadImageToWp(
+  siteUrl: string,
+  username: string,
+  appPassword: string,
+  {
+    base64Data,
+    fileName,
+    altText,
+    caption,
+  }: {
+    base64Data: string;
+    fileName: string;
+    altText: string;
+    caption: string;
+  }
+): Promise<{ success: true; data: { source_url: string } } | { success: false; error: string }> {
+  const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
+
+  try {
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64Data.split(',')[1], 'base64');
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
+        'Content-Type': 'image/jpeg',
+        'Content-Disposition': `attachment; filename="${fileName}.jpg"`,
+      },
+      body: buffer,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, error: errorData.message || `HTTP error! status: ${response.status}` };
+    }
+
+    const mediaData = await response.json();
+
+    // Now, update the media item with alt text, title, and caption
+    const updateUrl = `${url}/${mediaData.id}`;
+    await fetch(updateUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        alt_text: altText,
+        caption: { raw: caption },
+        title: altText, // Often good to set title as well
+      }),
+    });
+
+    return { success: true, data: { source_url: mediaData.source_url } };
+  } catch (error) {
+    console.error('Error uploading to WP:', error);
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unknown error occurred while uploading the image.' };
+  }
 }
 
 
