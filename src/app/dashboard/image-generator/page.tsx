@@ -39,7 +39,7 @@ import {
 import { searchImages } from '@/ai/flows/search-images';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -155,7 +155,7 @@ function constructPostHtml(originalContent: string, postImages: ImageState): str
     return doc.body.innerHTML;
 }
 
-function parseContent(html: string): {
+function parseContent(post: WpPost): {
     firstParagraph: string;
     sections: Section[];
     initialImages: {
@@ -168,7 +168,7 @@ function parseContent(html: string): {
   }
   const domParser = new window.DOMParser();
   const doc = domParser.parseFromString(
-    html.replace(/<br\s*\/?>/gi, '\n'),
+    post.content.replace(/<br\s*\/?>/gi, '\n'),
     'text/html'
   );
 
@@ -180,27 +180,6 @@ function parseContent(html: string): {
 
   const sections: Section[] = [];
   const sectionImageUrls: { [key: string]: string } = {};
-  let featuredUrl: string | null = null;
-
-  const allElements = Array.from(doc.body.children);
-  const firstHeadingIndex = allElements.findIndex(el => ['H2', 'H3'].includes(el.tagName));
-  
-  const contentBeforeHeadings = firstHeadingIndex === -1 ? allElements : allElements.slice(0, firstHeadingIndex);
-  
-  // Find an image that's either a direct child or wrapped in a figure/p tag.
-  for (const el of contentBeforeHeadings) {
-      let img = null;
-      if (el.tagName === 'IMG') {
-          img = el;
-      } else if (el.tagName === 'FIGURE' || el.tagName === 'P') {
-          img = el.querySelector('img');
-      }
-      
-      if (img) {
-          featuredUrl = (img as HTMLImageElement).src;
-          break; 
-      }
-  }
   
   doc.querySelectorAll('h2, h3').forEach((header) => {
     const headingText = header.textContent?.trim() || '';
@@ -228,7 +207,7 @@ function parseContent(html: string): {
         let img = null;
         if (nextElement.tagName === 'IMG') {
             img = nextElement;
-        } else if (nextElement.tagName === 'FIGURE' || nextElement.tagName === 'P') {
+        } else if (['FIGURE', 'P'].includes(nextElement.tagName)) {
             img = nextElement.querySelector('img');
         }
 
@@ -250,7 +229,7 @@ function parseContent(html: string): {
     }
   });
 
-  return { firstParagraph, sections, initialImages: { featuredUrl, sectionImageUrls } };
+  return { firstParagraph, sections, initialImages: { featuredUrl: post.featuredImageUrl || null, sectionImageUrls } };
 }
 
 export default function ImageGeneratorPage() {
@@ -271,7 +250,7 @@ export default function ImageGeneratorPage() {
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
 
   const processAndSetPostDetails = useCallback((post: WpPost) => {
-    const { firstParagraph, sections, initialImages } = parseContent(post.content);
+    const { firstParagraph, sections, initialImages } = parseContent(post);
 
     const existingPostImages = images[post.id] || { featured: null, sections: {} };
     let postImages: ImageState = JSON.parse(JSON.stringify(existingPostImages)); 
@@ -786,7 +765,7 @@ export default function ImageGeneratorPage() {
               <TabsList className="grid w-full grid-cols-4 mb-4">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="published">Published</TabsTrigger>
-                <TabsTrigger value="draft">Drafts</TabsTrigger>
+                <TabsTrigger value="draft">Draft</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
               </TabsList>
             </Tabs>

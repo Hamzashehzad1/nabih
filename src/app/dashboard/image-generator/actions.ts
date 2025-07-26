@@ -18,6 +18,11 @@ const PostSchema = z.object({
   }),
   status: z.enum(['publish', 'draft', 'pending', 'private', 'future']),
   link: z.string(),
+  _embedded: z.optional(z.object({
+    'wp:featuredmedia': z.optional(z.array(z.object({
+      source_url: z.string(),
+    }))),
+  })),
 });
 
 // Define the schema for an array of posts
@@ -30,6 +35,7 @@ export interface WpPost {
     date: string;
     status: 'publish' | 'draft' | 'pending' | 'private' | 'future';
     siteUrl: string;
+    featuredImageUrl?: string;
 }
 
 export type ImageSearchResult = SearchImagesOutput['images'][0];
@@ -56,7 +62,8 @@ export async function fetchPostsFromWp(
     const statuses = ['publish', 'draft', 'pending'];
     const url = new URL(`${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`);
     url.searchParams.append('context', 'edit');
-    url.searchParams.append('_fields', 'id,date,title,content,status,link');
+    url.searchParams.append('_embed', 'wp:featuredmedia');
+    url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
     url.searchParams.append('per_page', '10'); // Fetch 10 posts per page
     url.searchParams.append('page', page.toString());
     statuses.forEach(status => url.searchParams.append('status[]', status));
@@ -102,6 +109,7 @@ export async function fetchPostsFromWp(
             date: new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
             status: post.status,
             siteUrl: post.link,
+            featuredImageUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url
         }));
         
         return { success: true, data: formattedPosts };
