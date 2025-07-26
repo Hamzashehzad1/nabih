@@ -1,3 +1,4 @@
+
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
