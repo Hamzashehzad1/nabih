@@ -76,12 +76,13 @@ interface PostDetails {
   sections: Section[];
   requiredImages: number;
   generatedCount: number;
+  existingImageCount: number;
 }
 
 
-function parseContent(html: string): { firstParagraph: string; sections: Section[] } {
+function parseContent(html: string): { firstParagraph: string; sections: Section[], imageCount: number } {
   if (typeof window === 'undefined') {
-    return { firstParagraph: '', sections: [] };
+    return { firstParagraph: '', sections: [], imageCount: 0 };
   }
   const domParser = new window.DOMParser();
   const doc = domParser.parseFromString(
@@ -116,7 +117,9 @@ function parseContent(html: string): { firstParagraph: string; sections: Section
     }
   });
 
-  return { firstParagraph, sections };
+  const imageCount = doc.getElementsByTagName('img').length;
+
+  return { firstParagraph, sections, imageCount };
 }
 
 export default function ImageGeneratorPage() {
@@ -135,16 +138,22 @@ export default function ImageGeneratorPage() {
   const postDetailsMap = useMemo(() => {
     const map = new Map<string, PostDetails>();
     posts.forEach((post) => {
-      const { firstParagraph, sections } = parseContent(post.content);
+      const { firstParagraph, sections, imageCount } = parseContent(post.content);
       const postImages = images[post.id] || { featured: null, sections: {} };
-      const generatedCount =
+      const uiGeneratedCount =
         Object.values(postImages.sections).filter(Boolean).length +
         (postImages.featured ? 1 : 0);
+      
+      const requiredImages = sections.length + 1;
+      // We consider the greater of the two, so we don't double count.
+      const generatedCount = Math.max(uiGeneratedCount, imageCount);
+
       map.set(post.id, {
         firstParagraph,
         sections,
-        requiredImages: sections.length + 1,
+        requiredImages: requiredImages,
         generatedCount,
+        existingImageCount: imageCount,
       });
     });
     return map;
