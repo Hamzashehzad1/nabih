@@ -107,14 +107,13 @@ function parseContent(html: string): {
   const sectionImageUrls: { [key: string]: string } = {};
   let featuredUrl: string | null = null;
 
-  // Try to find a featured image (first image before any h2/h3)
   const allElements = Array.from(doc.body.children);
   const firstHeadingIndex = allElements.findIndex(el => el.tagName === 'H2' || el.tagName === 'H3');
   
   const contentBeforeHeadings = firstHeadingIndex === -1 ? allElements : allElements.slice(0, firstHeadingIndex);
-  const firstImageElement = contentBeforeHeadings.find(el => el.tagName === 'IMG') as HTMLImageElement | undefined;
-  if (firstImageElement) {
-      featuredUrl = firstImageElement.src;
+  const firstImageContainer = contentBeforeHeadings.find(el => el.querySelector('img'));
+  if (firstImageContainer) {
+      featuredUrl = (firstImageContainer.querySelector('img') as HTMLImageElement).src;
   }
   
   doc.querySelectorAll('h2, h3').forEach((header) => {
@@ -124,26 +123,36 @@ function parseContent(html: string): {
     let nextElement = header.nextElementSibling;
     let paragraphText = '';
     let imageSrc: string | null = null;
+    let foundImage = false;
 
     // Find the next paragraph and image before the next heading
-    while (nextElement && nextElement.tagName !== 'H2' && nextElement.tagName !== 'H3') {
+    while (nextElement && nextElement.tagName !== 'H2' && nextElement.tagName !== 'H3' && !foundImage) {
         if (!paragraphText && nextElement.tagName === 'P') {
             paragraphText = nextElement.textContent || '';
         }
-        if (!imageSrc && nextElement.tagName === 'IMG') {
+        
+        // Look for an image directly or inside a figure tag
+        if (nextElement.tagName === 'IMG') {
             imageSrc = (nextElement as HTMLImageElement).src;
+            foundImage = true;
+        } else {
+            const img = nextElement.querySelector('img');
+            if (img) {
+                imageSrc = img.src;
+                foundImage = true;
+            }
         }
+        
         nextElement = nextElement.nextElementSibling;
     }
     
-    if (headingText) {
-        sections.push({
-            heading: headingText,
-            paragraph: paragraphText.trim(),
-        });
-        if (imageSrc) {
-            sectionImageUrls[headingText] = imageSrc;
-        }
+    sections.push({
+        heading: headingText,
+        paragraph: paragraphText.trim(),
+    });
+
+    if (imageSrc) {
+        sectionImageUrls[headingText] = imageSrc;
     }
   });
 
@@ -168,9 +177,8 @@ export default function ImageGeneratorPage() {
   const processAndSetPostDetails = useCallback((post: WpPost) => {
     const { firstParagraph, sections, initialImages } = parseContent(post.content);
 
-    // Initialize images from content if not already set in our state
     const existingPostImages = images[post.id] || { featured: null, sections: {} };
-    let postImages = JSON.parse(JSON.stringify(existingPostImages)); // Deep copy
+    let postImages = JSON.parse(JSON.stringify(existingPostImages)); 
     let imagesUpdated = false;
 
     if (!postImages.featured && initialImages.featuredUrl) {
@@ -242,7 +250,6 @@ export default function ImageGeneratorPage() {
     if (sites.length > 0) {
       handleFetchPosts(1, true);
     }
-    // We only want to run this on initial load or when sites change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sites]);
 
@@ -299,7 +306,10 @@ export default function ImageGeneratorPage() {
     });
 
     const post = posts.find(p => p.id === postId);
-    if (post) processAndSetPostDetails(post);
+    if (post) {
+      // We must pass a new function to processAndSetPostDetails to trigger a re-render of details
+      setTimeout(() => processAndSetPostDetails(post), 0);
+    }
 
     toast({ title: 'Image Added!', description: `Image from ${image.source} by ${image.photographer}` });
     setDialogState({ open: false, type: null, postId: null });
@@ -322,7 +332,9 @@ export default function ImageGeneratorPage() {
         return { ...prev, [postId]: newImages };
       });
       const post = posts.find(p => p.id === postId);
-      if (post) processAndSetPostDetails(post);
+      if (post) {
+         setTimeout(() => processAndSetPostDetails(post), 0);
+      }
     },
     [setImages, posts, processAndSetPostDetails]
   );
@@ -399,7 +411,6 @@ export default function ImageGeneratorPage() {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
-                const hasFeaturedImage = !!postImages.featured;
 
                 return (
                     <AccordionItem value={post.id} key={post.id}>
@@ -436,7 +447,7 @@ export default function ImageGeneratorPage() {
                                   {/* Featured Image Section */}
                                   <div className="p-4 border rounded-lg bg-background">
                                   <div className="flex items-center gap-2 mb-2">
-                                      {hasFeaturedImage ? (
+                                      {postImages.featured ? (
                                           <CheckCircle2 className="h-5 w-5 text-green-500" />
                                       ) : (
                                           <XCircle className="h-5 w-5 text-destructive" />
