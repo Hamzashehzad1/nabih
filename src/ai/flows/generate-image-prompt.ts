@@ -11,14 +11,14 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateImagePromptInputSchema = z.object({
+const GenerateImagePromptInputSchema = z.object({
   title: z.string().describe('The title or heading of the blog post section.'),
   paragraph: z.string().describe('A paragraph from the blog post.'),
   type: z.enum(['featured', 'section']),
 });
 export type GenerateImagePromptInput = z.infer<typeof GenerateImagePromptInputSchema>;
 
-export const GenerateImagePromptOutputSchema = z.object({
+const GenerateImagePromptOutputSchema = z.object({
   query: z.string().describe('The generated image search query.'),
 });
 export type GenerateImagePromptOutput = z.infer<typeof GenerateImagePromptOutputSchema>;
