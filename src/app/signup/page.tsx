@@ -47,11 +47,7 @@ export default function SignupPage() {
     const auth = getAuth(app);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { displayName: name });
-      }
-      // Re-fetch user to ensure profile is updated
-      await userCredential.user.reload();
+      await updateProfile(userCredential.user, { displayName: name });
       router.push('/dashboard');
     } catch (error: any) {
       toast({
