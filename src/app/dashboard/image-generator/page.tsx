@@ -1,4 +1,3 @@
-
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -10,7 +9,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -20,8 +18,6 @@ import {
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import {
-  ListFilter,
-  Search,
   PlusCircle,
   ImageIcon,
   Loader2,
@@ -30,7 +26,7 @@ import {
   FileText,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   getFeaturedImageQuery,
   getSectionImageQuery,
@@ -61,23 +57,25 @@ function parseContent(html: string): {
   sections: Section[];
   requiredImages: number;
 } {
-  const domParser =
-    typeof window !== 'undefined' ? new window.DOMParser() : null;
-  if (!domParser)
+  if (typeof window === 'undefined') {
     return { firstParagraph: '', sections: [], requiredImages: 1 };
-  const doc = domParser.parseFromString(html, 'text/html');
+  }
+  const domParser = new window.DOMParser();
+  const doc = domParser.parseFromString(html.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
   const firstParagraph = doc.querySelector('p')?.textContent || '';
   const sections: Section[] = [];
   doc.querySelectorAll('h2, h3').forEach((header) => {
-    const paragraph = header.nextElementSibling;
-    if (
-      header.textContent &&
-      paragraph &&
-      paragraph.tagName.toLowerCase() === 'p'
-    ) {
+    let nextElement = header.nextElementSibling;
+    let paragraphText = '';
+    while (nextElement && nextElement.tagName.toLowerCase() === 'p') {
+      paragraphText += (nextElement.textContent || '') + ' ';
+      nextElement = nextElement.nextElementSibling;
+    }
+
+    if (header.textContent && paragraphText.trim()) {
       sections.push({
         heading: header.textContent,
-        paragraph: paragraph.textContent || '',
+        paragraph: paragraphText.trim(),
       });
     }
   });
@@ -167,6 +165,11 @@ export default function ImageGeneratorPage() {
       });
     }
   };
+
+  const renderedContent = useMemo(() => {
+    if (!selectedPost) return null;
+    return <div dangerouslySetInnerHTML={{ __html: selectedPost.content.replace(/\n/g, '<br />') }} />;
+  }, [selectedPost]);
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -286,8 +289,9 @@ export default function ImageGeneratorPage() {
 
                 <div
                   className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none p-4 border rounded-md"
-                  dangerouslySetInnerHTML={{ __html: selectedPost.content }}
-                />
+                >
+                  {renderedContent}
+                </div>
 
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Section Images</h3>

@@ -97,7 +97,7 @@ export default function BlogGeneratorPage() {
     const newPost: BlogPost = {
         id: new Date().toISOString(),
         title: generatedTitle,
-        content: generatedPost.replace(/\n/g, '<br />'),
+        content: generatedPost,
         date: new Date().toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
