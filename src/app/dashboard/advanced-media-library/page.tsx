@@ -112,11 +112,55 @@ export default function AdvancedMediaLibraryPage() {
         itemsToBackup: [],
         progress: {},
         overallProgress: 0,
-        isBackingUp: false
+        isBackingUp: false,
     });
 
     const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
+    const authPopup = useRef<Window | null>(null);
 
+    useEffect(() => {
+        const handleAuthMessage = (event: MessageEvent) => {
+            if (event.origin !== window.location.origin || !event.data.type?.startsWith('cloud-auth-')) {
+                return;
+            }
+
+            const service = event.data.type.split('-')[2] as keyof CloudConnections;
+            if (event.data.status === 'success' && (service === 'gdrive' || service === 'dropbox')) {
+                setCloudConnections(prev => ({...prev, [service]: true }));
+                toast({
+                    title: "Connection Successful",
+                    description: `Successfully connected to ${service === 'gdrive' ? 'Google Drive' : 'Dropbox'}.`
+                });
+            } else {
+                 toast({
+                    title: "Connection Failed",
+                    description: `Could not connect to ${service === 'gdrive' ? 'Google Drive' : 'Dropbox'}.`,
+                    variant: "destructive"
+                });
+            }
+
+            if (authPopup.current) {
+                authPopup.current.close();
+                authPopup.current = null;
+            }
+        };
+
+        window.addEventListener('message', handleAuthMessage);
+        return () => window.removeEventListener('message', handleAuthMessage);
+    }, [setCloudConnections, toast]);
+
+    const handleConnect = (service: 'gdrive' | 'dropbox') => {
+        const url = `/dashboard/advanced-media-library/connect?service=${service}`;
+        const width = 600;
+        const height = 700;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+        authPopup.current = window.open(
+            url, 
+            "CloudAuth", 
+            `width=${width},height=${height},top=${top},left=${left}`
+        );
+    };
 
     useEffect(() => {
         if (sites.length === 1 && !selectedSiteId) {
@@ -665,7 +709,7 @@ export default function AdvancedMediaLibraryPage() {
                                     {cloudConnections.gdrive ? (
                                         <Badge variant="secondary">Connected</Badge>
                                     ) : (
-                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); setCloudConnections(c => ({...c, gdrive: true})) }}>Connect</Button>
+                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); handleConnect('gdrive'); }}>Connect</Button>
                                     )}
                                 </Label>
                                 <Label htmlFor="dropbox" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
@@ -677,7 +721,7 @@ export default function AdvancedMediaLibraryPage() {
                                      {cloudConnections.dropbox ? (
                                         <Badge variant="secondary">Connected</Badge>
                                     ) : (
-                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); setCloudConnections(c => ({...c, dropbox: true})) }}>Connect</Button>
+                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); handleConnect('dropbox'); }}>Connect</Button>
                                     )}
                                 </Label>
                                  <Label htmlFor="zip" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
