@@ -40,10 +40,10 @@ async function fetchImageAsBase64(imageUrl: string): Promise<string> {
     return base64;
 }
 
-async function generatePreview(
+async function generateServerPreview(
     base64: string,
-    format: ImageFormat,
-    quality: number,
+    format: 'png',
+    quality: number
 ): Promise<{ base64: string; size: number }> {
     const response = await fetch('/api/optimize-image', {
         method: 'POST',
@@ -54,10 +54,50 @@ async function generatePreview(
     });
 
     if (!response.ok) {
-        throw new Error('Failed to optimize image');
+        throw new Error('Failed to optimize image on server');
     }
 
     return await response.json();
+}
+
+async function generateClientPreview(
+    base64: string,
+    format: 'jpeg' | 'webp',
+    quality: number,
+): Promise<{ base64: string, size: number }> {
+    const image = new window.Image();
+    image.src = base64;
+    await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get canvas context');
+
+    ctx.drawImage(image, 0, 0);
+    
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            (blob) => {
+                if (!blob) {
+                    return reject(new Error('Canvas toBlob failed'));
+                }
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const newBase64 = reader.result as string;
+                    resolve({ base64: newBase64, size: blob.size });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            },
+            `image/${format}`,
+            quality / 100
+        );
+    });
 }
 
 
@@ -89,7 +129,12 @@ export function ImageOptimizeDialog({
     if (!originalImageBase64 || !image) return;
     setIsLoading(true);
     try {
-        const result = await generatePreview(originalImageBase64, format, quality);
+        let result;
+        if (format === 'png') {
+             result = await generateServerPreview(originalImageBase64, format, quality);
+        } else {
+             result = await generateClientPreview(originalImageBase64, format, quality);
+        }
         setPreview(result);
     } catch(err) {
         console.error(err);
@@ -116,12 +161,11 @@ export function ImageOptimizeDialog({
     }
   }, [open, image, toast]);
   
-  // Re-generate preview when quality or format changes, or when the original image is loaded
   useEffect(() => {
     if (open && image && originalImageBase64) {
         const handler = setTimeout(() => {
             handleGeneratePreview();
-        }, 500); // Debounce to avoid excessive re-renders
+        }, 500); 
         return () => clearTimeout(handler);
     }
   }, [quality, format, open, image, originalImageBase64, handleGeneratePreview]);
@@ -137,11 +181,11 @@ export function ImageOptimizeDialog({
   const originalSize = useMemo(() => image ? image.filesize : 0, [image]);
   const sizeReduction = useMemo(() => {
       if (!originalSize || !preview?.size) return 0;
-      if (originalSize === 0) return 0; // Avoid division by zero
+      if (originalSize === 0) return 0; 
       return ((originalSize - preview.size) / originalSize) * 100;
   }, [originalSize, preview]);
 
-  const isSaveDisabled = !preview || isLoading || (format === 'png' && preview.size >= originalSize);
+  const isSaveDisabled = !preview || isLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,9 +198,7 @@ export function ImageOptimizeDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow min-h-0">
-          {/* Previews */}
           <div className="md:col-span-2 grid grid-cols-2 gap-4 min-h-0">
-            {/* Original */}
             <div className="flex flex-col gap-2">
                 <h3 className="font-semibold text-center">Original ({formatBytes(originalSize)})</h3>
                 <div className="flex-grow bg-muted/50 rounded-md overflow-hidden relative">
@@ -180,7 +222,6 @@ export function ImageOptimizeDialog({
                     )}
                 </div>
             </div>
-            {/* Compressed */}
             <div className="flex flex-col gap-2">
                 <h3 className="font-semibold text-center">
                     Preview ({preview ? formatBytes(preview.size) : '...'})
@@ -207,7 +248,6 @@ export function ImageOptimizeDialog({
             </div>
           </div>
           
-          {/* Controls */}
           <div className="md:col-span-1 flex flex-col gap-6">
             <Card>
                 <CardHeader><CardTitle>Optimization Controls</CardTitle></CardHeader>
@@ -238,7 +278,7 @@ export function ImageOptimizeDialog({
                             step={1}
                         />
                          {quality < 80 && (
-                            <Alert variant="warning" className="p-2 text-xs">
+                            <Alert variant="warning" className="p-2 text-xs h-auto">
                                 <div className="flex items-center">
                                     <AlertTriangle className="h-4 w-4" />
                                     <AlertDescription className="ml-2">

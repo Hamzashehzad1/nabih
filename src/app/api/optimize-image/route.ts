@@ -9,13 +9,6 @@ const OptimizeRequestSchema = z.object({
   quality: z.number().min(0).max(100),
 });
 
-function getBase64Size(base64: string): number {
-    if (!base64) return 0;
-    const stringLength = base64.length - (base64.indexOf(',') + 1);
-    const sizeInBytes = (stringLength * 3) / 4;
-    return sizeInBytes;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -32,12 +25,14 @@ export async function POST(request: NextRequest) {
     let optimizedBuffer: Buffer;
     const sharpInstance = sharp(imageBuffer);
 
+    // This endpoint is now primarily for PNG, but can handle others if called.
     switch (format) {
       case 'jpeg':
         optimizedBuffer = await sharpInstance.jpeg({ quality }).toBuffer();
         break;
       case 'png':
-        optimizedBuffer = await sharpInstance.png({ quality }).toBuffer();
+         // Use pngquant for high-quality PNG compression
+        optimizedBuffer = await sharpInstance.png({ quality, compressionLevel: 8, palette: true }).toBuffer();
         break;
       case 'webp':
         optimizedBuffer = await sharpInstance.webp({ quality }).toBuffer();
