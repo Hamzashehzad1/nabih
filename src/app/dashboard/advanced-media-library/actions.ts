@@ -63,73 +63,51 @@ function stripHtml(html: string): string {
 export async function fetchWpMedia(
     siteUrl: string,
     username: string,
-    appPassword: string
-): Promise<{ success: true; data: WpMediaItem[] } | { success: false; error: string }> {
+    appPassword: string,
+    page: number = 1,
+    perPage: number = 50
+): Promise<{ success: true; data: WpMediaItem[], totalPages: number } | { success: false; error: string }> {
   
   const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
-  const allMediaData: z.infer<typeof MediaItemSchema>[] = [];
-  const perPage = 100; // Max per_page for WP REST API by default
+  const url = new URL(baseUrl);
+  url.searchParams.append('context', 'edit');
+  url.searchParams.append('per_page', perPage.toString());
+  url.searchParams.append('page', page.toString());
+
 
   try {
-    // First, make a HEAD request or a request for a single item to get total pages
-    const initialUrl = new URL(baseUrl);
-    initialUrl.searchParams.append('per_page', '1');
-    const initialResponse = await fetch(initialUrl.toString(), {
-        method: 'HEAD',
+    const response = await fetch(url.toString(), {
+        method: 'GET',
         headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
         cache: 'no-store',
     });
-
-    if (!initialResponse.ok) {
-        let errorDetails = `HTTP error! status: ${initialResponse.status}`;
+    
+    if (!response.ok) {
+        let errorDetails = `HTTP error! status: ${response.status}`;
         try {
-            const errorData = await initialResponse.json();
+            const errorData = await response.json();
             errorDetails += ` - ${errorData.message || 'Unknown error'}`;
         } catch (e) {}
         return { success: false, error: errorDetails };
     }
 
-    const totalPagesHeader = initialResponse.headers.get('x-wp-totalpages');
+    const totalPagesHeader = response.headers.get('x-wp-totalpages');
     const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
-
-    // Now, fetch all pages in parallel for better performance
-    const pagePromises = [];
-    for (let page = 1; page <= totalPages; page++) {
-        const url = new URL(baseUrl);
-        url.searchParams.append('context', 'edit');
-        url.searchParams.append('per_page', perPage.toString());
-        url.searchParams.append('page', page.toString());
-
-        pagePromises.push(
-            fetch(url.toString(), {
-                headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
-                cache: 'no-store',
-            }).then(res => {
-                if (!res.ok) {
-                    // We can still try to get a message, but we won't fail the whole batch for one page failure
-                    console.error(`Failed to fetch page ${page}: ${res.statusText}`);
-                    return []; 
-                }
-                return res.json();
-            })
-        );
-    }
     
-    const allPagesData = await Promise.all(pagePromises);
-    allPagesData.forEach(pageData => {
-        if (Array.isArray(pageData)) {
-            allMediaData.push(...pageData);
-        }
-    });
+    const pageData = await response.json();
 
-    const parsedData = MediaItemsSchema.safeParse(allMediaData);
+    if (!Array.isArray(pageData)) {
+      return { success: false, error: "Invalid data format from WordPress API." };
+    }
+
+    const parsedData = MediaItemsSchema.safeParse(pageData);
      if (!parsedData.success) {
         console.error('WP Media Parse Error:', parsedData.error);
         return { success: false, error: 'Failed to parse media from WordPress.' };
     }
 
-    const allMedia: WpMediaItem[] = parsedData.data.map(item => ({
+    const mediaForPage: WpMediaItem[] = parsedData.data.map(item => ({
         id: item.id,
         date: item.date_gmt,
         filename: item.media_details.file,
@@ -143,7 +121,7 @@ export async function fetchWpMedia(
         description: stripHtml(item.description.rendered),
     }));
     
-    return { success: true, data: allMedia };
+    return { success: true, data: mediaForPage, totalPages };
 
   } catch (error) {
     console.error('Error fetching media from WP:', error);

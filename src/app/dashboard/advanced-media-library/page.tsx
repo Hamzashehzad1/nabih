@@ -2,18 +2,19 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useInView } from 'react-intersection-observer';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { ImageOptimizeDialog } from '@/components/image-optimize-dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface WpSite {
   id: string;
@@ -30,11 +32,7 @@ interface WpSite {
   appPassword?: string;
 }
 
-type SortOrder = 'desc' | 'asc';
-
-interface SortState {
-    order: SortOrder;
-}
+type SortOrder = 'desc' | 'asc' | null;
 
 interface EditableMediaDetails {
     alt: string;
@@ -46,6 +44,8 @@ interface OptimizeDialogState {
     open: boolean;
     image: WpMediaItem | null;
 }
+
+const PAGE_SIZE = 50;
 
 function formatBytes(bytes: number, decimals = 2) {
     if (!bytes || bytes === 0) return '0 Bytes';
@@ -62,17 +62,29 @@ export default function AdvancedMediaLibraryPage() {
     const isMobile = useIsMobile();
     const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
     const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+    
+    // State for displayed media
     const [mediaItems, setMediaItems] = useState<WpMediaItem[]>([]);
+    
+    // Cache for all media items from the site
+    const allMediaCache = useRef<WpMediaItem[]>([]);
+    const totalPages = useRef(1);
+
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isSorting, setIsSorting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [sortState, setSortState] = useState<SortState>({ order: 'desc' });
-
+    const [sortOrder, setSortOrder] = useState<SortOrder>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    
     const [selectedMedia, setSelectedMedia] = useState<WpMediaItem | null>(null);
     const [editableDetails, setEditableDetails] = useState<EditableMediaDetails>({ alt: '', caption: '', description: '' });
     const [isUpdating, setIsUpdating] = useState(false);
 
     const [optimizeDialogState, setOptimizeDialogState] = useState<OptimizeDialogState>({ open: false, image: null });
+    
+    const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
 
 
     useEffect(() => {
@@ -83,53 +95,123 @@ export default function AdvancedMediaLibraryPage() {
 
     const selectedSite = sites.find(s => s.id === selectedSiteId);
 
-    const handleFetchMedia = useCallback(async () => {
-        if (!selectedSite?.appPassword) {
-             setError("Application password not found for this site. Please add it in Settings.");
-             return;
-        }
+    const loadInitialMedia = useCallback(async () => {
+        if (!selectedSite?.appPassword) return;
 
         setIsLoading(true);
-        setMediaItems([]);
         setError(null);
         
-        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword);
+        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, 1, PAGE_SIZE);
 
         if (result.success) {
-            const sorted = [...result.data].sort((a, b) => {
-                 if (sortState.order === 'asc') {
-                    return a.filesize - b.filesize;
-                }
-                return b.filesize - a.filesize;
-            });
-            setMediaItems(sorted);
+            setMediaItems(result.data);
+            totalPages.current = result.totalPages;
+            setCurrentPage(1);
         } else {
             setError(result.error);
         }
-
         setIsLoading(false);
-    }, [selectedSite, sortState.order]);
-    
+    }, [selectedSite]);
+
     useEffect(() => {
+        // Reset state when site changes
+        setMediaItems([]);
+        allMediaCache.current = [];
+        totalPages.current = 1;
+        setCurrentPage(1);
+        setSortOrder(null);
+        setError(null);
         if (selectedSite) {
-            handleFetchMedia();
+            loadInitialMedia();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSite]);
-    
-    const handleSortChange = () => {
-        const newOrder = sortState.order === 'desc' ? 'asc' : 'desc';
-        setSortState({ order: newOrder });
 
-        const sorted = [...mediaItems].sort((a, b) => {
-            if (newOrder === 'asc') {
-                return a.filesize - b.filesize;
+    const loadMoreMedia = useCallback(async () => {
+        if (isLoading || isSorting || isLoadingMore || currentPage >= totalPages.current) {
+            return;
+        }
+        setIsLoadingMore(true);
+        
+        const nextPage = currentPage + 1;
+        if(sortOrder) {
+            // Load more from sorted cache
+            const nextItems = allMediaCache.current.slice(0, nextPage * PAGE_SIZE);
+            setMediaItems(nextItems);
+            setCurrentPage(nextPage);
+        } else {
+            // Fetch next page from API
+            const result = await fetchWpMedia(selectedSite!.url, selectedSite!.user, selectedSite!.appPassword!, nextPage, PAGE_SIZE);
+            if(result.success){
+                setMediaItems(prev => [...prev, ...result.data]);
+                setCurrentPage(nextPage);
+            } else {
+                toast({ title: "Error", description: "Failed to load more media.", variant: "destructive" });
             }
-            return b.filesize - a.filesize;
-        });
-        setMediaItems(sorted);
-    };
+        }
+        setIsLoadingMore(false);
 
+    }, [isLoading, isSorting, isLoadingMore, currentPage, totalPages, sortOrder, selectedSite, toast]);
+    
+    useEffect(() => {
+        if(inView) {
+            loadMoreMedia();
+        }
+    }, [inView, loadMoreMedia]);
+
+
+    const handleSort = useCallback(async () => {
+        const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+        setSortOrder(newOrder);
+
+        setIsSorting(true);
+        setError(null);
+
+        try {
+            // Use cache if available
+            if (allMediaCache.current.length === 0) {
+                toast({ title: 'Fetching all media...', description: 'This may take a moment for large libraries.' });
+
+                if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
+
+                // First, get total pages to set up fetch promises
+                const initialResult = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, 1, 1);
+                if (!initialResult.success) throw new Error(initialResult.error);
+
+                const totalPagesToFetch = initialResult.totalPages;
+                let fetchedMedia: WpMediaItem[] = [];
+
+                // Fetch all pages
+                for (let i = 1; i <= totalPagesToFetch; i++) {
+                     const pageResult = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, i, 100);
+                     if (pageResult.success) {
+                        fetchedMedia.push(...pageResult.data);
+                     } else {
+                        console.warn(`Failed to fetch page ${i}: ${pageResult.error}`);
+                     }
+                }
+                allMediaCache.current = fetchedMedia;
+            }
+
+            // Sort the entire cached list
+            const sorted = [...allMediaCache.current].sort((a, b) => {
+                if (newOrder === 'asc') return a.filesize - b.filesize;
+                return b.filesize - a.filesize;
+            });
+            
+            allMediaCache.current = sorted; // Update cache with sorted order
+            setMediaItems(sorted.slice(0, PAGE_SIZE));
+            setCurrentPage(1);
+
+        } catch (e: any) {
+            setError(e.message || "Failed to fetch and sort media.");
+            setSortOrder(null); // Revert sort order on failure
+        } finally {
+            setIsSorting(false);
+        }
+    }, [sortOrder, selectedSite]);
+    
+    
     const handleSelectMedia = (item: WpMediaItem) => {
         setSelectedMedia(item);
         setEditableDetails({
@@ -156,11 +238,14 @@ export default function AdvancedMediaLibraryPage() {
                 title: "Success",
                 description: "Media details have been updated."
             });
-            // Optimistically update the local state
-            setMediaItems(prevItems => prevItems.map(item =>
-                item.id === selectedMedia.id ? { ...item, ...editableDetails } : item
-            ));
+            const updatedItem = { ...selectedMedia, ...editableDetails };
+            
+            setMediaItems(prevItems => prevItems.map(item => item.id === selectedMedia.id ? updatedItem : item ));
+            if (allMediaCache.current.length > 0) {
+                 allMediaCache.current = allMediaCache.current.map(item => item.id === selectedMedia.id ? updatedItem : item );
+            }
             setSelectedMedia(null);
+
         } else {
             toast({
                 title: "Error",
@@ -181,13 +266,11 @@ export default function AdvancedMediaLibraryPage() {
             filesize: newImageData.size,
         };
 
-        // Update the selected media item state first, which will re-render the edit panel
         setSelectedMedia(updatedMediaItem);
-        
-        // Then update the main media list
-        setMediaItems(prevItems => prevItems.map(item =>
-            item.id === selectedMedia.id ? updatedMediaItem : item
-        ));
+        setMediaItems(prevItems => prevItems.map(item => item.id === selectedMedia.id ? updatedMediaItem : item));
+        if (allMediaCache.current.length > 0) {
+            allMediaCache.current = allMediaCache.current.map(item => item.id === selectedMedia.id ? updatedMediaItem : item );
+        }
         
         toast({
             title: "Image Optimized!",
@@ -273,6 +356,10 @@ export default function AdvancedMediaLibraryPage() {
     }
     
     const renderMediaLibrary = () => {
+        const showLoadMore = !sortOrder 
+            ? currentPage < totalPages.current
+            : mediaItems.length < allMediaCache.current.length;
+
         return (
             <>
             <div className="grid lg:grid-cols-3 gap-8 items-start">
@@ -283,7 +370,7 @@ export default function AdvancedMediaLibraryPage() {
                                 <div>
                                     <CardTitle>Your WordPress Media</CardTitle>
                                     <CardDescription>
-                                        Displaying all media items from {new URL(selectedSite!.url).hostname}.
+                                        Displaying media items from {new URL(selectedSite!.url).hostname}.
                                     </CardDescription>
                                 </div>
                                 <Button onClick={() => setSelectedSiteId(null)} variant="outline">
@@ -294,26 +381,40 @@ export default function AdvancedMediaLibraryPage() {
                         <CardContent>
                             <div className="flex items-center gap-4 mb-4">
                                 <Label>Sort by:</Label>
-                                <div className="flex gap-2">
-                                     <Button variant='secondary' size="sm" onClick={handleSortChange}>
-                                        Size {sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />}
+                                <Button variant='secondary' size="sm" onClick={handleSort} disabled={isSorting}>
+                                    {isSorting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Size'}
+                                    {sortOrder === 'asc' && <ArrowUp className="ml-2 h-4 w-4" />}
+                                    {sortOrder === 'desc' && <ArrowDown className="ml-2 h-4 w-4" />}
+                                </Button>
+                                {sortOrder && (
+                                    <Button variant="ghost" size="sm" onClick={() => { setSortOrder(null); loadInitialMedia(); }}>
+                                        Reset Sort
                                     </Button>
-                                </div>
+                                )}
                             </div>
                             
                             {isLoading && (
-                                <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                                    <Loader2 className="h-12 w-12 animate-spin mb-4 text-primary" />
-                                    <p className="font-semibold">Loading your entire media library...</p>
-                                    <p className="text-sm">This may take a moment for large libraries.</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {Array.from({ length: 10 }).map((_, i) => (
+                                       <Card key={i} className="overflow-hidden flex flex-col">
+                                            <CardContent className="p-0 flex-grow">
+                                                <Skeleton className="aspect-square w-full h-full" />
+                                            </CardContent>
+                                            <CardFooter className="p-2 flex-col items-start space-y-1.5">
+                                                <Skeleton className="h-4 w-full" />
+                                                <Skeleton className="h-4 w-1/2" />
+                                            </CardFooter>
+                                        </Card>
+                                    ))}
                                 </div>
                             )}
-
-                            {!isLoading && error && (
-                                <div className="text-center text-destructive p-8 border-dashed border-2 border-destructive/50 rounded-md">
-                                    <h3 className="text-lg font-semibold">Failed to load media</h3>
-                                    <p className="text-sm">{error}</p>
-                                </div>
+                            
+                            {error && (
+                                <Alert variant="destructive" className="mt-4">
+                                  <AlertCircle className="h-4 w-4" />
+                                  <AlertTitle>Error</AlertTitle>
+                                  <AlertDescription>{error}</AlertDescription>
+                                </Alert>
                             )}
 
                             {!isLoading && !error && mediaItems.length === 0 && (
@@ -339,7 +440,7 @@ export default function AdvancedMediaLibraryPage() {
                                                     className="aspect-square object-cover w-full h-full"
                                                 />
                                             </CardContent>
-                                            <CardFooter className="p-2 flex-col items-start space-y-1.5">
+                                            <CardFooter className="p-2 flex flex-col items-start space-y-1.5">
                                                 <p className="text-xs font-medium truncate w-full">{item.filename}</p>
                                                 <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
                                                 <div className="grid grid-cols-2 gap-2 w-full pt-1">
@@ -357,6 +458,12 @@ export default function AdvancedMediaLibraryPage() {
                                     ))}
                                 </div>
                             )}
+                             {showLoadMore && (
+                                <div ref={infiniteScrollRef} className="flex justify-center items-center p-4 mt-4">
+                                    {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    <span>Loading more...</span>
+                                </div>
+                             )}
                         </CardContent>
                     </Card>
                 </div>
@@ -434,5 +541,3 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
-
-    
