@@ -188,7 +188,7 @@ export default function AdvancedMediaLibraryPage() {
     const renderMediaLibrary = () => {
         return (
             <div className="grid lg:grid-cols-3 gap-8 items-start">
-                <div className={cn("lg:col-span-2", selectedMedia && "lg:col-span-2")}>
+                <div className={cn("lg:col-span-3", selectedMedia && "lg:col-span-2")}>
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
@@ -207,13 +207,13 @@ export default function AdvancedMediaLibraryPage() {
                             <div className="flex items-center gap-4 mb-4">
                                 <Label>Sort by:</Label>
                                 <div className="flex gap-2">
-                                    <Button variant={sortOrder === 'default' ? 'default' : 'outline'} onClick={() => setSortOrder('default')}>Default</Button>
-                                    <Button variant={sortOrder === 'desc' ? 'default' : 'outline'} onClick={() => setSortOrder('desc')}>
-                                    <ArrowUp className="mr-2 h-4 w-4" /> Size (Largest First)
+                                    <Button variant={sortOrder === 'default' ? 'default' : 'outline'} size="sm" onClick={() => setSortOrder('default')}>Default</Button>
+                                    <Button variant={sortOrder === 'desc' ? 'default' : 'outline'} size="sm" onClick={() => setSortOrder('desc')}>
+                                        <ArrowUp className="mr-2 h-4 w-4" /> Size (Largest First)
                                     </Button>
-                                    <Button variant={sortOrder === 'asc' ? 'default' : 'outline'} onClick={() => setSortOrder('asc')}>
-                                    <ArrowDown className="mr-2 h-4 w-4" /> Size (Smallest First)
-                                </Button>
+                                    <Button variant={sortOrder === 'asc' ? 'default' : 'outline'} size="sm" onClick={() => setSortOrder('asc')}>
+                                        <ArrowDown className="mr-2 h-4 w-4" /> Size (Smallest First)
+                                    </Button>
                                 </div>
                             </div>
                             
@@ -356,3 +356,5 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
+
+    
