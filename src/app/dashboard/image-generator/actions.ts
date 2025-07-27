@@ -57,16 +57,17 @@ export async function fetchPostsFromWp(
     siteUrl: string,
     username: string,
     appPassword: string,
-    page: number = 1
+    page: number = 1,
+    status: 'all' | 'publish' | 'draft' = 'all'
 ): Promise<{ success: true; data: WpPost[] } | { success: false; error: string }> {
-    const statuses = ['publish', 'draft', 'pending'];
+    const statuses = status === 'all' ? ['publish', 'draft'] : [status];
     const url = new URL(`${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`);
     url.searchParams.append('context', 'edit');
     url.searchParams.append('_embed', 'wp:featuredmedia');
     url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
     url.searchParams.append('per_page', '10'); // Fetch 10 posts per page
     url.searchParams.append('page', page.toString());
-    statuses.forEach(status => url.searchParams.append('status[]', status));
+    statuses.forEach(s => url.searchParams.append('status[]', s));
 
     try {
         const response = await fetch(url.toString(), {

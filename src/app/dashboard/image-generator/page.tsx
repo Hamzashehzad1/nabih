@@ -237,7 +237,7 @@ export default function ImageGeneratorPage() {
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [posts, setPosts] = useState<WpPost[]>([]);
   const [images, setImages] = useLocalStorage<{ [postId: string]: ImageState }>('post-images', {});
-  const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'pending'>('all');
+  const [filter, setFilter] = useState<'all' | 'publish' | 'draft'>('all');
   const [isFetchingPosts, setIsFetchingPosts] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -295,6 +295,7 @@ export default function ImageGeneratorPage() {
       setPosts([]);
       setFetchError(null);
       setHasMorePosts(true);
+      setCurrentPage(1);
       setPostDetailsMap(new Map());
     }
     
@@ -304,7 +305,7 @@ export default function ImageGeneratorPage() {
       return;
     }
     
-    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, page);
+    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, page, filter);
 
     if (result.success) {
         if(result.data.length === 0){
@@ -322,14 +323,15 @@ export default function ImageGeneratorPage() {
       })
     }
     setIsFetchingPosts(false);
-  }, [selectedSite, toast]);
+  }, [selectedSite, toast, filter]);
+
 
   useEffect(() => {
     if (selectedSiteId) {
       handleFetchPosts(1, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSiteId]);
+  }, [selectedSiteId, filter]);
 
   useEffect(() => {
     if (posts.length > 0) {
@@ -517,14 +519,6 @@ export default function ImageGeneratorPage() {
       }
   }
 
-  const filteredPosts = useMemo(() => {
-    if (filter === 'all') return posts;
-    if (filter === 'published') return posts.filter((p) => p.status === 'publish');
-    if (filter === 'draft') return posts.filter((p) => p.status === 'draft');
-    if (filter === 'pending') return posts.filter((p) => p.status === 'pending');
-    return posts;
-  }, [posts, filter]);
-
   const renderPostList = () => {
     if (isFetchingPosts && posts.length === 0) {
       return (
@@ -545,12 +539,12 @@ export default function ImageGeneratorPage() {
       );
     }
     
-    if (!isFetchingPosts && !fetchError && filteredPosts.length === 0) {
+    if (!isFetchingPosts && !fetchError && posts.length === 0) {
       return (
         <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md mt-4">
           <FileText className="mx-auto h-12 w-12" />
           <h3 className="mt-4 text-lg font-semibold">
-            No Posts Found
+            No {filter !== 'all' ? filter : ''} Posts Found
           </h3>
           <p className="mt-1 text-sm">
             No {filter !== 'all' ? filter : ''} posts were found on the connected site.
@@ -563,11 +557,10 @@ export default function ImageGeneratorPage() {
       <>
         <div className="flex justify-between items-center mb-4">
             <Tabs value={filter} onValueChange={(value) => setFilter(value as any)}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="published">Published</TabsTrigger>
+                <TabsTrigger value="publish">Published</TabsTrigger>
                 <TabsTrigger value="draft">Draft</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
               </TabsList>
             </Tabs>
             <Button onClick={() => handleFetchPosts(1, true)} size="icon" variant="outline" disabled={isFetchingPosts}>
@@ -575,7 +568,7 @@ export default function ImageGeneratorPage() {
             </Button>
         </div>
         <Accordion type="single" collapsible className="w-full">
-            {filteredPosts.map(post => {
+            {posts.map(post => {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
