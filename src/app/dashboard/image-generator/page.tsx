@@ -197,7 +197,7 @@ function parseContent(post: WpPost): {
     let foundImage = false;
     while (nextElement && !['H2', 'H3'].includes(nextElement.tagName) && !foundImage) {
         let img = null;
-        if (nextElement.tagName === 'FIGURE') {
+        if (nextElement.tagName === 'FIGURE' || nextElement.classList.contains('wp-block-image')) {
             img = nextElement.querySelector('img');
         } else if (nextElement.tagName === 'IMG') {
             img = nextElement;
@@ -246,37 +246,40 @@ export default function ImageGeneratorPage() {
   const processAndSetPostDetails = useCallback((post: WpPost) => {
     const { firstParagraph, sections, initialImages } = parseContent(post);
 
-    const existingPostImages = images[post.id] || { featured: null, sections: {} };
-    let postImages: ImageState = JSON.parse(JSON.stringify(existingPostImages)); 
-    let imagesUpdated = false;
+    setImages(prevImages => {
+      const existingPostImages = prevImages[post.id] || { featured: null, sections: {} };
+      let postImages: ImageState = JSON.parse(JSON.stringify(existingPostImages)); 
+      let imagesUpdated = false;
 
-    if (!postImages.featured && initialImages.featuredUrl) {
-      postImages.featured = { url: initialImages.featuredUrl, alt: 'Existing featured image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
-      imagesUpdated = true;
-    }
-    sections.forEach(section => {
-      if (!postImages.sections[section.heading] && initialImages.sectionImageUrls[section.heading]) {
-        postImages.sections[section.heading] = { url: initialImages.sectionImageUrls[section.heading], alt: 'Existing section image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
+      if (!postImages.featured && initialImages.featuredUrl) {
+        postImages.featured = { url: initialImages.featuredUrl, alt: 'Existing featured image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
         imagesUpdated = true;
       }
+      sections.forEach(section => {
+        if (!postImages.sections[section.heading] && initialImages.sectionImageUrls[section.heading]) {
+          postImages.sections[section.heading] = { url: initialImages.sectionImageUrls[section.heading], alt: 'Existing section image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
+          imagesUpdated = true;
+        }
+      });
+      
+      const requiredImages = sections.length + 1;
+      const generatedCount =
+        (postImages.featured ? 1 : 0) +
+        Object.values(postImages.sections).filter(Boolean).length;
+      
+      setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {
+        firstParagraph,
+        sections,
+        requiredImages,
+        generatedCount,
+      }));
+
+      if (imagesUpdated) {
+          return {...prevImages, [post.id]: postImages};
+      }
+      return prevImages;
     });
-
-    if (imagesUpdated) {
-        setImages(prevImages => ({...prevImages, [post.id]: postImages}));
-    }
-
-    const requiredImages = sections.length + 1; // Always require a featured image slot
-    const generatedCount =
-      (postImages.featured ? 1 : 0) +
-      Object.values(postImages.sections).filter(Boolean).length;
-
-    setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {
-      firstParagraph,
-      sections,
-      requiredImages,
-      generatedCount,
-    }));
-  }, [images, setImages]);
+  }, [setImages]);
 
 
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
@@ -464,7 +467,8 @@ export default function ImageGeneratorPage() {
             uploadPromises.push(processImage('featured'));
         }
         for (const heading in postImages.sections) {
-            if (postImages.sections[heading] && postImages.sections[heading]!.url.startsWith('data:image')) {
+            const sectionImage = postImages.sections[heading];
+            if (sectionImage && sectionImage.url.startsWith('data:image')) {
                 uploadPromises.push(processImage(heading));
             }
         }
