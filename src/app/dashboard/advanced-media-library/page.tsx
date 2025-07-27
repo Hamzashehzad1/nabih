@@ -221,11 +221,11 @@ export default function AdvancedMediaLibraryPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[100px]">Preview</TableHead>
+                                            <TableHead className="w-[90px]">Preview</TableHead>
                                             <TableHead>Filename</TableHead>
                                             <TableHead>File Size</TableHead>
                                             <TableHead>Dimensions</TableHead>
-                                            <TableHead className="w-[100px]">Action</TableHead>
+                                            <TableHead className="w-[110px]">Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -264,11 +264,11 @@ export default function AdvancedMediaLibraryPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="w-[100px]">Preview</TableHead>
+                                                <TableHead className="w-[90px]">Preview</TableHead>
                                                 <TableHead>Filename</TableHead>
                                                 <TableHead>File Size</TableHead>
                                                 <TableHead>Dimensions</TableHead>
-                                                <TableHead className="w-[100px]">Action</TableHead>
+                                                <TableHead className="w-[110px]">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -356,3 +356,5 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
+
+    
