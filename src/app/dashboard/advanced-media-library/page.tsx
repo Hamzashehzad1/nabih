@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem, backupMediaToCloud } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download, Square } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -532,7 +532,7 @@ export default function AdvancedMediaLibraryPage() {
                                     <>
                                     <Label>Tools:</Label>
                                     <Button variant='outline' size="sm" onClick={() => setIsSelectionMode(true)}>
-                                       <Checkbox className="mr-2 h-4 w-4" /> Select for Backup
+                                       <Square className="mr-2 h-4 w-4" /> Select for Backup
                                     </Button>
                                     <Label>Sort by:</Label>
                                     <Button variant='secondary' size="sm" onClick={handleSort} disabled={isSorting}>
