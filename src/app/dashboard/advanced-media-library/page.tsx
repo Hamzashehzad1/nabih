@@ -95,13 +95,19 @@ export default function AdvancedMediaLibraryPage() {
         const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword);
 
         if (result.success) {
-            setMediaItems(result.data);
+            const sorted = [...result.data].sort((a, b) => {
+                 if (sortState.order === 'asc') {
+                    return a.filesize - b.filesize;
+                }
+                return b.filesize - a.filesize;
+            });
+            setMediaItems(sorted);
         } else {
             setError(result.error);
         }
 
         setIsLoading(false);
-    }, [selectedSite]);
+    }, [selectedSite, sortState.order]);
     
     useEffect(() => {
         if (selectedSite) {
@@ -110,17 +116,16 @@ export default function AdvancedMediaLibraryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSite]);
     
-    const sortedMedia = useMemo(() => {
-        return [...mediaItems].sort((a, b) => {
-            if (sortState.order === 'asc') {
+    const handleSortChange = () => {
+        const newOrder = sortState.order === 'desc' ? 'asc' : 'desc';
+        setSortState({ order: newOrder });
+        const sorted = [...mediaItems].sort((a, b) => {
+            if (newOrder === 'asc') {
                 return a.filesize - b.filesize;
             }
             return b.filesize - a.filesize;
         });
-    }, [mediaItems, sortState]);
-    
-    const handleSortChange = () => {
-        setSortState(prev => ({ order: prev.order === 'desc' ? 'asc' : 'desc' }));
+        setMediaItems(sorted);
     };
 
     const handleSelectMedia = (item: WpMediaItem) => {
@@ -319,9 +324,9 @@ export default function AdvancedMediaLibraryPage() {
                                 </div>
                             )}
 
-                            {sortedMedia.length > 0 && (
+                            {mediaItems.length > 0 && (
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                    {sortedMedia.map(item => (
+                                    {mediaItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden flex flex-col">
                                             <CardContent className="p-0 flex-grow">
                                                 <Image 

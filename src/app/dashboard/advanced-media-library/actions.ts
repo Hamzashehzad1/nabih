@@ -7,7 +7,7 @@ const MediaDetailsSchema = z.object({
   width: z.number(),
   height: z.number(),
   file: z.string(),
-  filesize: z.number(),
+  filesize: z.number().optional().default(0), // Make filesize optional and default to 0
   sizes: z.record(z.object({
     file: z.string(),
     width: z.number(),
@@ -52,8 +52,10 @@ export interface WpMediaItem {
 
 function stripHtml(html: string): string {
     if (typeof document === 'undefined') {
+        // Basic stripping for server-side
         return html.replace(/<[^>]*>?/gm, '');
     }
+    // Browser-side stripping
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return doc.body.textContent || "";
 }
@@ -104,7 +106,7 @@ export async function fetchWpMedia(
         id: item.id,
         date: item.date_gmt,
         filename: item.media_details.file,
-        filesize: item.media_details.filesize,
+        filesize: item.media_details.filesize || 0,
         width: item.media_details.width,
         height: item.media_details.height,
         thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
