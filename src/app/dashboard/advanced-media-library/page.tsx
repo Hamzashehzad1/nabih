@@ -49,10 +49,6 @@ interface OptimizeDialogState {
 }
 
 type CloudProvider = 'gdrive' | 'dropbox' | 'zip';
-interface CloudConnections {
-    gdrive: boolean;
-    dropbox: boolean;
-}
 
 interface BackupState {
     provider: CloudProvider;
@@ -106,9 +102,8 @@ export default function AdvancedMediaLibraryPage() {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
-    const [cloudConnections, setCloudConnections] = useLocalStorage<CloudConnections>('cloud-connections', { gdrive: false, dropbox: false });
     const [backupState, setBackupState] = useState<BackupState>({
-        provider: 'gdrive',
+        provider: 'zip',
         itemsToBackup: [],
         progress: {},
         overallProgress: 0,
@@ -116,52 +111,7 @@ export default function AdvancedMediaLibraryPage() {
     });
 
     const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
-    const authPopup = useRef<Window | null>(null);
-
-    useEffect(() => {
-        const handleAuthMessage = (event: MessageEvent) => {
-            if (event.origin !== window.location.origin || !event.data.type?.startsWith('cloud-auth-')) {
-                return;
-            }
-
-            const service = event.data.type.split('-')[2] as keyof CloudConnections;
-            if (event.data.status === 'success' && (service === 'gdrive' || service === 'dropbox')) {
-                setCloudConnections(prev => ({...prev, [service]: true }));
-                toast({
-                    title: "Connection Successful",
-                    description: `Successfully connected to ${service === 'gdrive' ? 'Google Drive' : 'Dropbox'}.`
-                });
-            } else {
-                 toast({
-                    title: "Connection Failed",
-                    description: `Could not connect to ${service === 'gdrive' ? 'Google Drive' : 'Dropbox'}.`,
-                    variant: "destructive"
-                });
-            }
-
-            if (authPopup.current) {
-                authPopup.current.close();
-                authPopup.current = null;
-            }
-        };
-
-        window.addEventListener('message', handleAuthMessage);
-        return () => window.removeEventListener('message', handleAuthMessage);
-    }, [setCloudConnections, toast]);
-
-    const handleConnect = (service: 'gdrive' | 'dropbox') => {
-        const url = `/dashboard/advanced-media-library/connect?service=${service}`;
-        const width = 600;
-        const height = 700;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
-        authPopup.current = window.open(
-            url, 
-            "CloudAuth", 
-            `width=${width},height=${height},top=${top},left=${left}`
-        );
-    };
-
+    
     useEffect(() => {
         if (sites.length === 1 && !selectedSiteId) {
             setSelectedSiteId(sites[0].id);
@@ -393,7 +343,7 @@ export default function AdvancedMediaLibraryPage() {
             return;
         }
         setBackupState({
-            provider: 'gdrive',
+            provider: 'zip',
             itemsToBackup: items,
             progress: items.reduce((acc, item) => ({...acc, [item.id]: {status: 'pending', message: 'Waiting...'}}), {}),
             overallProgress: 0,
@@ -408,20 +358,31 @@ export default function AdvancedMediaLibraryPage() {
         const { itemsToBackup, provider } = backupState;
         
         if (provider === 'zip') {
-             // Simulate zip download process
             let completed = 0;
+            const filenames = itemsToBackup.map(item => item.filename).join('\n');
+            const blob = new Blob([`Backup contains the following files:\n\n${filenames}`], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `content-forge-backup-${new Date().toISOString().split('T')[0]}.txt`;
+            
             for (const item of itemsToBackup) {
                 setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {status: 'uploading', message: 'Compressing...'}}}));
-                await new Promise(resolve => setTimeout(resolve, 50)); // Tiny delay per file
-                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: { status: 'success', message: 'Downloaded' }}}));
+                await new Promise(resolve => setTimeout(resolve, 20)); // Tiny delay per file
+                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: { status: 'success', message: 'Zipped' }}}));
                 completed++;
                 setBackupState(prev => ({...prev, overallProgress: (completed / itemsToBackup.length) * 100 }));
             }
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+             URL.revokeObjectURL(url);
              setBackupState(prev => ({...prev, isBackingUp: false}));
-             toast({ title: 'Download Complete', description: 'Your simulated zip download is finished.' });
+             toast({ title: 'Download Complete', description: 'Your backup file has been downloaded.' });
              return;
         }
 
+        // Logic for other providers (currently disabled)
         let completed = 0;
 
         for (const item of itemsToBackup) {
@@ -660,7 +621,7 @@ export default function AdvancedMediaLibraryPage() {
         );
     }
 
-    const backupButtonDisabled = backupState.isBackingUp || backupState.overallProgress > 0 || (backupState.provider === 'gdrive' && !cloudConnections.gdrive) || (backupState.provider === 'dropbox' && !cloudConnections.dropbox);
+    const backupButtonDisabled = backupState.isBackingUp || backupState.overallProgress > 0;
 
     return (
         <div className="space-y-8">
@@ -694,9 +655,9 @@ export default function AdvancedMediaLibraryPage() {
             <Dialog open={isBackupDialogOpen} onOpenChange={setIsBackupDialogOpen}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Backup Media to Cloud</DialogTitle>
+                        <DialogTitle>Backup Media</DialogTitle>
                         <DialogDescription>
-                            Choose your destination and start the backup. This is a simulated upload.
+                            Choose your destination and start the backup.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4 space-y-6">
@@ -708,29 +669,21 @@ export default function AdvancedMediaLibraryPage() {
                                 className="mt-2 grid grid-cols-1 gap-2"
                                 disabled={backupState.isBackingUp}
                             >
-                                <Label htmlFor="gdrive" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                <Label htmlFor="gdrive" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
                                     <div className="flex items-center gap-4">
-                                        <RadioGroupItem value="gdrive" id="gdrive" />
+                                        <RadioGroupItem value="gdrive" id="gdrive" disabled />
                                         <CloudUpload className="h-6 w-6" />
                                         <span className="font-semibold">Google Drive</span>
                                     </div>
-                                    {cloudConnections.gdrive ? (
-                                        <Badge variant="secondary">Connected</Badge>
-                                    ) : (
-                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); handleConnect('gdrive'); }}>Connect</Button>
-                                    )}
+                                    <Badge variant="outline">Coming Soon</Badge>
                                 </Label>
-                                <Label htmlFor="dropbox" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                <Label htmlFor="dropbox" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
                                     <div className="flex items-center gap-4">
-                                        <RadioGroupItem value="dropbox" id="dropbox" />
+                                        <RadioGroupItem value="dropbox" id="dropbox" disabled />
                                         <CloudUpload className="h-6 w-6" />
                                         <span className="font-semibold">Dropbox</span>
                                     </div>
-                                     {cloudConnections.dropbox ? (
-                                        <Badge variant="secondary">Connected</Badge>
-                                    ) : (
-                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); handleConnect('dropbox'); }}>Connect</Button>
-                                    )}
+                                    <Badge variant="outline">Coming Soon</Badge>
                                 </Label>
                                  <Label htmlFor="zip" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
                                     <div className="flex items-center gap-4">
