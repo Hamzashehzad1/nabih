@@ -15,12 +15,10 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
-import { Badge } from './ui/badge';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 type ImageFormat = 'image/jpeg' | 'image/png' | 'image/webp';
@@ -212,7 +210,7 @@ export function ImageOptimizeDialog({
                         </div>
                     )}
                     {preview && (
-                        <div className="w-full h-full overflow-auto p-2">
+                         <div className="w-full h-full overflow-auto p-2">
                             <Image 
                                 src={preview.base64} 
                                 alt="Preview" 
@@ -256,7 +254,7 @@ export function ImageOptimizeDialog({
                             min={0}
                             max={100}
                             step={1}
-                            disabled={format === 'image/png'} // PNG is lossless
+                            disabled={format === 'image/png'}
                         />
                          {format === 'image/png' && <p className="text-xs text-muted-foreground">PNG is a lossless format; quality slider is disabled.</p>}
                     </div>
@@ -281,7 +279,7 @@ export function ImageOptimizeDialog({
                 <CardContent>
                     {preview ? (
                         <div className="text-center">
-                            <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
+                            <p className={`text-4xl font-bold ${sizeReduction >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 {sizeReduction.toFixed(1)}%
                             </p>
                             <p className="text-muted-foreground">reduction in file size</p>
@@ -291,7 +289,7 @@ export function ImageOptimizeDialog({
                     )}
                 </CardContent>
             </Card>
-
+            
             {quality < 80 && format !== 'image/png' && (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
