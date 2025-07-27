@@ -15,12 +15,13 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 type ImageFormat = 'image/jpeg' | 'image/png' | 'image/webp';
 
@@ -38,6 +39,16 @@ function getBase64Size(base64: string): number {
     return sizeInBytes;
 }
 
+async function fetchImageAsBase64(imageUrl: string): Promise<string> {
+    const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(imageUrl)}`);
+    if (!response.ok) {
+        throw new Error('Failed to proxy image');
+    }
+    const { base64 } = await response.json();
+    return base64;
+}
+
+
 async function generatePreview(
     imageUrl: string,
     format: ImageFormat,
@@ -46,11 +57,10 @@ async function generatePreview(
     height: number
 ): Promise<{ base64: string; size: number }> {
     const image = new window.Image();
-    image.crossOrigin = 'anonymous';
     image.src = imageUrl;
     await new Promise((resolve, reject) => {
         image.onload = resolve;
-        image.onerror = (err) => reject(new Error('Image failed to load for preview. Check CORS policy.'));
+        image.onerror = (err) => reject(new Error('Image failed to load for preview.'));
     });
 
     const canvas = document.createElement('canvas');
@@ -59,7 +69,6 @@ async function generatePreview(
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get canvas context');
     
-    // Fill background with white for JPGs to avoid black background
     if (format === 'image/jpeg') {
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
@@ -95,36 +104,55 @@ export function ImageOptimizeDialog({
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
+  const [originalImageBase64, setOriginalImageBase64] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleGeneratePreview = useCallback(() => {
-    if (!image) return;
+  const handleGeneratePreview = useCallback(async () => {
+    if (!originalImageBase64 || !image) return;
     setIsLoading(true);
-    generatePreview(image.fullUrl, format, quality, image.width, image.height)
-      .then(setPreview)
-      .catch((err) => {
-          console.error(err);
-          // You might want to show a toast here
-      })
-      .finally(() => setIsLoading(false));
-  }, [image, format, quality]);
+    try {
+        const result = await generatePreview(originalImageBase64, format, quality, image.width, image.height);
+        setPreview(result);
+    } catch(err) {
+        console.error(err);
+        toast({ title: "Preview Error", description: "Could not generate image preview.", variant: "destructive"});
+    } finally {
+        setIsLoading(false);
+    }
+  }, [image, format, quality, originalImageBase64, toast]);
   
   useEffect(() => {
     if (open && image) {
-      handleGeneratePreview();
-    } else {
-        setPreview(null); // Reset preview when dialog is closed
+      setIsLoading(true);
+      setOriginalImageBase64(null);
+      setPreview(null);
+      fetchImageAsBase64(image.fullUrl)
+        .then(base64 => {
+            setOriginalImageBase64(base64);
+        })
+        .catch(err => {
+            console.error(err);
+            toast({ title: "Image Load Error", description: "Could not load the original image from your site.", variant: "destructive"});
+            setIsLoading(false);
+        });
     }
-  }, [open, image, handleGeneratePreview]);
+  }, [open, image, toast]);
+  
+  useEffect(() => {
+    if (originalImageBase64) {
+      handleGeneratePreview();
+    }
+  }, [originalImageBase64, handleGeneratePreview]);
 
   // Re-generate preview when quality or format changes
   useEffect(() => {
-    if (open && image) {
+    if (open && image && originalImageBase64) {
         const handler = setTimeout(() => {
             handleGeneratePreview();
         }, 500); // Debounce to avoid excessive re-renders
         return () => clearTimeout(handler);
     }
-  }, [quality, format, open, image, handleGeneratePreview]);
+  }, [quality, format, open, image, originalImageBase64, handleGeneratePreview]);
   
   const handleSave = () => {
     if (preview) {
@@ -156,14 +184,20 @@ export function ImageOptimizeDialog({
             {/* Original */}
             <div className="flex flex-col gap-2">
                 <h3 className="font-semibold text-center">Original ({formatBytes(originalSize)})</h3>
-                <div className="flex-grow bg-muted/50 rounded-md overflow-hidden">
-                    {image && (
+                <div className="flex-grow bg-muted/50 rounded-md overflow-hidden relative">
+                    {(!originalImageBase64 && isLoading) && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                            <p className="ml-2">Loading original...</p>
+                        </div>
+                    )}
+                    {originalImageBase64 && (
                         <div className="w-full h-full overflow-auto p-2">
                             <Image 
-                                src={image.fullUrl} 
+                                src={originalImageBase64} 
                                 alt="Original" 
-                                width={image.width} 
-                                height={image.height} 
+                                width={image!.width} 
+                                height={image!.height} 
                                 className="transition-transform duration-300 origin-top-left"
                                 style={{ transform: `scale(${zoom})`}}
                             />
