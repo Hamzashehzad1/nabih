@@ -12,12 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2 } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ImageOptimizeDialog } from '@/components/image-optimize-dialog';
 
 interface WpSite {
   id: string;
@@ -34,8 +35,13 @@ interface EditableMediaDetails {
     description: string;
 }
 
+interface OptimizeDialogState {
+    open: boolean;
+    image: WpMediaItem | null;
+}
+
 function formatBytes(bytes: number, decimals = 2) {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -56,6 +62,9 @@ export default function AdvancedMediaLibraryPage() {
     const [selectedMedia, setSelectedMedia] = useState<WpMediaItem | null>(null);
     const [editableDetails, setEditableDetails] = useState<EditableMediaDetails>({ alt: '', caption: '', description: '' });
     const [isUpdating, setIsUpdating] = useState(false);
+
+    const [optimizeDialogState, setOptimizeDialogState] = useState<OptimizeDialogState>({ open: false, image: null });
+
 
     useEffect(() => {
         if (sites.length === 1 && !selectedSiteId) {
@@ -138,6 +147,27 @@ export default function AdvancedMediaLibraryPage() {
             });
         }
         setIsUpdating(false);
+    };
+
+    const handleOptimizedImageSave = (newImageData: { base64: string; size: number }) => {
+        if (!selectedMedia) return;
+
+        const updatedMediaItem = {
+            ...selectedMedia,
+            fullUrl: newImageData.base64,
+            thumbnailUrl: newImageData.base64,
+            filesize: newImageData.size,
+        };
+
+        setSelectedMedia(updatedMediaItem);
+        setMediaItems(prevItems => prevItems.map(item =>
+            item.id === selectedMedia.id ? updatedMediaItem : item
+        ));
+        
+        toast({
+            title: "Image Optimized!",
+            description: "The image has been compressed. Save changes to upload it to WordPress.",
+        });
     };
 
 
@@ -317,6 +347,10 @@ export default function AdvancedMediaLibraryPage() {
                                         </a>
                                     </Button>
                                 </div>
+                                <Button variant="outline" className="w-full" onClick={() => setOptimizeDialogState({ open: true, image: selectedMedia })}>
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    Optimize Image
+                                </Button>
                                 <div className="space-y-2">
                                     <Label htmlFor="alt-text">Alternative Text</Label>
                                     <Input id="alt-text" value={editableDetails.alt} onChange={e => setEditableDetails({...editableDetails, alt: e.target.value})} />
@@ -344,15 +378,23 @@ export default function AdvancedMediaLibraryPage() {
     }
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-headline font-bold">Advanced Media Library</h1>
-                 <p className="text-muted-foreground max-w-2xl">
-                    Here's the deal. Your media library isn't just a folder of images. It's a goldmine of untapped potential. Every image, every video, every asset is a chance to tell your story, drive conversions, and dominate your niche. Stop guessing. Start analyzing.
-                </p>
-            </div>
+        <>
+            <ImageOptimizeDialog 
+                open={optimizeDialogState.open}
+                onOpenChange={(open) => setOptimizeDialogState({ ...optimizeDialogState, open })}
+                image={optimizeDialogState.image}
+                onSave={handleOptimizedImageSave}
+            />
+            <div className="space-y-8">
+                <div>
+                    <h1 className="text-3xl font-headline font-bold">Advanced Media Library</h1>
+                    <p className="text-muted-foreground max-w-2xl">
+                        Here's the deal. Your media library isn't just a folder of images. It's a goldmine of untapped potential. Every image, every video, every asset is a chance to tell your story, drive conversions, and dominate your niche. Stop guessing. Start analyzing.
+                    </p>
+                </div>
 
-            {selectedSite ? renderMediaLibrary() : renderSiteSelection()}
-        </div>
+                {selectedSite ? renderMediaLibrary() : renderSiteSelection()}
+            </div>
+        </>
     );
 }
