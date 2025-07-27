@@ -260,7 +260,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsSorting(true);
         setError(null);
-        const { id: toastId } = toast({ title: 'Sorting in background...', description: 'Initial sort is complete. Fetching all media for full sort.' });
+        const { id: toastId } = toast({ title: 'Sorting in background...', description: 'Initial sort complete. Fetching remaining media...' });
 
         const currentData = [...allMediaCache.current];
         const sortedCurrent = currentData.sort((a, b) => {
@@ -408,9 +408,17 @@ export default function AdvancedMediaLibraryPage() {
         const { itemsToBackup, provider } = backupState;
         
         if (provider === 'zip') {
-             toast({ title: 'Download Starting', description: 'This is a simulated zip download.' });
+             // Simulate zip download process
+            let completed = 0;
+            for (const item of itemsToBackup) {
+                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {status: 'uploading', message: 'Compressing...'}}}));
+                await new Promise(resolve => setTimeout(resolve, 50)); // Tiny delay per file
+                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: { status: 'success', message: 'Downloaded' }}}));
+                completed++;
+                setBackupState(prev => ({...prev, overallProgress: (completed / itemsToBackup.length) * 100 }));
+            }
              setBackupState(prev => ({...prev, isBackingUp: false}));
-             setIsBackupDialogOpen(false);
+             toast({ title: 'Download Complete', description: 'Your simulated zip download is finished.' });
              return;
         }
 
@@ -733,9 +741,8 @@ export default function AdvancedMediaLibraryPage() {
                                 </Label>
                             </RadioGroup>
                         </div>
-                        {backupState.provider !== 'zip' && (
                         <div>
-                            <Label className="font-semibold">Upload Progress</Label>
+                            <Label className="font-semibold">Progress</Label>
                             <div className="mt-2 space-y-2">
                                 <Progress value={backupState.overallProgress} className="w-full" />
                                 <ScrollArea className="h-64 w-full rounded-md border p-4">
@@ -756,15 +763,17 @@ export default function AdvancedMediaLibraryPage() {
                                 </ScrollArea>
                             </div>
                         </div>
-                        )}
                     </div>
                     <DialogFooter>
                          <Button variant="outline" onClick={() => setIsBackupDialogOpen(false)} disabled={backupState.isBackingUp}>
                              {backupState.overallProgress === 100 ? 'Close' : 'Cancel'}
                         </Button>
                         <Button onClick={startBackup} disabled={backupButtonDisabled}>
-                            {backupState.isBackingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {backupState.provider === 'zip' ? 'Download Zip' : 'Start Backup'}
+                           {backupState.isBackingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                           {backupState.provider === 'zip' 
+                               ? (backupState.isBackingUp ? 'Downloading...' : 'Download Zip') 
+                               : (backupState.isBackingUp ? 'Backing up...' : 'Start Backup')
+                           }
                         </Button>
                     </DialogFooter>
                 </DialogContent>
