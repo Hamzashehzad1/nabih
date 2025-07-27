@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Loader2, Move } from 'lucide-react';
 import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
@@ -120,18 +120,16 @@ export function ImageOptimizeDialog({
 }: ImageOptimizeDialogProps) {
   const [format, setFormat] = useState<ImageFormat>('jpeg');
   const [quality, setQuality] = useState(85);
-  const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
   const [originalImageBase64, setOriginalImageBase64] = useState<string | null>(null);
   const { toast } = useToast();
   
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [panScroll, setPanScroll] = useState({ left: 0, top: 0 });
-
-  const originalRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const panStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+  
 
   const handleGeneratePreview = useCallback(async () => {
     if (!originalImageBase64 || !image) return;
@@ -140,9 +138,9 @@ export function ImageOptimizeDialog({
     try {
         let result;
         if (format === 'png') {
-             result = await generateServerPreview(originalImageBase64, format, quality);
+            result = await generateServerPreview(originalImageBase64, format, quality);
         } else {
-             result = await generateClientPreview(originalImageBase64, format, quality);
+            result = await generateClientPreview(originalImageBase64, format, quality);
         }
         setPreview(result);
     } catch(err) {
@@ -162,6 +160,7 @@ export function ImageOptimizeDialog({
       setFormat('jpeg');
       setQuality(85);
       setZoom(1);
+      setPosition({x: 0, y: 0});
 
       fetchImageAsBase64(image.fullUrl)
         .then(base64 => {
@@ -184,12 +183,15 @@ export function ImageOptimizeDialog({
     }
   }, [quality, format, open, image, originalImageBase64, handleGeneratePreview]);
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+ const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!originalRef.current) return;
     setIsPanning(true);
-    setPanStart({ x: e.clientX, y: e.clientY });
-    setPanScroll({ left: originalRef.current.scrollLeft, top: originalRef.current.scrollTop });
+    panStart.current = { 
+        x: e.clientX, 
+        y: e.clientY,
+        posX: position.x,
+        posY: position.y
+    };
   };
   
   const handleMouseUp = () => setIsPanning(false);
@@ -197,13 +199,13 @@ export function ImageOptimizeDialog({
   
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!isPanning || !originalRef.current || !previewRef.current) return;
-    const dx = e.clientX - panStart.x;
-    const dy = e.clientY - panStart.y;
-    originalRef.current.scrollLeft = panScroll.left - dx;
-    originalRef.current.scrollTop = panScroll.top - dy;
-    previewRef.current.scrollLeft = panScroll.left - dx;
-    previewRef.current.scrollTop = panScroll.top - dy;
+    if (!isPanning) return;
+    const dx = e.clientX - panStart.current.x;
+    const dy = e.clientY - panStart.current.y;
+    setPosition({
+      x: panStart.current.posX + dx,
+      y: panStart.current.posY + dy,
+    });
   };
 
   const handleSave = () => {
@@ -217,14 +219,18 @@ export function ImageOptimizeDialog({
   const sizeReduction = useMemo(() => {
       if (!originalSize || !preview?.size) return 0;
       if (originalSize === 0) return 0; 
-      const reduction = ((originalSize - preview.size) / originalSize) * 100;
-      if(image?.filename.endsWith('.png') && format === 'png' && reduction < 0){
+      const reduction = ((originalSize - preview.size) / preview.size) * 100;
+       if(image?.filename.endsWith('.png') && format === 'png' && reduction < 0){
           return 0;
       }
       return reduction;
   }, [originalSize, preview, image, format]);
 
-  const isSaveDisabled = !preview || isLoading;
+  const isSaveDisabled = !preview || isLoading || (format === 'png' && image?.filename.endsWith('.png'));
+
+  const imageTransform = {
+      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -241,9 +247,8 @@ export function ImageOptimizeDialog({
             <div className="flex flex-col gap-2">
                 <h3 className="font-semibold text-center">Original ({formatBytes(originalSize)})</h3>
                 <div 
-                    ref={originalRef}
                     className={cn(
-                        "flex-grow bg-muted/50 rounded-md overflow-auto relative p-2",
+                        "flex-grow bg-muted/50 rounded-md overflow-hidden relative",
                         isPanning ? "cursor-grabbing" : "cursor-grab"
                     )}
                     onMouseDown={handleMouseDown}
@@ -257,15 +262,17 @@ export function ImageOptimizeDialog({
                             <p className="ml-2">Loading original...</p>
                         </div>
                     )}
-                    {originalImageBase64 && (
-                        <Image 
-                            src={originalImageBase64} 
-                            alt="Original" 
-                            width={image!.width} 
-                            height={image!.height} 
-                            className="transition-transform duration-300 origin-top-left pointer-events-none max-w-none"
-                            style={{ transform: `scale(${zoom})`}}
-                        />
+                     {originalImageBase64 && image && (
+                        <div className="absolute inset-0 flex items-center justify-center p-2">
+                            <Image
+                                src={originalImageBase64}
+                                alt="Original"
+                                width={image.width}
+                                height={image.height}
+                                className="transition-transform duration-100 ease-linear origin-center pointer-events-none max-w-full max-h-full object-contain"
+                                style={imageTransform}
+                            />
+                        </div>
                     )}
                 </div>
             </div>
@@ -274,9 +281,8 @@ export function ImageOptimizeDialog({
                     Preview ({preview ? formatBytes(preview.size) : '...'})
                 </h3>
                 <div 
-                    ref={previewRef}
-                    className={cn(
-                        "flex-grow bg-muted/50 rounded-md overflow-auto relative p-2",
+                     className={cn(
+                        "flex-grow bg-muted/50 rounded-md overflow-hidden relative",
                         isPanning ? "cursor-grabbing" : "cursor-grab"
                     )}
                     onMouseDown={handleMouseDown}
@@ -289,15 +295,17 @@ export function ImageOptimizeDialog({
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
                     )}
-                    {preview && (
-                        <Image 
-                            src={preview.base64} 
-                            alt="Preview" 
-                            width={image?.width || 500} 
-                            height={image?.height || 500} 
-                            className="transition-transform duration-300 origin-top-left pointer-events-none max-w-none"
-                            style={{ transform: `scale(${zoom})`}}
-                        />
+                    {preview && image && (
+                        <div className="absolute inset-0 flex items-center justify-center p-2">
+                            <Image
+                                src={preview.base64}
+                                alt="Preview"
+                                width={image.width}
+                                height={image.height}
+                                className="transition-transform duration-100 ease-linear origin-center pointer-events-none max-w-full max-h-full object-contain"
+                                style={imageTransform}
+                            />
+                        </div>
                     )}
                 </div>
             </div>
@@ -323,6 +331,13 @@ export function ImageOptimizeDialog({
                                 <SelectItem value="webp">WebP</SelectItem>
                             </SelectContent>
                         </Select>
+                         {format === 'png' && (
+                             <Alert variant="warning" className="p-2 text-xs h-auto mt-2">
+                                <AlertDescription className="ml-2">
+                                    For PNGs, consider converting to WebP for better compression. In-browser PNG optimization is not supported.
+                                </AlertDescription>
+                            </Alert>
+                         )}
                     </div>
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
@@ -335,8 +350,9 @@ export function ImageOptimizeDialog({
                             min={0}
                             max={100}
                             step={1}
+                            disabled={format === 'png'}
                         />
-                         {quality < 80 && (
+                         {quality < 80 && format !== 'png' && (
                             <Alert variant="warning" className="p-2 text-xs h-auto mt-2">
                                 <div className="flex items-center">
                                     <AlertTriangle className="h-4 w-4" />
@@ -354,7 +370,11 @@ export function ImageOptimizeDialog({
                         </div>
                         <Slider 
                             value={[zoom]} 
-                            onValueChange={([val]) => setZoom(val)}
+                            onValueChange={([val]) => {
+                                setZoom(val);
+                                // Optional: Reset pan on zoom for simplicity
+                                setPosition({x: 0, y: 0});
+                            }}
                             min={1}
                             max={5}
                             step={0.1}
@@ -369,7 +389,7 @@ export function ImageOptimizeDialog({
                     {preview ? (
                         <div className="text-center">
                             <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
-                                {sizeReduction.toFixed(1)}%
+                                {sizeReduction > 0 ? `-${sizeReduction.toFixed(1)}%` : '0%'}
                             </p>
                             <p className="text-muted-foreground">reduction in file size</p>
                         </div>
