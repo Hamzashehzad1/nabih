@@ -257,13 +257,12 @@ export function ImageOptimizeDialog({
                             disabled={format === 'image/png'}
                         />
                          {format === 'image/png' ? (
-                            <p className="text-xs text-muted-foreground pt-2">PNG is a lossless format; quality slider is disabled.</p>
+                            <p className="text-xs text-muted-foreground pt-1">PNG is a lossless format; quality slider is disabled.</p>
                          ) : quality < 80 && (
-                            <Alert variant="destructive" className="mt-4">
+                            <Alert variant="warning" className="mt-2 p-2 text-xs">
                                 <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>Low Quality</AlertTitle>
                                 <AlertDescription>
-                                    May result in noticeable visual artifacts.
+                                    Low quality may result in visual artifacts.
                                 </AlertDescription>
                             </Alert>
                         )}
