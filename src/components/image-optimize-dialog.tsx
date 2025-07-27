@@ -15,7 +15,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription as CardDescriptionComponent } from '@/components/ui/card';
 import { AlertTriangle, Loader2, Move, Replace, Save } from 'lucide-react';
 import { WpMediaItem, replaceWpMediaFile, uploadWpMedia } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
@@ -361,7 +361,7 @@ export function ImageOptimizeDialog({
     <Card>
       <CardHeader>
         <CardTitle>Save to WordPress</CardTitle>
-        <CardDescription>How would you like to save the optimized image?</CardDescription>
+        <CardDescriptionComponent>How would you like to save the optimized image?</CardDescriptionComponent>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert>
