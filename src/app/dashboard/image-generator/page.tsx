@@ -454,58 +454,65 @@ export default function ImageGeneratorPage() {
       }
 
       setUpdateStatus({ isUpdating: true, postId, type: status });
-      toast({ title: 'Updating Post...', description: 'Uploading images to WordPress and saving content. This may take a moment.' });
+      const toastMessage = status === 'draft' ? 'Saving Draft...' : 'Publishing Post...';
+      toast({ title: toastMessage, description: 'Please wait a moment.' });
 
       try {
-        const uploadedImages: ImageState = JSON.parse(JSON.stringify(postImages));
-        let uploadsFailed = false;
-        
-        const processImage = async (imageKey: 'featured' | string) => {
-            const image = imageKey === 'featured' ? postImages.featured : postImages.sections[imageKey];
-            if (image && image.url.startsWith('data:image')) {
-                const fileName = `${post.title.replace(/\s+/g, '-').toLowerCase().slice(0, 20)}-${imageKey}`;
-                const caption = `Photo by <a href="${image.photographerUrl}" target="_blank">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank">${image.source}</a>`;
-                
-                const uploadResult = await uploadImageToWp(selectedSite.url, selectedSite.user, selectedSite.appPassword!, {
-                    base64Data: image.url,
-                    fileName: fileName,
-                    altText: image.alt || post.title,
-                    caption: caption,
-                });
+        let finalImages = postImages;
 
-                if (uploadResult.success) {
-                    if (imageKey === 'featured') {
-                        uploadedImages.featured!.url = uploadResult.data.source_url;
+        // Only upload images if publishing
+        if (status === 'publish') {
+            const uploadedImages: ImageState = JSON.parse(JSON.stringify(postImages));
+            let uploadsFailed = false;
+            
+            const processImage = async (imageKey: 'featured' | string) => {
+                const image = imageKey === 'featured' ? postImages.featured : postImages.sections[imageKey];
+                if (image && image.url.startsWith('data:image')) {
+                    const fileName = `${post.title.replace(/\s+/g, '-').toLowerCase().slice(0, 20)}-${imageKey}`;
+                    const caption = `Photo by <a href="${image.photographerUrl}" target="_blank">${image.photographer}</a> on <a href="https://www.${image.source.toLowerCase()}.com" target="_blank">${image.source}</a>`;
+                    
+                    const uploadResult = await uploadImageToWp(selectedSite.url, selectedSite.user, selectedSite.appPassword!, {
+                        base64Data: image.url,
+                        fileName: fileName,
+                        altText: image.alt || post.title,
+                        caption: caption,
+                    });
+
+                    if (uploadResult.success) {
+                        if (imageKey === 'featured') {
+                            uploadedImages.featured!.url = uploadResult.data.source_url;
+                        } else {
+                            uploadedImages.sections[imageKey]!.url = uploadResult.data.source_url;
+                        }
                     } else {
-                        uploadedImages.sections[imageKey]!.url = uploadResult.data.source_url;
+                        uploadsFailed = true;
+                        toast({ title: 'Image Upload Failed', description: `Could not upload image for ${imageKey}. Reason: ${uploadResult.error}`, variant: 'destructive' });
                     }
-                } else {
-                    uploadsFailed = true;
-                    toast({ title: 'Image Upload Failed', description: `Could not upload image for ${imageKey}. Reason: ${uploadResult.error}`, variant: 'destructive' });
+                }
+            };
+
+            const uploadPromises: Promise<void>[] = [];
+            if (postImages.featured && postImages.featured.url.startsWith('data:image')) {
+                uploadPromises.push(processImage('featured'));
+            }
+            for (const heading in postImages.sections) {
+                const sectionImage = postImages.sections[heading];
+                if (sectionImage && sectionImage.url.startsWith('data:image')) {
+                    uploadPromises.push(processImage(heading));
                 }
             }
-        };
+            
+            await Promise.all(uploadPromises);
 
-        const uploadPromises: Promise<void>[] = [];
-        if (postImages.featured && postImages.featured.url.startsWith('data:image')) {
-            uploadPromises.push(processImage('featured'));
-        }
-        for (const heading in postImages.sections) {
-            const sectionImage = postImages.sections[heading];
-            if (sectionImage && sectionImage.url.startsWith('data:image')) {
-                uploadPromises.push(processImage(heading));
+            if (uploadsFailed) {
+                setUpdateStatus({ isUpdating: false, postId: null, type: null });
+                toast({ title: "Update Canceled", description: "Post update canceled due to image upload failure.", variant: "destructive" });
+                return;
             }
-        }
-        
-        await Promise.all(uploadPromises);
-
-        if (uploadsFailed) {
-             setUpdateStatus({ isUpdating: false, postId: null, type: null });
-             toast({ title: "Update Canceled", description: "Post update canceled due to image upload failure.", variant: "destructive" });
-             return;
+            finalImages = uploadedImages;
         }
 
-        const newContent = constructPostHtml(post.content, uploadedImages);
+        const newContent = constructPostHtml(post.content, finalImages);
         const result = await updatePostOnWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, postId, newContent, status);
 
         if (result.success) {
