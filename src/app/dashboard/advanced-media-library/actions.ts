@@ -7,7 +7,7 @@ const MediaDetailsSchema = z.object({
   width: z.number(),
   height: z.number(),
   file: z.string(),
-  filesize: z.number(),
+  filesize: z.number().optional().default(0),
   sizes: z.record(z.object({
     file: z.string(),
     width: z.number(),
@@ -67,36 +67,48 @@ export async function fetchWpMedia(
 ): Promise<{ success: true; data: WpMediaItem[] } | { success: false; error: string }> {
   
   const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
-  const url = new URL(baseUrl);
-  url.searchParams.append('context', 'edit');
-  url.searchParams.append('per_page', '100'); // Fetch a larger batch for client-side sorting
-  url.searchParams.append('orderby', 'date');
-  url.searchParams.append('order', 'desc');
-  
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
+  const allMediaData: z.infer<typeof MediaItemSchema>[] = [];
+  let page = 1;
+  const perPage = 100; // Max per_page for WP REST API by default
 
   try {
-    const response = await fetch(url.toString(), {
-        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
-        cache: 'no-store',
-    });
+    while (true) {
+        const url = new URL(baseUrl);
+        url.searchParams.append('context', 'edit');
+        url.searchParams.append('per_page', perPage.toString());
+        url.searchParams.append('page', page.toString());
+        
+        const response = await fetch(url.toString(), {
+            headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+            cache: 'no-store',
+        });
 
-    if (!response.ok) {
-        let errorDetails = `HTTP error! status: ${response.status}`;
-        try {
-            const errorData = await response.json();
-            errorDetails += ` - ${errorData.message || 'Unknown error'}`;
-        } catch (e) {}
-        return { success: false, error: errorDetails };
+        if (!response.ok) {
+            let errorDetails = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+            } catch (e) {}
+            return { success: false, error: errorDetails };
+        }
+        
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+            return { success: false, error: 'Unexpected response format from WordPress.' };
+        }
+        
+        if (data.length === 0) {
+            // No more pages to fetch
+            break;
+        }
+
+        allMediaData.push(...data);
+        page++;
     }
-    
-    const data = await response.json();
 
-     if (!Array.isArray(data)) {
-        return { success: false, error: 'Unexpected response format from WordPress.' };
-    }
-
-    const parsedData = MediaItemsSchema.safeParse(data);
+    const parsedData = MediaItemsSchema.safeParse(allMediaData);
      if (!parsedData.success) {
         console.error('WP Media Parse Error:', parsedData.error);
         return { success: false, error: 'Failed to parse media from WordPress.' };
@@ -106,7 +118,7 @@ export async function fetchWpMedia(
         id: item.id,
         date: item.date_gmt,
         filename: item.media_details.file,
-        filesize: item.media_details.filesize,
+        filesize: item.media_details.filesize || 0,
         width: item.media_details.width,
         height: item.media_details.height,
         thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,

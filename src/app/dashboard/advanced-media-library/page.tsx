@@ -283,7 +283,7 @@ export default function AdvancedMediaLibraryPage() {
                                 <div>
                                     <CardTitle>Your WordPress Media</CardTitle>
                                     <CardDescription>
-                                        Displaying the 100 most recent items from {new URL(selectedSite!.url).hostname}.
+                                        Displaying all media items from {new URL(selectedSite!.url).hostname}.
                                     </CardDescription>
                                 </div>
                                 <Button onClick={() => setSelectedSiteId(null)} variant="outline">
@@ -302,10 +302,10 @@ export default function AdvancedMediaLibraryPage() {
                             </div>
                             
                             {isLoading && (
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                    {Array.from({length: 10}).map((_, i) => (
-                                        <Skeleton key={i} className="aspect-[4/5] rounded-lg" />
-                                    ))}
+                                <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
+                                    <Loader2 className="h-12 w-12 animate-spin mb-4 text-primary" />
+                                    <p className="font-semibold">Loading your entire media library...</p>
+                                    <p className="text-sm">This may take a moment for large libraries.</p>
                                 </div>
                             )}
 
@@ -434,5 +434,3 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
-
-    
