@@ -277,7 +277,7 @@ export default function AdvancedMediaLibraryPage() {
                                                     <TableCell>
                                                         <Image src={item.thumbnailUrl} alt={item.filename} width={64} height={64} className="rounded-md object-cover aspect-square"/>
                                                     </TableCell>
-                                                    <TableCell className="font-medium">{item.filename}</TableCell>
+                                                    <TableCell className="font-medium max-w-xs break-words">{item.filename}</TableCell>
                                                     <TableCell>
                                                         <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
                                                     </TableCell>
@@ -356,5 +356,3 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
-
-    
