@@ -229,7 +229,7 @@ export function ImageOptimizeDialog({
           <div className="md:col-span-1 flex flex-col gap-6">
             <Card>
                 <CardHeader><CardTitle>Optimization Controls</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label>Output Format</Label>
                         <Select value={format} onValueChange={(v) => setFormat(v as ImageFormat)}>
@@ -256,7 +256,17 @@ export function ImageOptimizeDialog({
                             step={1}
                             disabled={format === 'image/png'}
                         />
-                         {format === 'image/png' && <p className="text-xs text-muted-foreground">PNG is a lossless format; quality slider is disabled.</p>}
+                         {format === 'image/png' ? (
+                            <p className="text-xs text-muted-foreground pt-2">PNG is a lossless format; quality slider is disabled.</p>
+                         ) : quality < 80 && (
+                            <Alert variant="destructive" className="mt-4">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>Low Quality</AlertTitle>
+                                <AlertDescription>
+                                    May result in noticeable visual artifacts.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </div>
                      <div className="space-y-2">
                         <div className="flex justify-between items-center">
@@ -290,15 +300,6 @@ export function ImageOptimizeDialog({
                 </CardContent>
             </Card>
             
-            {quality < 80 && format !== 'image/png' && (
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Low Quality Warning</AlertTitle>
-                    <AlertDescription>
-                        Quality below 80% may result in noticeable visual artifacts.
-                    </AlertDescription>
-                </Alert>
-            )}
           </div>
         </div>
 
