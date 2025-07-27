@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -80,7 +81,7 @@ export default function AdvancedMediaLibraryPage() {
         }
     }, [sites, selectedSiteId]);
 
-    const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
+    const selectedSite = sites.find(s => s.id === selectedSiteId);
 
     const handleFetchMedia = useCallback(async () => {
         if (!selectedSite?.appPassword) {
@@ -119,6 +120,7 @@ export default function AdvancedMediaLibraryPage() {
     const handleSortChange = () => {
         const newOrder = sortState.order === 'desc' ? 'asc' : 'desc';
         setSortState({ order: newOrder });
+
         const sorted = [...mediaItems].sort((a, b) => {
             if (newOrder === 'asc') {
                 return a.filesize - b.filesize;
@@ -299,7 +301,7 @@ export default function AdvancedMediaLibraryPage() {
                                 </div>
                             </div>
                             
-                            {isLoading && mediaItems.length === 0 && (
+                            {isLoading && (
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                     {Array.from({length: 10}).map((_, i) => (
                                         <Skeleton key={i} className="aspect-[4/5] rounded-lg" />
@@ -325,7 +327,7 @@ export default function AdvancedMediaLibraryPage() {
                             )}
 
                             {mediaItems.length > 0 && (
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                     {mediaItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden flex flex-col">
                                             <CardContent className="p-0 flex-grow">
@@ -337,7 +339,7 @@ export default function AdvancedMediaLibraryPage() {
                                                     className="aspect-square object-cover w-full h-full"
                                                 />
                                             </CardContent>
-                                            <CardFooter className="p-2 flex-col items-start !space-y-2">
+                                            <CardFooter className="p-2 flex-col items-start space-y-1.5">
                                                 <p className="text-xs font-medium truncate w-full">{item.filename}</p>
                                                 <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
                                                 <div className="grid grid-cols-2 gap-2 w-full pt-1">
@@ -432,3 +434,5 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
+
+    
