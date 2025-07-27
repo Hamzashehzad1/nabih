@@ -60,7 +60,7 @@ async function generatePreview(
     image.src = imageUrl;
     await new Promise((resolve, reject) => {
         image.onload = resolve;
-        image.onerror = (err) => reject(new Error('Image failed to load for preview.'));
+        image.onerror = (err) => reject(new Error('Image failed to load for preview. Check CORS policy.'));
     });
 
     const canvas = document.createElement('canvas');
@@ -138,13 +138,7 @@ export function ImageOptimizeDialog({
     }
   }, [open, image, toast]);
   
-  useEffect(() => {
-    if (originalImageBase64) {
-      handleGeneratePreview();
-    }
-  }, [originalImageBase64, handleGeneratePreview]);
-
-  // Re-generate preview when quality or format changes
+  // Re-generate preview when quality or format changes, or when the original image is loaded
   useEffect(() => {
     if (open && image && originalImageBase64) {
         const handler = setTimeout(() => {
@@ -153,6 +147,7 @@ export function ImageOptimizeDialog({
         return () => clearTimeout(handler);
     }
   }, [quality, format, open, image, originalImageBase64, handleGeneratePreview]);
+
   
   const handleSave = () => {
     if (preview) {
