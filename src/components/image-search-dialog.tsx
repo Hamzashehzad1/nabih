@@ -108,7 +108,7 @@ export function ImageSearchDialog({
                 >
                     <Image
                     src={image.url}
-                    alt={image.alt}
+                    alt={image.alt || 'Search result image'}
                     width={400}
                     height={250}
                     className="rounded-md object-cover aspect-[16/10] transition-transform group-hover:scale-105"
