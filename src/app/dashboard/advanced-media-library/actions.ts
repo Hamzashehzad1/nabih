@@ -7,7 +7,7 @@ const MediaDetailsSchema = z.object({
   width: z.number(),
   height: z.number(),
   file: z.string(),
-  filesize: z.number().optional().default(0),
+  filesize: z.number(),
   sizes: z.record(z.object({
     file: z.string(),
     width: z.number(),
@@ -106,7 +106,7 @@ export async function fetchWpMedia(
         id: item.id,
         date: item.date_gmt,
         filename: item.media_details.file,
-        filesize: item.media_details.filesize || 0,
+        filesize: item.media_details.filesize,
         width: item.media_details.width,
         height: item.media_details.height,
         thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
