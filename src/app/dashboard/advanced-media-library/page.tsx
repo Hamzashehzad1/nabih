@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useInView } from 'react-intersection-observer';
+import JSZip from 'jszip';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem, backupMediaToCloud } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCheck, CheckCircle2, XCircle, Download } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -358,28 +359,42 @@ export default function AdvancedMediaLibraryPage() {
         const { itemsToBackup, provider } = backupState;
         
         if (provider === 'zip') {
+            const zip = new JSZip();
             let completed = 0;
-            const filenames = itemsToBackup.map(item => item.filename).join('\n');
-            const blob = new Blob([`Backup contains the following files:\n\n${filenames}`], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `content-forge-backup-${new Date().toISOString().split('T')[0]}.txt`;
-            
+
             for (const item of itemsToBackup) {
-                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {status: 'uploading', message: 'Compressing...'}}}));
-                await new Promise(resolve => setTimeout(resolve, 20)); // Tiny delay per file
-                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: { status: 'success', message: 'Zipped' }}}));
+                setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {status: 'uploading', message: 'Downloading...'}}}));
+                try {
+                    const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(item.fullUrl)}`);
+                    if (!response.ok) throw new Error('Failed to proxy image');
+
+                    const { base64 } = await response.json();
+                    const blob = await (await fetch(base64)).blob();
+                    zip.file(item.filename, blob);
+                    
+                    setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: { status: 'success', message: 'Zipped' }}}));
+                } catch (e) {
+                     setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: { status: 'error', message: 'Download failed' }}}));
+                }
                 completed++;
                 setBackupState(prev => ({...prev, overallProgress: (completed / itemsToBackup.length) * 100 }));
             }
-             document.body.appendChild(a);
-             a.click();
-             document.body.removeChild(a);
-             URL.revokeObjectURL(url);
-             setBackupState(prev => ({...prev, isBackingUp: false}));
-             toast({ title: 'Download Complete', description: 'Your backup file has been downloaded.' });
-             return;
+
+            toast({ title: 'Zipping complete', description: 'Generating your download...' });
+            
+            const zipBlob = await zip.generateAsync({type:"blob"});
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `media-backup.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            setBackupState(prev => ({...prev, isBackingUp: false}));
+            toast({ title: 'Download Started', description: 'Your zip file is downloading.' });
+            return;
         }
 
         // Logic for other providers (currently disabled)
@@ -517,7 +532,7 @@ export default function AdvancedMediaLibraryPage() {
                                     <>
                                     <Label>Tools:</Label>
                                     <Button variant='outline' size="sm" onClick={() => setIsSelectionMode(true)}>
-                                       <CheckCheck className="mr-2 h-4 w-4" /> Select for Backup
+                                       <Checkbox className="mr-2 h-4 w-4" /> Select for Backup
                                     </Button>
                                     <Label>Sort by:</Label>
                                     <Button variant='secondary' size="sm" onClick={handleSort} disabled={isSorting}>
@@ -665,7 +680,7 @@ export default function AdvancedMediaLibraryPage() {
                             <Label className="font-semibold">Destination</Label>
                              <RadioGroup 
                                 value={backupState.provider} 
-                                onValueChange={(value: CloudProvider) => setBackupState(prev => ({...prev, provider: value}))}
+                                onValueChange={(value) => setBackupState(prev => ({...prev, provider: value as CloudProvider}))}
                                 className="mt-2 grid grid-cols-1 gap-2"
                                 disabled={backupState.isBackingUp}
                             >
@@ -724,7 +739,7 @@ export default function AdvancedMediaLibraryPage() {
                         <Button onClick={startBackup} disabled={backupButtonDisabled}>
                            {backupState.isBackingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                            {backupState.provider === 'zip' 
-                               ? (backupState.isBackingUp ? 'Downloading...' : 'Download Zip') 
+                               ? (backupState.isBackingUp ? 'Zipping...' : 'Download Zip') 
                                : (backupState.isBackingUp ? 'Backing up...' : 'Start Backup')
                            }
                         </Button>
