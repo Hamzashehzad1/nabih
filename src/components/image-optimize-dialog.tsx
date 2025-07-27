@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
@@ -257,9 +257,14 @@ export function ImageOptimizeDialog({
                             disabled={format === 'image/png'}
                         />
                          {format === 'image/png' ? (
-                            <p className="text-xs text-muted-foreground pt-1">PNG is a lossless format; quality slider is disabled.</p>
+                            <Alert variant="warning" className="p-2 text-xs">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                    PNG is lossless. For size reduction, convert to WebP.
+                                </AlertDescription>
+                            </Alert>
                          ) : quality < 80 && (
-                            <Alert variant="warning" className="mt-2 p-2 text-xs">
+                            <Alert variant="warning" className="p-2 text-xs">
                                 <AlertTriangle className="h-4 w-4" />
                                 <AlertDescription>
                                     Low quality may result in visual artifacts.
