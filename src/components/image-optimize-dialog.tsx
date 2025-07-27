@@ -22,20 +22,13 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-type ImageFormat = 'image/jpeg' | 'image/png' | 'image/webp';
+type ImageFormat = 'jpeg' | 'png' | 'webp';
 
 interface ImageOptimizeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   image: WpMediaItem | null;
   onSave: (data: { base64: string; size: number }) => void;
-}
-
-function getBase64Size(base64: string): number {
-    if (!base64) return 0;
-    const stringLength = base64.length - (base64.indexOf(',') + 1);
-    const sizeInBytes = (stringLength * 3) / 4;
-    return sizeInBytes;
 }
 
 async function fetchImageAsBase64(imageUrl: string): Promise<string> {
@@ -47,44 +40,24 @@ async function fetchImageAsBase64(imageUrl: string): Promise<string> {
     return base64;
 }
 
-
 async function generatePreview(
-    imageUrl: string,
+    base64: string,
     format: ImageFormat,
     quality: number,
-    width: number,
-    height: number
 ): Promise<{ base64: string; size: number }> {
-    // If the format is PNG and the original is likely a PNG, don't re-render.
-    // This prevents the browser from creating a larger, unoptimized PNG.
-    if (format === 'image/png' && imageUrl.startsWith('data:image/png')) {
-        return { base64: imageUrl, size: getBase64Size(imageUrl) };
-    }
-    
-    const image = new window.Image();
-    image.src = imageUrl;
-    await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = (err) => reject(new Error('Image failed to load for preview. Check CORS policy.'));
+    const response = await fetch('/api/optimize-image', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: base64, format, quality }),
     });
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Could not get canvas context');
-    
-    if (format === 'image/jpeg') {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
+    if (!response.ok) {
+        throw new Error('Failed to optimize image');
     }
 
-    ctx.drawImage(image, 0, 0, width, height);
-    
-    const base64 = canvas.toDataURL(format, quality / 100);
-    const size = getBase64Size(base64);
-
-    return { base64, size };
+    return await response.json();
 }
 
 
@@ -104,7 +77,7 @@ export function ImageOptimizeDialog({
   image,
   onSave,
 }: ImageOptimizeDialogProps) {
-  const [format, setFormat] = useState<ImageFormat>('image/jpeg');
+  const [format, setFormat] = useState<ImageFormat>('jpeg');
   const [quality, setQuality] = useState(85);
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,7 +89,7 @@ export function ImageOptimizeDialog({
     if (!originalImageBase64 || !image) return;
     setIsLoading(true);
     try {
-        const result = await generatePreview(originalImageBase64, format, quality, image.width, image.height);
+        const result = await generatePreview(originalImageBase64, format, quality);
         setPreview(result);
     } catch(err) {
         console.error(err);
@@ -168,7 +141,7 @@ export function ImageOptimizeDialog({
       return ((originalSize - preview.size) / originalSize) * 100;
   }, [originalSize, preview]);
 
-  const isSaveDisabled = !preview || isLoading || (format === 'image/png' && preview.size >= originalSize);
+  const isSaveDisabled = !preview || isLoading || (format === 'png' && preview.size >= originalSize);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -246,9 +219,9 @@ export function ImageOptimizeDialog({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="image/jpeg">JPEG</SelectItem>
-                                <SelectItem value="image/png">PNG</SelectItem>
-                                <SelectItem value="image/webp">WebP</SelectItem>
+                                <SelectItem value="jpeg">JPEG</SelectItem>
+                                <SelectItem value="png">PNG</SelectItem>
+                                <SelectItem value="webp">WebP</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -263,21 +236,15 @@ export function ImageOptimizeDialog({
                             min={0}
                             max={100}
                             step={1}
-                            disabled={format === 'image/png'}
                         />
-                         {format === 'image/png' ? (
+                         {quality < 80 && (
                             <Alert variant="warning" className="p-2 text-xs">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertDescription>
-                                    In-browser optimization for PNGs is not supported. For significant size reduction, please convert to WebP or JPEG.
-                                </AlertDescription>
-                            </Alert>
-                         ) : quality < 80 && (
-                            <Alert variant="warning" className="p-2 text-xs">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertDescription>
-                                    Low quality may result in visual artifacts.
-                                </AlertDescription>
+                                <div className="flex items-center">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertDescription className="ml-2">
+                                        Low quality may result in visual artifacts.
+                                    </AlertDescription>
+                                </div>
                             </Alert>
                         )}
                     </div>
@@ -302,7 +269,7 @@ export function ImageOptimizeDialog({
                 <CardContent>
                     {preview ? (
                         <div className="text-center">
-                            <p className={`text-4xl font-bold ${sizeReduction >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
                                 {sizeReduction.toFixed(1)}%
                             </p>
                             <p className="text-muted-foreground">reduction in file size</p>
