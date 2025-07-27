@@ -1,9 +1,9 @@
 
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Globe, FileText, ImageIcon, PlusCircle, RefreshCw, Edit } from "lucide-react";
+import { Globe, FileText, ImageIcon, PlusCircle, RefreshCw, Edit, Library, ArrowRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -49,11 +49,35 @@ export default function DashboardPage() {
     { title: "Connected Sites", value: sites.length, icon: <Globe className="h-6 w-6 text-muted-foreground" /> },
   ];
 
+  const tools = [
+      {
+          title: "Blog Generator",
+          description: "Generate a complete, SEO-optimized blog post from just a title.",
+          icon: <FileText className="h-8 w-8 text-primary" />,
+          href: "/dashboard/blog-generator",
+          cta: "New Blog Post"
+      },
+      {
+          title: "Image Generator",
+          description: "Find and insert the perfect images for your existing WordPress posts.",
+          icon: <ImageIcon className="h-8 w-8 text-primary" />,
+          href: "/dashboard/image-generator",
+          cta: "Generate Images"
+      },
+      {
+          title: "Advanced Media Library",
+          description: "View and manage all the media in your WordPress library.",
+          icon: <Library className="h-8 w-8 text-primary" />,
+          href: "/dashboard/advanced-media-library",
+          cta: "Open Library"
+      }
+  ]
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-headline font-bold">Welcome back!</h1>
-        <p className="text-muted-foreground">Here's a snapshot of your content empire.</p>
+        <p className="text-muted-foreground">Here's a snapshot of your content empire. Ready to create?</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -69,12 +93,31 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+      
+       <div className="grid gap-6 md:grid-cols-3">
+            {tools.map(tool => (
+                 <Card key={tool.title} className="flex flex-col">
+                    <CardHeader className="flex-grow">
+                        <div className="flex items-center gap-4">
+                            {tool.icon}
+                            <CardTitle className="text-2xl font-headline">{tool.title}</CardTitle>
+                        </div>
+                        <CardDescription className="pt-4">{tool.description}</CardDescription>
+                    </CardHeader>
+                    <CardFooter>
+                        <Button asChild className="w-full">
+                            <Link href={tool.href}>{tool.cta} <ArrowRight className="ml-2 h-4 w-4"/></Link>
+                        </Button>
+                    </CardFooter>
+                </Card>
+            ))}
+       </div>
 
        <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div >
             <CardTitle>Generated Blog Posts</CardTitle>
-            <p className="text-sm text-muted-foreground pt-1">Here are the posts you've created.</p>
+            <p className="text-sm text-muted-foreground pt-1">Here are the locally-saved posts you've generated.</p>
           </div>
            <Button asChild>
             <Link href="/dashboard/blog-generator">
