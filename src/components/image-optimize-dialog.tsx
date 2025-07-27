@@ -243,7 +243,7 @@ export function ImageOptimizeDialog({
                 <div 
                     ref={originalRef}
                     className={cn(
-                        "flex-grow bg-muted/50 rounded-md overflow-hidden relative",
+                        "flex-grow bg-muted/50 rounded-md overflow-auto relative p-2",
                         isPanning ? "cursor-grabbing" : "cursor-grab"
                     )}
                     onMouseDown={handleMouseDown}
@@ -258,16 +258,14 @@ export function ImageOptimizeDialog({
                         </div>
                     )}
                     {originalImageBase64 && (
-                        <div className="w-max h-max p-2">
-                            <Image 
-                                src={originalImageBase64} 
-                                alt="Original" 
-                                width={image!.width} 
-                                height={image!.height} 
-                                className="transition-transform duration-300 origin-top-left pointer-events-none"
-                                style={{ transform: `scale(${zoom})`}}
-                            />
-                        </div>
+                        <Image 
+                            src={originalImageBase64} 
+                            alt="Original" 
+                            width={image!.width} 
+                            height={image!.height} 
+                            className="transition-transform duration-300 origin-top-left pointer-events-none max-w-none"
+                            style={{ transform: `scale(${zoom})`}}
+                        />
                     )}
                 </div>
             </div>
@@ -278,7 +276,7 @@ export function ImageOptimizeDialog({
                 <div 
                     ref={previewRef}
                     className={cn(
-                        "flex-grow bg-muted/50 rounded-md overflow-hidden relative",
+                        "flex-grow bg-muted/50 rounded-md overflow-auto relative p-2",
                         isPanning ? "cursor-grabbing" : "cursor-grab"
                     )}
                     onMouseDown={handleMouseDown}
@@ -292,16 +290,14 @@ export function ImageOptimizeDialog({
                         </div>
                     )}
                     {preview && (
-                         <div className="w-max h-max p-2">
-                            <Image 
-                                src={preview.base64} 
-                                alt="Preview" 
-                                width={image?.width || 500} 
-                                height={image?.height || 500} 
-                                className="transition-transform duration-300 origin-top-left pointer-events-none"
-                                style={{ transform: `scale(${zoom})`}}
-                            />
-                        </div>
+                        <Image 
+                            src={preview.base64} 
+                            alt="Preview" 
+                            width={image?.width || 500} 
+                            height={image?.height || 500} 
+                            className="transition-transform duration-300 origin-top-left pointer-events-none max-w-none"
+                            style={{ transform: `scale(${zoom})`}}
+                        />
                     )}
                 </div>
             </div>
