@@ -7,7 +7,7 @@ const MediaDetailsSchema = z.object({
   width: z.number(),
   height: z.number(),
   file: z.string(),
-  filesize: z.number().optional().default(0), // Make filesize optional and default to 0
+  filesize: z.number().optional().default(0),
   sizes: z.record(z.object({
     file: z.string(),
     width: z.number(),
