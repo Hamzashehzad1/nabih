@@ -58,7 +58,7 @@ function formatBytes(bytes: number, decimals = 2) {
 
 
 export default function AdvancedMediaLibraryPage() {
-    const { toast } = useToast();
+    const { toast, dismiss } = useToast();
     const isMobile = useIsMobile();
     const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
     const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
@@ -186,7 +186,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsSorting(true);
         setError(null);
-        toast({ title: 'Fetching all media...', description: 'Sorting with current data. Fetching the rest in the background.' });
+        const { id: toastId } = toast({ title: 'Fetching all media...', description: 'Sorting with current data. Fetching the rest in the background.' });
 
         try {
             if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
@@ -209,7 +209,7 @@ export default function AdvancedMediaLibraryPage() {
             }
             
             hasFetchedAll.current = true;
-            toast.dismiss();
+            dismiss(toastId);
             toast({ title: "Sorting complete!", description: "All media has been fetched and sorted."});
 
         } catch (e: any) {
@@ -218,7 +218,7 @@ export default function AdvancedMediaLibraryPage() {
         } finally {
             setIsSorting(false);
         }
-    }, [sortOrder, selectedSite, toast, currentPage]);
+    }, [sortOrder, selectedSite, toast, currentPage, dismiss]);
     
     
     const handleSelectMedia = (item: WpMediaItem) => {
