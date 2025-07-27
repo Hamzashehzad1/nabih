@@ -76,6 +76,7 @@ export async function fetchWpMedia(
     const initialUrl = new URL(baseUrl);
     initialUrl.searchParams.append('per_page', '1');
     const initialResponse = await fetch(initialUrl.toString(), {
+        method: 'HEAD',
         headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
         cache: 'no-store',
     });
@@ -92,7 +93,7 @@ export async function fetchWpMedia(
     const totalPagesHeader = initialResponse.headers.get('x-wp-totalpages');
     const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
 
-    // Now, fetch all pages
+    // Now, fetch all pages in parallel for better performance
     const pagePromises = [];
     for (let page = 1; page <= totalPages; page++) {
         const url = new URL(baseUrl);
