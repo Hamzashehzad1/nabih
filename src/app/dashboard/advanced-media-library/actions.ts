@@ -22,6 +22,13 @@ const MediaItemSchema = z.object({
   title: z.object({
     rendered: z.string(),
   }),
+  alt_text: z.string(),
+  caption: z.object({
+    rendered: z.string(),
+  }),
+  description: z.object({
+    rendered: z.string(),
+  }),
   media_details: MediaDetailsSchema,
   source_url: z.string(),
 });
@@ -36,6 +43,18 @@ export interface WpMediaItem {
   height: number;
   thumbnailUrl: string;
   fullUrl: string;
+  alt: string;
+  caption: string;
+  description: string;
+}
+
+function stripHtml(html: string): string {
+    if (typeof document === 'undefined') {
+        // Simple regex for server-side stripping
+        return html.replace(/<[^>]*>?/gm, '');
+    }
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
 }
 
 async function fetchWpMediaPage(
@@ -72,6 +91,9 @@ async function fetchWpMediaPage(
         height: item.media_details.height,
         thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
         fullUrl: item.source_url,
+        alt: item.alt_text,
+        caption: stripHtml(item.caption.rendered),
+        description: stripHtml(item.description.rendered),
     }));
 }
 
@@ -123,6 +145,9 @@ export async function fetchWpMedia(
         height: item.media_details.height,
         thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
         fullUrl: item.source_url,
+        alt: item.alt_text,
+        caption: stripHtml(item.caption.rendered),
+        description: stripHtml(item.description.rendered),
     }));
 
 
@@ -151,3 +176,46 @@ export async function fetchWpMedia(
   }
 }
 
+export async function updateWpMediaDetails(
+    siteUrl: string,
+    username: string,
+    appPassword: string,
+    mediaId: number,
+    details: { alt: string; caption: string; description: string }
+): Promise<{ success: true } | { success: false; error: string }> {
+    const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media/${mediaId}`;
+    const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                alt_text: details.alt,
+                caption: details.caption,
+                description: details.description,
+            }),
+        });
+
+        if (!response.ok) {
+            let errorDetails = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+            } catch (e) {}
+            return { success: false, error: errorDetails };
+        }
+        
+        return { success: true };
+
+    } catch (error) {
+        console.error('Error updating media details:', error);
+        if (error instanceof Error) {
+            return { success: false, error: error.message };
+        }
+        return { success: false, error: 'An unknown error occurred while updating media details.' };
+    }
+}
