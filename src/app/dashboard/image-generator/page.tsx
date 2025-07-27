@@ -100,6 +100,13 @@ interface UpdateStatus {
     type: 'draft' | 'publish' | null;
 }
 
+function getBase64Size(base64: string): number {
+    if (!base64) return 0;
+    const stringLength = base64.length - base64.indexOf(',');
+    const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624896334383812;
+    return Math.round(sizeInBytes / 1024); // Size in KB
+}
+
 function constructPostHtml(originalContent: string, postImages: ImageState): string {
     if (typeof window === 'undefined') return originalContent;
 
@@ -365,7 +372,9 @@ export default function ImageGeneratorPage() {
     if (!postId || !type) return;
 
     const onCropComplete = (croppedImageUrl: string, originalImage: ImageSearchResult) => {
-        const newImage: ImageSearchResult = { ...originalImage, url: croppedImageUrl };
+        const imageSize = getBase64Size(croppedImageUrl);
+        const newImage: ImageSearchResult = { ...originalImage, url: croppedImageUrl, size: imageSize };
+        
         setImages((prev) => {
           const currentImages = prev[postId] || { featured: null, sections: {} };
           let newImages: ImageState;
@@ -614,7 +623,7 @@ export default function ImageGeneratorPage() {
   
                                   {postImages.featured ? (
                                       <div className="relative">
-                                          <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt} className="rounded-md aspect-[2/1] object-cover" />
+                                          <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt || 'Featured Image'} className="rounded-md aspect-[2/1] object-cover" />
                                           <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                                               <Button variant="outline" size="sm" onClick={() => handleOpenSearchDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
                                               {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />} Replace
@@ -623,9 +632,12 @@ export default function ImageGeneratorPage() {
                                               <Trash2 className="mr-2 h-4 w-4" /> Delete
                                               </Button>
                                           </div>
-                                          <p className="text-xs text-muted-foreground mt-1 italic">
-                                              Photo by <a href={postImages.featured.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">{postImages.featured.photographer}</a> on <a href={`https://www.${postImages.featured.source.toLowerCase()}.com`}  target="_blank" rel="noopener noreferrer" className="underline">{postImages.featured.source}</a>
-                                          </p>
+                                           <div className="text-xs text-muted-foreground mt-1 flex justify-between items-center">
+                                                <p className="italic">
+                                                    Photo by <a href={postImages.featured.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">{postImages.featured.photographer}</a> on <a href={`https://www.${postImages.featured.source.toLowerCase()}.com`}  target="_blank" rel="noopener noreferrer" className="underline">{postImages.featured.source}</a>
+                                                </p>
+                                                {postImages.featured.size && <Badge variant="outline">{postImages.featured.size} KB</Badge>}
+                                           </div>
                                       </div>
                                   ) : (
                                       <Button onClick={() => handleOpenSearchDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
@@ -655,7 +667,10 @@ export default function ImageGeneratorPage() {
                                               <div className="flex items-center gap-2 self-end md:self-center">
                                               {image ? (
                                                 <div className="flex items-center gap-2">
-                                                    <Image src={image.url} width={80} height={45} alt={image.alt} className="rounded-md aspect-video object-cover" />
+                                                    <div className="flex flex-col items-end text-xs text-muted-foreground">
+                                                        <Image src={image.url} width={80} height={45} alt={image.alt || 'Section image'} className="rounded-md aspect-video object-cover" />
+                                                        {image.size && <Badge variant="outline" className="mt-1">{image.size} KB</Badge>}
+                                                    </div>
                                                      <div className="flex flex-col gap-1">
                                                         <Button variant="outline" size="icon" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)} disabled={loadingStates[loadingKeySection]}>
                                                         {loadingStates[loadingKeySection] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Replace className="h-4 w-4" />}

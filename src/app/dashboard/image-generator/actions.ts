@@ -38,7 +38,7 @@ export interface WpPost {
     featuredImageUrl?: string;
 }
 
-export type ImageSearchResult = SearchImagesOutput['images'][0];
+export type ImageSearchResult = SearchImagesOutput['images'][0] & { size?: number };
 
 
 export async function generateAndSearch(input: GenerateImagePromptInput): Promise<{query: string, images: ImageSearchResult[]}> {
@@ -143,7 +143,7 @@ export async function uploadImageToWp(
 
   try {
     // Convert base64 to buffer
-    const buffer = Buffer.from(base64Data.split(',')[1], 'base64');
+    const buffer = Buffer.from(base64Data.split(';base64,').pop()!, 'base64');
     
     const response = await fetch(url, {
       method: 'POST',
@@ -164,7 +164,7 @@ export async function uploadImageToWp(
 
     // Now, update the media item with alt text, title, and caption
     const updateUrl = `${url}/${mediaData.id}`;
-    await fetch(updateUrl, {
+    const updateResponse = await fetch(updateUrl, {
       method: 'POST',
       headers: {
         'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
@@ -176,6 +176,11 @@ export async function uploadImageToWp(
         title: altText, // Often good to set title as well
       }),
     });
+
+     if (!updateResponse.ok) {
+        // Even if this fails, the image was uploaded. We can warn the user.
+        console.warn(`Image uploaded but failed to set metadata: ${await updateResponse.text()}`);
+    }
 
     return { success: true, data: { source_url: mediaData.source_url } };
   } catch (error) {
