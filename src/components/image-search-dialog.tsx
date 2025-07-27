@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ interface ImageSearchDialogProps {
   initialQuery?: string;
   initialImages?: ImageSearchResult[];
   onSelectImage: (image: ImageSearchResult) => void;
-  onSearch: (query: string) => Promise<ImageSearchResult[]>;
+  onSearch: (query: string, page: number) => Promise<ImageSearchResult[]>;
 }
 
 export function ImageSearchDialog({
@@ -38,33 +39,59 @@ export function ImageSearchDialog({
   const [query, setQuery] = useState(initialQuery);
   const [images, setImages] = useState(initialImages);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     if (open) {
       setQuery(initialQuery);
       setImages(initialImages);
+      setPage(1);
+      setHasMore(true);
       if (initialImages.length === 0 && initialQuery) {
           setIsLoading(true);
-          onSearch(initialQuery).then(results => {
+          onSearch(initialQuery, 1).then(results => {
               setImages(results);
               setIsLoading(false);
+              setPage(prev => prev + 1);
+              if (results.length === 0) {
+                  setHasMore(false);
+              }
           });
       }
     }
   }, [open, initialQuery, initialImages, onSearch]);
 
-  const handleSearch = useCallback(async () => {
+  const handleSearch = useCallback(async (isNewSearch = true) => {
     if (!query) return;
-    setIsLoading(true);
-    setImages([]); // Clear previous images while new ones are loading
-    const results = await onSearch(query);
-    setImages(results);
-    setIsLoading(false);
-  }, [query, onSearch]);
+
+    if (isNewSearch) {
+        setPage(1);
+        setImages([]);
+        setHasMore(true);
+        setIsLoading(true);
+    } else {
+        setIsLoadingMore(true);
+    }
+    
+    const results = await onSearch(query, isNewSearch ? 1 : page);
+
+    if (results.length === 0) {
+        setHasMore(false);
+    }
+    
+    setImages(prev => isNewSearch ? results : [...prev, ...results]);
+    setPage(prev => prev + 1);
+
+    if(isNewSearch) setIsLoading(false);
+    setIsLoadingMore(false);
+  }, [query, onSearch, page]);
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleSearch();
+      handleSearch(true);
     }
   };
 
@@ -85,7 +112,7 @@ export function ImageSearchDialog({
             onKeyDown={handleKeyDown}
             placeholder="e.g., 'futuristic city skyline at night'"
           />
-          <Button onClick={handleSearch} disabled={isLoading}>
+          <Button onClick={() => handleSearch(true)} disabled={isLoading}>
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -97,12 +124,12 @@ export function ImageSearchDialog({
         <div className="flex-grow mt-4 border rounded-md overflow-hidden">
             <ScrollArea className="h-full">
             <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {isLoading && images.length === 0 && Array.from({ length: 12 }).map((_, i) => (
+                {(isLoading && images.length === 0) && Array.from({ length: 12 }).map((_, i) => (
                     <Skeleton key={i} className="aspect-[16/10] bg-muted rounded-md" />
                 ))}
                 {images.map((image) => (
                 <div
-                    key={image.url}
+                    key={image.url + Math.random()}
                     className="group relative cursor-pointer"
                     onClick={() => onSelectImage(image)}
                 >
@@ -129,6 +156,19 @@ export function ImageSearchDialog({
             )}
             </ScrollArea>
         </div>
+         <DialogFooter className="pt-4 flex-shrink-0">
+            {hasMore && images.length > 0 && (
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => handleSearch(false)}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Load More Images
+              </Button>
+            )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

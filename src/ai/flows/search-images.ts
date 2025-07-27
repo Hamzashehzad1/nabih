@@ -13,6 +13,7 @@ import { z } from 'genkit';
 
 const SearchImagesInputSchema = z.object({
   query: z.string().describe('The search query for images.'),
+  page: z.number().optional().default(1).describe('The page number for pagination.'),
 });
 export type SearchImagesInput = z.infer<typeof SearchImagesInputSchema>;
 
@@ -29,9 +30,9 @@ const SearchImagesOutputSchema = z.object({
 });
 export type SearchImagesOutput = z.infer<typeof SearchImagesOutputSchema>;
 
-async function searchPexels(query: string): Promise<SearchImagesOutput['images']> {
+async function searchPexels(query: string, page: number): Promise<SearchImagesOutput['images']> {
   try {
-    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=15&orientation=landscape`, {
+    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=15&orientation=landscape&page=${page}`, {
       headers: { Authorization: process.env.PEXELS_API_KEY! },
     });
     if (!response.ok) {
@@ -40,7 +41,7 @@ async function searchPexels(query: string): Promise<SearchImagesOutput['images']
     }
     const data = await response.json();
     return data.photos.map((photo: any) => ({
-      url: photo.src.large, // Use large for better preview in dialog
+      url: photo.src.large, // Use large for preview, it's a good balance. Original is used for crop.
       alt: photo.alt,
       photographer: photo.photographer,
       photographerUrl: photo.photographer_url,
@@ -52,9 +53,9 @@ async function searchPexels(query: string): Promise<SearchImagesOutput['images']
   }
 }
 
-async function searchUnsplash(query: string): Promise<SearchImagesOutput['images']> {
+async function searchUnsplash(query: string, page: number): Promise<SearchImagesOutput['images']> {
   try {
-    const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=15&orientation=landscape`, {
+    const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=15&orientation=landscape&page=${page}`, {
       headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` },
     });
     if (!response.ok) {
@@ -63,7 +64,7 @@ async function searchUnsplash(query: string): Promise<SearchImagesOutput['images
     }
     const data = await response.json();
     return data.results.map((photo: any) => ({
-      url: photo.urls.regular,
+      url: photo.urls.regular, // Use regular for preview. Original is used for crop.
       alt: photo.alt_description,
       photographer: photo.user.name,
       photographerUrl: photo.user.links.html,
@@ -75,10 +76,10 @@ async function searchUnsplash(query: string): Promise<SearchImagesOutput['images
   }
 }
 
-export async function searchImages({ query }: SearchImagesInput): Promise<SearchImagesOutput> {
+export async function searchImages({ query, page = 1 }: SearchImagesInput): Promise<SearchImagesOutput> {
     const [pexelsImages, unsplashImages] = await Promise.all([
-      searchPexels(query),
-      searchUnsplash(query),
+      searchPexels(query, page),
+      searchUnsplash(query, page),
     ]);
     
     // Simple interleaving of results

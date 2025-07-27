@@ -773,8 +773,8 @@ export default function ImageGeneratorPage() {
         initialQuery={searchDialogState.initialQuery}
         initialImages={searchDialogState.initialImages}
         onSelectImage={handleSelectImageFromSearch}
-        onSearch={async (query) => {
-            const result = await searchImages({ query });
+        onSearch={async (query, page) => {
+            const result = await searchImages({ query, page });
             return result.images;
         }}
     />
