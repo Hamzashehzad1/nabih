@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageOptimizeDialog } from '@/components/image-optimize-dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
@@ -171,37 +171,40 @@ export default function AdvancedMediaLibraryPage() {
         const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
         setSortOrder(newOrder);
 
-        // Sort immediately with current data
-        const sortedCurrent = [...allMediaCache.current].sort((a, b) => {
+        if (hasFetchedAll.current) {
+            const sorted = [...allMediaCache.current].sort((a, b) => {
+                if (newOrder === 'asc') return a.filesize - b.filesize;
+                return b.filesize - a.filesize;
+            });
+            allMediaCache.current = sorted;
+            setMediaItems(sorted.slice(0, currentPage * PAGE_SIZE));
+            return;
+        }
+
+        setIsSorting(true);
+        setError(null);
+        const { id: toastId } = toast({ title: 'Fetching all media...', description: 'Sorting with current data and fetching the rest in the background.' });
+
+        const currentData = [...allMediaCache.current];
+        const sortedCurrent = currentData.sort((a, b) => {
             if (newOrder === 'asc') return a.filesize - b.filesize;
             return b.filesize - a.filesize;
         });
         setMediaItems(sortedCurrent.slice(0, PAGE_SIZE));
         setCurrentPage(1);
 
-        if (hasFetchedAll.current) {
-            allMediaCache.current = sortedCurrent;
-            return;
-        }
-
-        setIsSorting(true);
-        setError(null);
-        const { id: toastId } = toast({ title: 'Fetching all media...', description: 'Sorting with current data. Fetching the rest in the background.' });
-
         try {
             if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
 
-            // We already have page 1, start from page 2
             for (let i = 2; i <= totalPages.current; i++) {
                 const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, i, PAGE_SIZE);
                 if (result.success) {
                     allMediaCache.current.push(...result.data);
-                    // Re-sort and update view as data arrives
                     const progressivelySorted = [...allMediaCache.current].sort((a, b) => {
                          if (newOrder === 'asc') return a.filesize - b.filesize;
                          return b.filesize - a.filesize;
                     });
-                    allMediaCache.current = progressivelySorted; // Keep cache sorted
+                    allMediaCache.current = progressivelySorted;
                     setMediaItems(progressivelySorted.slice(0, currentPage * PAGE_SIZE));
                 } else {
                      console.warn(`A page fetch failed: ${result.error}`);
@@ -291,7 +294,7 @@ export default function AdvancedMediaLibraryPage() {
         if (!selectedMedia) return null;
         
         return (
-            <>
+            <div className="space-y-4">
                 <div className="relative">
                     <Image src={selectedMedia.fullUrl} alt={selectedMedia.filename} width={400} height={300} className="rounded-md object-contain w-full" />
                     <Button asChild size="icon" variant="secondary" className="absolute top-2 right-2">
@@ -300,10 +303,6 @@ export default function AdvancedMediaLibraryPage() {
                         </a>
                     </Button>
                 </div>
-                <Button variant="outline" className="w-full" onClick={() => setOptimizeDialogState({ open: true, image: selectedMedia })}>
-                    <Settings2 className="mr-2 h-4 w-4" />
-                    Optimize Image
-                </Button>
                 <div className="space-y-2">
                     <Label htmlFor="alt-text">Alternative Text</Label>
                     <Input id="alt-text" value={editableDetails.alt} onChange={e => setEditableDetails({...editableDetails, alt: e.target.value})} />
@@ -316,7 +315,7 @@ export default function AdvancedMediaLibraryPage() {
                     <Label htmlFor="description">Description</Label>
                     <Textarea id="description" value={editableDetails.description} onChange={e => setEditableDetails({...editableDetails, description: e.target.value})} />
                 </div>
-            </>
+            </div>
         );
     }
 
@@ -372,7 +371,7 @@ export default function AdvancedMediaLibraryPage() {
         return (
             <>
             <div className="grid lg:grid-cols-3 gap-8 items-start">
-                <div className={cn("lg:col-span-3", selectedMedia && !isMobile && "lg:col-span-2")}>
+                <div className={"lg:col-span-3"}>
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
@@ -476,57 +475,7 @@ export default function AdvancedMediaLibraryPage() {
                         </CardContent>
                     </Card>
                 </div>
-                {selectedMedia && !isMobile && (
-                    <div className="lg:col-span-1 sticky top-4">
-                       <Card>
-                            <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle>Edit Media</CardTitle>
-                                        <CardDescription className="truncate max-w-xs">{selectedMedia.filename}</CardDescription>
-                                    </div>
-                                    <Button variant="ghost" size="icon" onClick={() => setSelectedMedia(null)}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {renderEditPanelContent()}
-                            </CardContent>
-                            <CardFooter>
-                                <Button className="w-full" onClick={handleUpdateDetails} disabled={isUpdating}>
-                                    {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Save Changes
-                                </Button>
-                            </CardFooter>
-                       </Card>
-                    </div>
-                )}
             </div>
-
-            {isMobile && (
-                 <Sheet open={!!selectedMedia} onOpenChange={(open) => !open && setSelectedMedia(null)}>
-                    <SheetContent side="bottom" className="h-[90vh] flex flex-col">
-                         <SheetHeader>
-                            <SheetTitle>Edit Media</SheetTitle>
-                            <SheetDescription className="truncate max-w-xs">
-                                {selectedMedia?.filename}
-                            </SheetDescription>
-                        </SheetHeader>
-                        <ScrollArea className="flex-grow">
-                             <div className="space-y-4 p-4">
-                                {renderEditPanelContent()}
-                            </div>
-                        </ScrollArea>
-                        <SheetFooter className="p-4 border-t">
-                            <Button className="w-full" onClick={handleUpdateDetails} disabled={isUpdating}>
-                                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Changes
-                            </Button>
-                        </SheetFooter>
-                    </SheetContent>
-                </Sheet>
-            )}
             </>
         );
     }
@@ -539,6 +488,27 @@ export default function AdvancedMediaLibraryPage() {
                 image={optimizeDialogState.image}
                 onSave={handleOptimizedImageSave}
             />
+            <Dialog open={!!selectedMedia} onOpenChange={(open) => !open && setSelectedMedia(null)}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Edit Media</DialogTitle>
+                         <DialogDescription>
+                            {selectedMedia?.filename}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        {renderEditPanelContent()}
+                    </div>
+                    <DialogFooter>
+                         <Button variant="outline" onClick={() => setSelectedMedia(null)}>Cancel</Button>
+                        <Button onClick={handleUpdateDetails} disabled={isUpdating}>
+                            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <div>
                 <h1 className="text-3xl font-headline font-bold">Advanced Media Library</h1>
                 <p className="text-muted-foreground max-w-2xl">
@@ -550,5 +520,3 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
-
-    
