@@ -53,6 +53,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 
 interface ImageState {
@@ -625,6 +626,7 @@ export default function ImageGeneratorPage() {
                                           <XCircle className="h-5 w-5 text-destructive" />
                                       )}
                                       <h4 className="font-semibold text-lg">Featured Image</h4>
+                                      <InfoTooltip info={details.firstParagraph} />
                                   </div>
   
                                   {postImages.featured ? (
@@ -657,7 +659,7 @@ export default function ImageGeneratorPage() {
                                   <div className="p-4 border rounded-lg bg-background">
                                        <h4 className="font-semibold text-lg mb-4">Section Images</h4>
                                       <div className="space-y-4">
-                                      {details.sections.map(({ heading }) => {
+                                      {details.sections.map(({ heading, paragraph }) => {
                                           const image = postImages.sections[heading];
                                           const loadingKeySection = `${post.id}-${heading}`;
                                           return (
@@ -668,7 +670,10 @@ export default function ImageGeneratorPage() {
                                                   ) : (
                                                       <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-1" />
                                                   )}
-                                                  <p className="font-medium">{heading}</p>
+                                                  <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{heading}</p>
+                                                    <InfoTooltip info={paragraph} />
+                                                  </div>
                                               </div>
                                               <div className="flex items-center gap-2 self-end md:self-center">
                                               {image ? (
