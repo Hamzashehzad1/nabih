@@ -12,9 +12,10 @@ import { useInView } from 'react-intersection-observer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle } from "lucide-react";
+import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem, backupMediaToCloud } from './actions';
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, Sparkles, CheckCheck } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +25,8 @@ import { ImageOptimizeDialog } from '@/components/image-optimize-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Progress } from '@/components/ui/progress';
 
 interface WpSite {
   id: string;
@@ -43,6 +46,16 @@ interface EditableMediaDetails {
 interface OptimizeDialogState {
     open: boolean;
     image: WpMediaItem | null;
+}
+
+type CloudProvider = 'gdrive' | 'dropbox' | 'aws';
+
+interface BackupState {
+    provider: CloudProvider;
+    itemsToBackup: WpMediaItem[];
+    progress: { [key: number]: { status: 'pending' | 'uploading' | 'success' | 'error', message: string } };
+    overallProgress: number;
+    isBackingUp: boolean;
 }
 
 const PAGE_SIZE = 50;
@@ -85,6 +98,18 @@ export default function AdvancedMediaLibraryPage() {
 
     const [optimizeDialogState, setOptimizeDialogState] = useState<OptimizeDialogState>({ open: false, image: null });
     
+    // Backup and Selection State
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
+    const [backupState, setBackupState] = useState<BackupState>({
+        provider: 'gdrive',
+        itemsToBackup: [],
+        progress: {},
+        overallProgress: 0,
+        isBackingUp: false
+    });
+
     const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
 
 
@@ -125,6 +150,8 @@ export default function AdvancedMediaLibraryPage() {
         setCurrentPage(1);
         setSortOrder(null);
         setError(null);
+        setIsSelectionMode(false);
+        setSelectedIds(new Set());
         if (selectedSite) {
             loadInitialMedia();
         }
@@ -289,6 +316,65 @@ export default function AdvancedMediaLibraryPage() {
             description: "The image has been compressed locally. Save your changes to upload the new version to WordPress.",
         });
     };
+    
+    const handleSelectionChange = (id: number, checked: boolean) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if(checked) {
+                newSet.add(id);
+            } else {
+                newSet.delete(id);
+            }
+            return newSet;
+        });
+    };
+    
+    const handleSelectAll = () => {
+        setSelectedIds(new Set(mediaItems.map(item => item.id)));
+    };
+
+    const handleClearSelection = () => {
+        setSelectedIds(new Set());
+    };
+    
+    const handleOpenBackupDialog = (items: WpMediaItem[]) => {
+        if(items.length === 0) {
+            toast({title: "No items selected", description: "Please select at least one media item to back up.", variant: "destructive"});
+            return;
+        }
+        setBackupState({
+            provider: 'gdrive',
+            itemsToBackup: items,
+            progress: items.reduce((acc, item) => ({...acc, [item.id]: {status: 'pending', message: 'Waiting...'}}), {}),
+            overallProgress: 0,
+            isBackingUp: false,
+        });
+        setIsBackupDialogOpen(true);
+    };
+    
+    const startBackup = async () => {
+        setBackupState(prev => ({...prev, isBackingUp: true}));
+        
+        const { itemsToBackup, provider } = backupState;
+        let completed = 0;
+
+        for (const item of itemsToBackup) {
+            setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {status: 'uploading', message: 'In progress...'}}}));
+            
+            const result = await backupMediaToCloud(item, provider);
+            
+            setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {
+                status: result.success ? 'success' : 'error',
+                message: result.success ? 'Backed up!' : result.error,
+            }}}));
+
+            completed++;
+            setBackupState(prev => ({...prev, overallProgress: (completed / itemsToBackup.length) * 100 }));
+        }
+
+        setBackupState(prev => ({...prev, isBackingUp: false}));
+        toast({title: "Backup Complete", description: `Finished backing up ${itemsToBackup.length} items.`});
+    };
 
     const renderEditPanelContent = () => {
         if (!selectedMedia) return null;
@@ -367,11 +453,11 @@ export default function AdvancedMediaLibraryPage() {
         const showLoadMore = sortOrder 
             ? mediaItems.length < allMediaCache.current.length 
             : currentPage < totalPages.current;
+        const selectedItems = mediaItems.filter(item => selectedIds.has(item.id));
 
         return (
             <>
-            <div className="grid lg:grid-cols-3 gap-8 items-start">
-                <div className={"lg:col-span-3"}>
+            <div className={"lg:col-span-3"}>
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
@@ -388,16 +474,36 @@ export default function AdvancedMediaLibraryPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center gap-4 mb-4">
-                                <Label>Sort by:</Label>
-                                <Button variant='secondary' size="sm" onClick={handleSort} disabled={isSorting}>
-                                    {isSorting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Size'}
-                                    {sortOrder === 'asc' && <ArrowUp className="ml-2 h-4 w-4" />}
-                                    {sortOrder === 'desc' && <ArrowDown className="ml-2 h-4 w-4" />}
-                                </Button>
-                                {sortOrder && (
-                                    <Button variant="ghost" size="sm" onClick={() => { setSortOrder(null); hasFetchedAll.current = false; loadInitialMedia(); }}>
-                                        Reset Sort
+                                {isSelectionMode ? (
+                                    <>
+                                        <Button size="sm" onClick={() => handleOpenBackupDialog(selectedItems)} disabled={selectedIds.size === 0}>
+                                            <CloudUpload className="mr-2 h-4 w-4" /> Backup Selected ({selectedIds.size})
+                                        </Button>
+                                        <Button size="sm" variant="secondary" onClick={() => handleOpenBackupDialog(mediaItems)}>
+                                            Backup All ({mediaItems.length})
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={handleSelectAll}>Select All</Button>
+                                        <Button size="sm" variant="ghost" onClick={handleClearSelection}>Clear Selection</Button>
+                                        <Button size="sm" variant="outline" onClick={() => {setIsSelectionMode(false); setSelectedIds(new Set())}}>Cancel</Button>
+                                    </>
+                                ) : (
+                                    <>
+                                    <Label>Tools:</Label>
+                                    <Button variant='outline' size="sm" onClick={() => setIsSelectionMode(true)}>
+                                       <CheckCheck className="mr-2 h-4 w-4" /> Select for Backup
                                     </Button>
+                                    <Label>Sort by:</Label>
+                                    <Button variant='secondary' size="sm" onClick={handleSort} disabled={isSorting}>
+                                        {isSorting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Size'}
+                                        {sortOrder === 'asc' && <ArrowUp className="ml-2 h-4 w-4" />}
+                                        {sortOrder === 'desc' && <ArrowDown className="ml-2 h-4 w-4" />}
+                                    </Button>
+                                    {sortOrder && (
+                                        <Button variant="ghost" size="sm" onClick={() => { setSortOrder(null); hasFetchedAll.current = false; loadInitialMedia(); }}>
+                                            Reset Sort
+                                        </Button>
+                                    )}
+                                    </>
                                 )}
                             </div>
                             
@@ -438,8 +544,17 @@ export default function AdvancedMediaLibraryPage() {
                             {mediaItems.length > 0 && (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                     {mediaItems.map(item => (
-                                        <Card key={item.id} className="overflow-hidden flex flex-col">
-                                            <CardContent className="p-0 flex-grow">
+                                        <Card key={item.id} className={cn("overflow-hidden flex flex-col", selectedIds.has(item.id) && "ring-2 ring-primary")}>
+                                            <CardContent className="p-0 flex-grow relative">
+                                                {isSelectionMode && (
+                                                    <div className="absolute top-2 left-2 z-10 bg-background/80 rounded-sm p-1">
+                                                        <Checkbox
+                                                            checked={selectedIds.has(item.id)}
+                                                            onCheckedChange={(checked) => handleSelectionChange(item.id, !!checked)}
+                                                            aria-label={`Select ${item.filename}`}
+                                                        />
+                                                    </div>
+                                                )}
                                                 <Image 
                                                     src={item.thumbnailUrl} 
                                                     alt={item.filename} 
@@ -474,7 +589,6 @@ export default function AdvancedMediaLibraryPage() {
                              )}
                         </CardContent>
                     </Card>
-                </div>
             </div>
             </>
         );
@@ -504,6 +618,75 @@ export default function AdvancedMediaLibraryPage() {
                         <Button onClick={handleUpdateDetails} disabled={isUpdating}>
                             {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isBackupDialogOpen} onOpenChange={setIsBackupDialogOpen}>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Backup Media to Cloud</DialogTitle>
+                        <DialogDescription>
+                            Choose your destination and start the backup. This is a simulated upload.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-6">
+                        <div>
+                            <Label className="font-semibold">Destination</Label>
+                            <RadioGroup 
+                                value={backupState.provider} 
+                                onValueChange={(value: CloudProvider) => setBackupState(prev => ({...prev, provider: value}))}
+                                className="mt-2 grid grid-cols-3 gap-4"
+                                disabled={backupState.isBackingUp}
+                            >
+                                <Label htmlFor="gdrive" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <RadioGroupItem value="gdrive" id="gdrive" className="sr-only"/>
+                                    <CloudUpload className="mb-3 h-6 w-6" />
+                                    Google Drive
+                                </Label>
+                                <Label htmlFor="dropbox" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                     <RadioGroupItem value="dropbox" id="dropbox" className="sr-only"/>
+                                    <CloudUpload className="mb-3 h-6 w-6" />
+                                    Dropbox
+                                </Label>
+                                 <Label htmlFor="aws" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                     <RadioGroupItem value="aws" id="aws" className="sr-only"/>
+                                    <CloudUpload className="mb-3 h-6 w-6" />
+                                    AWS S3
+                                </Label>
+                            </RadioGroup>
+                        </div>
+                        <div>
+                            <Label className="font-semibold">Upload Progress</Label>
+                            <div className="mt-2 space-y-2">
+                                <Progress value={backupState.overallProgress} className="w-full" />
+                                <ScrollArea className="h-64 w-full rounded-md border p-4">
+                                    <div className="space-y-3">
+                                    {backupState.itemsToBackup.map(item => (
+                                        <div key={item.id} className="flex justify-between items-center text-sm">
+                                            <p className="truncate pr-4">{item.filename}</p>
+                                            <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
+                                                {backupState.progress[item.id]?.status === 'pending' && <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />}
+                                                {backupState.progress[item.id]?.status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin" />}
+                                                {backupState.progress[item.id]?.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                                {backupState.progress[item.id]?.status === 'error' && <XCircle className="h-4 w-4 text-destructive" />}
+                                                <span className="w-24 text-right">{backupState.progress[item.id]?.message}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                         <Button variant="outline" onClick={() => setIsBackupDialogOpen(false)} disabled={backupState.isBackingUp}>
+                             {backupState.overallProgress === 100 ? 'Close' : 'Cancel'}
+                        </Button>
+                        <Button onClick={startBackup} disabled={backupState.isBackingUp || backupState.overallProgress > 0}>
+                            {backupState.isBackingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Start Backup
                         </Button>
                     </DialogFooter>
                 </DialogContent>
