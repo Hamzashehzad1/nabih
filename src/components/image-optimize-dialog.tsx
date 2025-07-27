@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +54,8 @@ async function generateServerPreview(
     });
 
     if (!response.ok) {
-        throw new Error('Failed to optimize image on server');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to optimize image on server' }));
+        throw new Error(errorData.error);
     }
 
     return await response.json();
@@ -69,7 +70,7 @@ async function generateClientPreview(
     image.src = base64;
     await new Promise((resolve, reject) => {
         image.onload = resolve;
-        image.onerror = reject;
+        image.onerror = (err) => reject(new Error('Image failed to load for preview. Check CORS policy.'));
     });
 
     const canvas = document.createElement('canvas');
@@ -124,10 +125,14 @@ export function ImageOptimizeDialog({
   const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
   const [originalImageBase64, setOriginalImageBase64] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const originalRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const handleGeneratePreview = useCallback(async () => {
     if (!originalImageBase64 || !image) return;
     setIsLoading(true);
+    setPreview(null);
     try {
         let result;
         if (format === 'png') {
@@ -138,7 +143,8 @@ export function ImageOptimizeDialog({
         setPreview(result);
     } catch(err) {
         console.error(err);
-        toast({ title: "Preview Error", description: "Could not generate image preview.", variant: "destructive"});
+        const errorMessage = err instanceof Error ? err.message : "Could not generate image preview.";
+        toast({ title: "Preview Error", description: errorMessage, variant: "destructive"});
     } finally {
         setIsLoading(false);
     }
@@ -149,6 +155,10 @@ export function ImageOptimizeDialog({
       setIsLoading(true);
       setOriginalImageBase64(null);
       setPreview(null);
+      setFormat('jpeg');
+      setQuality(85);
+      setZoom(1);
+
       fetchImageAsBase64(image.fullUrl)
         .then(base64 => {
             setOriginalImageBase64(base64);
@@ -170,7 +180,18 @@ export function ImageOptimizeDialog({
     }
   }, [quality, format, open, image, originalImageBase64, handleGeneratePreview]);
 
-  
+  const handleSyncScroll = (source: 'original' | 'preview') => {
+    if (!originalRef.current || !previewRef.current) return;
+    
+    if (source === 'original') {
+        previewRef.current.scrollTop = originalRef.current.scrollTop;
+        previewRef.current.scrollLeft = originalRef.current.scrollLeft;
+    } else {
+        originalRef.current.scrollTop = previewRef.current.scrollTop;
+        originalRef.current.scrollLeft = previewRef.current.scrollLeft;
+    }
+  };
+
   const handleSave = () => {
     if (preview) {
       onSave(preview);
@@ -182,8 +203,13 @@ export function ImageOptimizeDialog({
   const sizeReduction = useMemo(() => {
       if (!originalSize || !preview?.size) return 0;
       if (originalSize === 0) return 0; 
-      return ((originalSize - preview.size) / originalSize) * 100;
-  }, [originalSize, preview]);
+      const reduction = ((originalSize - preview.size) / originalSize) * 100;
+      // If PNG is "optimized" to PNG it might add metadata and be slightly larger.
+      if(image?.filename.endsWith('.png') && format === 'png' && reduction < 0){
+          return 0;
+      }
+      return reduction;
+  }, [originalSize, preview, image, format]);
 
   const isSaveDisabled = !preview || isLoading;
 
@@ -201,7 +227,7 @@ export function ImageOptimizeDialog({
           <div className="md:col-span-2 grid grid-cols-2 gap-4 min-h-0">
             <div className="flex flex-col gap-2">
                 <h3 className="font-semibold text-center">Original ({formatBytes(originalSize)})</h3>
-                <div className="flex-grow bg-muted/50 rounded-md overflow-hidden relative">
+                <div ref={originalRef} onScroll={() => handleSyncScroll('original')} className="flex-grow bg-muted/50 rounded-md overflow-auto relative">
                     {(!originalImageBase64 && isLoading) && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                             <Loader2 className="h-8 w-8 animate-spin" />
@@ -209,7 +235,7 @@ export function ImageOptimizeDialog({
                         </div>
                     )}
                     {originalImageBase64 && (
-                        <div className="w-full h-full overflow-auto p-2">
+                        <div className="w-full h-full p-2">
                             <Image 
                                 src={originalImageBase64} 
                                 alt="Original" 
@@ -226,14 +252,14 @@ export function ImageOptimizeDialog({
                 <h3 className="font-semibold text-center">
                     Preview ({preview ? formatBytes(preview.size) : '...'})
                 </h3>
-                <div className="flex-grow bg-muted/50 rounded-md overflow-hidden relative">
+                <div ref={previewRef} onScroll={() => handleSyncScroll('preview')} className="flex-grow bg-muted/50 rounded-md overflow-auto relative">
                     {isLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
                     )}
                     {preview && (
-                         <div className="w-full h-full overflow-auto p-2">
+                         <div className="w-full h-full p-2">
                             <Image 
                                 src={preview.base64} 
                                 alt="Preview" 
