@@ -38,6 +38,43 @@ export interface WpMediaItem {
   fullUrl: string;
 }
 
+async function fetchWpMediaPage(
+    url: string,
+    authHeader: string
+): Promise<WpMediaItem[]> {
+    const response = await fetch(url, {
+        headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+    });
+
+    if (!response.ok) {
+        // Return empty array for this page on error, to not fail the whole process
+        console.error(`Failed to fetch media page ${url}: ${response.statusText}`);
+        return [];
+    }
+
+    const data = await response.json();
+    const parsedData = MediaItemsSchema.safeParse(data);
+
+    if (!parsedData.success) {
+        console.error('WP Media Parse Error on a page:', parsedData.error);
+        return [];
+    }
+    
+    return parsedData.data.map(item => ({
+        id: item.id,
+        filename: item.media_details.file,
+        filesize: item.media_details.filesize,
+        width: item.media_details.width,
+        height: item.media_details.height,
+        thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
+        fullUrl: item.source_url,
+    }));
+}
+
 
 export async function fetchWpMedia(
     siteUrl: string,
@@ -45,73 +82,72 @@ export async function fetchWpMedia(
     appPassword: string,
 ): Promise<{ success: true; data: WpMediaItem[] } | { success: false; error: string }> {
   
-  const allMedia: WpMediaItem[] = [];
-  let page = 1;
-  let hasMore = true;
+  const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
+  const firstPageUrl = new URL(baseUrl);
+  firstPageUrl.searchParams.append('context', 'edit');
+  firstPageUrl.searchParams.append('per_page', '100');
+  
+  const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
 
-  while(hasMore) {
-    const url = new URL(`${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`);
-    url.searchParams.append('context', 'edit');
-    url.searchParams.append('per_page', '100'); // Fetch 100 at a time
-    url.searchParams.append('page', page.toString());
-    
-    try {
-        const response = await fetch(url.toString(), {
-            headers: {
-                'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
-                'Content-Type': 'application/json',
-            },
-            cache: 'no-store',
-        });
+  try {
+    // First, make a request to the first page to get pagination headers
+    const initialResponse = await fetch(firstPageUrl.toString(), {
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+    });
 
-        if (!response.ok) {
-            let errorDetails = `HTTP error! status: ${response.status}`;
-             try {
-                const errorData = await response.json();
-                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
-            } catch (e) {
-                // Could not parse error JSON
-            }
-            return { success: false, error: errorDetails };
-        }
-        
-        const data = await response.json();
-
-        // If the API returns an empty array, we've fetched all pages.
-        if (Array.isArray(data) && data.length === 0) {
-            hasMore = false;
-            continue;
-        }
-
-        const parsedData = MediaItemsSchema.safeParse(data);
-
-        if (!parsedData.success) {
-            console.error('WP Media Parse Error:', parsedData.error);
-            return { success: false, error: 'Failed to parse media from WordPress.' };
-        }
-        
-        const formattedMedia: WpMediaItem[] = parsedData.data.map(item => ({
-            id: item.id,
-            filename: item.media_details.file,
-            filesize: item.media_details.filesize,
-            width: item.media_details.width,
-            height: item.media_details.height,
-            thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
-            fullUrl: item.source_url,
-        }));
-        
-        allMedia.push(...formattedMedia);
-        page++;
-
-    } catch (error) {
-        console.error('Error fetching media from WP:', error);
-        hasMore = false; // Stop fetching on error
-        if (error instanceof Error) {
-            return { success: false, error: error.message };
-        }
-        return { success: false, error: 'An unknown error occurred while fetching media.' };
+    if (!initialResponse.ok) {
+        let errorDetails = `HTTP error! status: ${initialResponse.status}`;
+        try {
+            const errorData = await initialResponse.json();
+            errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+        } catch (e) {}
+        return { success: false, error: errorDetails };
     }
-  }
 
-  return { success: true, data: allMedia };
+    const totalPagesHeader = initialResponse.headers.get('X-WP-TotalPages');
+    const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
+    
+    const initialData = await initialResponse.json();
+    const parsedInitialData = MediaItemsSchema.safeParse(initialData);
+     if (!parsedInitialData.success) {
+        console.error('WP Media Parse Error on initial fetch:', parsedInitialData.error);
+        return { success: false, error: 'Failed to parse media from WordPress.' };
+    }
+
+    const allMedia: WpMediaItem[] = parsedInitialData.data.map(item => ({
+        id: item.id,
+        filename: item.media_details.file,
+        filesize: item.media_details.filesize,
+        width: item.media_details.width,
+        height: item.media_details.height,
+        thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
+        fullUrl: item.source_url,
+    }));
+
+
+    if (totalPages > 1) {
+        const pagePromises: Promise<WpMediaItem[]>[] = [];
+        for (let page = 2; page <= totalPages; page++) {
+            const pageUrl = new URL(baseUrl);
+            pageUrl.searchParams.append('context', 'edit');
+            pageUrl.searchParams.append('per_page', '100');
+            pageUrl.searchParams.append('page', page.toString());
+            pagePromises.push(fetchWpMediaPage(pageUrl.toString(), authHeader));
+        }
+        
+        const results = await Promise.all(pagePromises);
+        results.forEach(pageMedia => allMedia.push(...pageMedia));
+    }
+    
+    return { success: true, data: allMedia };
+
+  } catch (error) {
+    console.error('Error fetching media from WP:', error);
+    if (error instanceof Error) {
+        return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unknown error occurred while fetching media.' };
+  }
 }
+
