@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, type WpMediaItem } from './actions';
-import { Globe, Power, HardDrive, Image as ImageIcon, FileText, Loader2, ArrowDown, ArrowUp } from "lucide-react";
+import { Globe, Power, HardDrive, Image as ImageIcon, FileText, Loader2, ArrowDown, ArrowUp, ArrowDownUp } from "lucide-react";
+import { Label } from '@/components/ui/label';
 
 interface WpSite {
   id: string;
@@ -21,10 +22,7 @@ interface WpSite {
   appPassword?: string;
 }
 
-type FilterType = 'all' | 'large' | 'small';
-
-const LARGE_FILE_THRESHOLD_BYTES = 500 * 1024; // 500 KB
-const SMALL_FILE_THRESHOLD_BYTES = 100 * 1024; // 100 KB
+type SortOrder = 'default' | 'desc' | 'asc';
 
 function formatBytes(bytes: number, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
@@ -42,7 +40,7 @@ export default function AdvancedMediaLibraryPage() {
     const [mediaItems, setMediaItems] = useState<WpMediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<FilterType>('all');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('default');
 
     useEffect(() => {
         if (sites.length === 1 && !selectedSiteId) {
@@ -57,6 +55,7 @@ export default function AdvancedMediaLibraryPage() {
             const loadMedia = async () => {
                 setIsLoading(true);
                 setError(null);
+                setMediaItems([]);
                 const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword);
                 if (result.success) {
                     setMediaItems(result.data);
@@ -71,15 +70,16 @@ export default function AdvancedMediaLibraryPage() {
         }
     }, [selectedSite]);
     
-    const filteredMediaItems = useMemo(() => {
-        if (filter === 'large') {
-            return mediaItems.filter(item => item.filesize > LARGE_FILE_THRESHOLD_BYTES);
+    const sortedMediaItems = useMemo(() => {
+        const sorted = [...mediaItems];
+        if (sortOrder === 'desc') {
+            return sorted.sort((a, b) => b.filesize - a.filesize);
         }
-        if (filter === 'small') {
-            return mediaItems.filter(item => item.filesize < SMALL_FILE_THRESHOLD_BYTES);
+        if (sortOrder === 'asc') {
+            return sorted.sort((a, b) => a.filesize - b.filesize);
         }
-        return mediaItems;
-    }, [mediaItems, filter]);
+        return sorted; // 'default' order
+    }, [mediaItems, sortOrder]);
 
 
     const renderSiteSelection = () => {
@@ -143,15 +143,16 @@ export default function AdvancedMediaLibraryPage() {
                      </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex gap-2">
-                             <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')}>All</Button>
-                             <Button variant={filter === 'large' ? 'default' : 'outline'} onClick={() => setFilter('large')}>
-                                <ArrowUp className="mr-2 h-4 w-4" /> Large Images (&gt;500KB)
-                             </Button>
-                             <Button variant={filter === 'small' ? 'default' : 'outline'} onClick={() => setFilter('small')}>
-                                <ArrowDown className="mr-2 h-4 w-4" /> Small Images (&lt;100KB)
+                    <div className="flex items-center gap-4 mb-4">
+                         <Label>Sort by:</Label>
+                         <div className="flex gap-2">
+                            <Button variant={sortOrder === 'default' ? 'default' : 'outline'} onClick={() => setSortOrder('default')}>Default</Button>
+                            <Button variant={sortOrder === 'desc' ? 'default' : 'outline'} onClick={() => setSortOrder('desc')}>
+                               <ArrowUp className="mr-2 h-4 w-4" /> Size (Largest First)
                             </Button>
+                            <Button variant={sortOrder === 'asc' ? 'default' : 'outline'} onClick={() => setSortOrder('asc')}>
+                               <ArrowDown className="mr-2 h-4 w-4" /> Size (Smallest First)
+                           </Button>
                         </div>
                     </div>
                      
@@ -185,17 +186,17 @@ export default function AdvancedMediaLibraryPage() {
                          </div>
                      )}
 
-                     {!isLoading && !error && filteredMediaItems.length === 0 && (
+                     {!isLoading && !error && sortedMediaItems.length === 0 && (
                         <div className="text-center text-muted-foreground p-12 border-dashed border-2 rounded-md">
                             <ImageIcon className="mx-auto h-16 w-16" />
                             <h3 className="mt-4 text-lg font-semibold">No Media Found</h3>
                             <p className="mt-1 text-sm">
-                                No media items match the current filter.
+                                Your WordPress media library appears to be empty.
                             </p>
                         </div>
                      )}
 
-                    {!isLoading && !error && filteredMediaItems.length > 0 && (
+                    {!isLoading && !error && sortedMediaItems.length > 0 && (
                         <div className="border rounded-md">
                             <Table>
                                 <TableHeader>
@@ -207,14 +208,14 @@ export default function AdvancedMediaLibraryPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredMediaItems.map(item => (
+                                    {sortedMediaItems.map(item => (
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <Image src={item.thumbnailUrl} alt={item.filename} width={80} height={80} className="rounded-md object-cover aspect-square"/>
                                             </TableCell>
                                             <TableCell className="font-medium">{item.filename}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{formatBytes(item.filesize)}</Badge>
+                                                <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
                                             </TableCell>
                                             <TableCell>{item.width} x {item.height}</TableCell>
                                         </TableRow>
