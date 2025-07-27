@@ -100,7 +100,7 @@ export async function fetchWpMedia(
         }
         
         if (data.length === 0) {
-            // No more pages to fetch
+            // No more pages to fetch, break the loop
             break;
         }
 
