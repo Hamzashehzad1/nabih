@@ -62,7 +62,7 @@ export async function fetchWpMedia(
     siteUrl: string,
     username: string,
     appPassword: string,
-    { page = 1, perPage = 50, orderBy = 'date', order = 'desc' }: { page?: number; perPage?: number; orderBy?: 'date' | 'title' | 'author' | 'id'; order?: 'asc' | 'desc'}
+    { page = 1, perPage = 50, orderBy = 'date', order = 'desc' }: { page?: number; perPage?: number; orderBy?: 'date' | 'title'; order?: 'asc' | 'desc'}
 ): Promise<{ success: true; data: WpMediaItem[] } | { success: false; error: string }> {
   
   const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, CalendarDays } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -309,9 +309,6 @@ export default function AdvancedMediaLibraryPage() {
                                 <div className="flex gap-2">
                                      <Button variant={sortState.orderBy === 'title' ? 'secondary' : 'outline'} size="sm" onClick={() => handleSortChange('title')}>
                                         Size {sortState.orderBy === 'title' && (sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />)}
-                                    </Button>
-                                    <Button variant={sortState.orderBy === 'date' ? 'secondary' : 'outline'} size="sm" onClick={() => handleSortChange('date')}>
-                                        Date {sortState.orderBy === 'date' && (sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />)}
                                     </Button>
                                 </div>
                             </div>
