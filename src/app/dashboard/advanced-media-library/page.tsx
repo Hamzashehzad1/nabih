@@ -221,11 +221,11 @@ export default function AdvancedMediaLibraryPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[90px]">Preview</TableHead>
+                                            <TableHead className="w-[80px]">Preview</TableHead>
                                             <TableHead>Filename</TableHead>
                                             <TableHead>File Size</TableHead>
                                             <TableHead>Dimensions</TableHead>
-                                            <TableHead className="w-[110px]">Action</TableHead>
+                                            <TableHead className="w-[120px]">Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -264,18 +264,18 @@ export default function AdvancedMediaLibraryPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="w-[90px]">Preview</TableHead>
+                                                <TableHead className="w-[80px]">Preview</TableHead>
                                                 <TableHead>Filename</TableHead>
                                                 <TableHead>File Size</TableHead>
                                                 <TableHead>Dimensions</TableHead>
-                                                <TableHead className="w-[110px]">Action</TableHead>
+                                                <TableHead className="w-[120px]">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {sortedMediaItems.map(item => (
                                                 <TableRow key={item.id} className={cn(selectedMedia?.id === item.id && 'bg-muted/50')}>
                                                     <TableCell>
-                                                        <Image src={item.thumbnailUrl} alt={item.filename} width={80} height={80} className="rounded-md object-cover aspect-square"/>
+                                                        <Image src={item.thumbnailUrl} alt={item.filename} width={64} height={64} className="rounded-md object-cover aspect-square"/>
                                                     </TableCell>
                                                     <TableCell className="font-medium">{item.filename}</TableCell>
                                                     <TableCell>
@@ -357,4 +357,3 @@ export default function AdvancedMediaLibraryPage() {
     );
 }
 
-    
