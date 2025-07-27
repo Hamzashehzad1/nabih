@@ -226,10 +226,11 @@ export function ImageOptimizeDialog({
       return reduction;
   }, [originalSize, preview, image, format]);
 
-  const isSaveDisabled = !preview || isLoading || (format === 'png' && image?.filename.endsWith('.png'));
+  const isSaveDisabled = !preview || isLoading;
 
   const imageTransform = {
       transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+      transformOrigin: 'top left',
   };
 
   return (
@@ -335,13 +336,6 @@ export function ImageOptimizeDialog({
                                 <SelectItem value="webp">WebP</SelectItem>
                             </SelectContent>
                         </Select>
-                         {format === 'png' && (
-                             <Alert variant="warning" className="p-2 text-xs h-auto mt-2">
-                                <AlertDescription className="ml-2">
-                                    For PNGs, consider converting to WebP for better compression. In-browser PNG optimization is not supported.
-                                </AlertDescription>
-                            </Alert>
-                         )}
                     </div>
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
