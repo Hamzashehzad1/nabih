@@ -19,6 +19,7 @@ const MediaDetailsSchema = z.object({
 
 const MediaItemSchema = z.object({
   id: z.number(),
+  date_gmt: z.string(),
   title: z.object({
     rendered: z.string(),
   }),
@@ -37,6 +38,7 @@ const MediaItemsSchema = z.array(MediaItemSchema);
 
 export interface WpMediaItem {
   id: number;
+  date: string;
   filename: string;
   filesize: number;
   width: number;
@@ -50,95 +52,59 @@ export interface WpMediaItem {
 
 function stripHtml(html: string): string {
     if (typeof document === 'undefined') {
-        // Simple regex for server-side stripping
         return html.replace(/<[^>]*>?/gm, '');
     }
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return doc.body.textContent || "";
 }
 
-async function fetchWpMediaPage(
-    url: string,
-    authHeader: string
-): Promise<WpMediaItem[]> {
-    const response = await fetch(url, {
-        headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-        },
-        cache: 'no-store',
-    });
-
-    if (!response.ok) {
-        // Return empty array for this page on error, to not fail the whole process
-        console.error(`Failed to fetch media page ${url}: ${response.statusText}`);
-        return [];
-    }
-
-    const data = await response.json();
-    const parsedData = MediaItemsSchema.safeParse(data);
-
-    if (!parsedData.success) {
-        console.error('WP Media Parse Error on a page:', parsedData.error);
-        return [];
-    }
-    
-    return parsedData.data.map(item => ({
-        id: item.id,
-        filename: item.media_details.file,
-        filesize: item.media_details.filesize,
-        width: item.media_details.width,
-        height: item.media_details.height,
-        thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
-        fullUrl: item.source_url,
-        alt: item.alt_text,
-        caption: stripHtml(item.caption.rendered),
-        description: stripHtml(item.description.rendered),
-    }));
-}
-
-
 export async function fetchWpMedia(
     siteUrl: string,
     username: string,
     appPassword: string,
+    { page = 1, perPage = 50, orderBy = 'date', order = 'desc' }: { page?: number; perPage?: number; orderBy?: 'date' | 'title' | 'author' | 'id'; order?: 'asc' | 'desc'}
 ): Promise<{ success: true; data: WpMediaItem[] } | { success: false; error: string }> {
   
   const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
-  const firstPageUrl = new URL(baseUrl);
-  firstPageUrl.searchParams.append('context', 'edit');
-  firstPageUrl.searchParams.append('per_page', '100');
+  const url = new URL(baseUrl);
+  url.searchParams.append('context', 'edit');
+  url.searchParams.append('page', page.toString());
+  url.searchParams.append('per_page', perPage.toString());
+  url.searchParams.append('orderby', orderBy);
+  url.searchParams.append('order', order);
   
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
 
   try {
-    // First, make a request to the first page to get pagination headers
-    const initialResponse = await fetch(firstPageUrl.toString(), {
+    const response = await fetch(url.toString(), {
         headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
         cache: 'no-store',
     });
 
-    if (!initialResponse.ok) {
-        let errorDetails = `HTTP error! status: ${initialResponse.status}`;
+    if (!response.ok) {
+        let errorDetails = `HTTP error! status: ${response.status}`;
         try {
-            const errorData = await initialResponse.json();
+            const errorData = await response.json();
             errorDetails += ` - ${errorData.message || 'Unknown error'}`;
         } catch (e) {}
         return { success: false, error: errorDetails };
     }
-
-    const totalPagesHeader = initialResponse.headers.get('X-WP-TotalPages');
-    const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
     
-    const initialData = await initialResponse.json();
-    const parsedInitialData = MediaItemsSchema.safeParse(initialData);
-     if (!parsedInitialData.success) {
-        console.error('WP Media Parse Error on initial fetch:', parsedInitialData.error);
+    const data = await response.json();
+
+     if (!Array.isArray(data)) {
+        return { success: false, error: 'Unexpected response format from WordPress.' };
+    }
+
+    const parsedData = MediaItemsSchema.safeParse(data);
+     if (!parsedData.success) {
+        console.error('WP Media Parse Error:', parsedData.error);
         return { success: false, error: 'Failed to parse media from WordPress.' };
     }
 
-    const allMedia: WpMediaItem[] = parsedInitialData.data.map(item => ({
+    const allMedia: WpMediaItem[] = parsedData.data.map(item => ({
         id: item.id,
+        date: item.date_gmt,
         filename: item.media_details.file,
         filesize: item.media_details.filesize,
         width: item.media_details.width,
@@ -149,21 +115,6 @@ export async function fetchWpMedia(
         caption: stripHtml(item.caption.rendered),
         description: stripHtml(item.description.rendered),
     }));
-
-
-    if (totalPages > 1) {
-        const pagePromises: Promise<WpMediaItem[]>[] = [];
-        for (let page = 2; page <= totalPages; page++) {
-            const pageUrl = new URL(baseUrl);
-            pageUrl.searchParams.append('context', 'edit');
-            pageUrl.searchParams.append('per_page', '100');
-            pageUrl.searchParams.append('page', page.toString());
-            pagePromises.push(fetchWpMediaPage(pageUrl.toString(), authHeader));
-        }
-        
-        const results = await Promise.all(pagePromises);
-        results.forEach(pageMedia => allMedia.push(...pageMedia));
-    }
     
     return { success: true, data: allMedia };
 
@@ -219,5 +170,3 @@ export async function updateWpMediaDetails(
         return { success: false, error: 'An unknown error occurred while updating media details.' };
     }
 }
-
-    

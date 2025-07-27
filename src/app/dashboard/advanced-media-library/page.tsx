@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, CalendarDays } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,7 +29,12 @@ interface WpSite {
   appPassword?: string;
 }
 
-type SortOrder = 'default' | 'desc' | 'asc';
+type SortOrder = 'desc' | 'asc';
+
+interface SortState {
+    orderBy: 'date' | 'title';
+    order: SortOrder;
+}
 
 interface EditableMediaDetails {
     alt: string;
@@ -59,8 +64,12 @@ export default function AdvancedMediaLibraryPage() {
     const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
     const [mediaItems, setMediaItems] = useState<WpMediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
     const [error, setError] = useState<string | null>(null);
-    const [sortOrder, setSortOrder] = useState<SortOrder>('default');
+
+    const [sortState, setSortState] = useState<SortState>({ orderBy: 'date', order: 'desc' });
 
     const [selectedMedia, setSelectedMedia] = useState<WpMediaItem | null>(null);
     const [editableDetails, setEditableDetails] = useState<EditableMediaDetails>({ alt: '', caption: '', description: '' });
@@ -77,39 +86,61 @@ export default function AdvancedMediaLibraryPage() {
 
     const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
-    const handleFetchMedia = useCallback(async () => {
+    const handleFetchMedia = useCallback(async (page = 1, refresh = false) => {
         if (!selectedSite?.appPassword) {
              setError("Application password not found for this site. Please add it in Settings.");
              return;
         }
-        setIsLoading(true);
+
+        if (refresh) {
+            setMediaItems([]);
+            setHasMore(true);
+            setCurrentPage(1);
+            setIsLoading(true);
+        } else {
+            setIsLoadingMore(true);
+        }
+        
         setError(null);
-        setMediaItems([]);
-        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword);
+        
+        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, { 
+            page, 
+            perPage: 50,
+            orderBy: sortState.orderBy,
+            order: sortState.order,
+        });
+
         if (result.success) {
-            setMediaItems(result.data);
+            if (result.data.length < 50) {
+                setHasMore(false);
+            }
+            setMediaItems(prev => refresh ? result.data : [...prev, ...result.data]);
+            setCurrentPage(page);
         } else {
             setError(result.error);
         }
+
         setIsLoading(false);
-    }, [selectedSite]);
+        setIsLoadingMore(false);
+    }, [selectedSite, sortState]);
     
     useEffect(() => {
         if (selectedSite) {
-            handleFetchMedia();
+            handleFetchMedia(1, true);
         }
-    }, [selectedSite, handleFetchMedia]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedSite, sortState.order, sortState.orderBy]);
     
-    const sortedMediaItems = useMemo(() => {
-        const sorted = [...mediaItems];
-        if (sortOrder === 'desc') {
-            return sorted.sort((a, b) => b.filesize - a.filesize);
-        }
-        if (sortOrder === 'asc') {
-            return sorted.sort((a, b) => a.filesize - b.filesize);
-        }
-        return sorted; // 'default' order
-    }, [mediaItems, sortOrder]);
+    const handleSortChange = (newOrderBy: 'date' | 'title') => {
+        setSortState(prev => {
+            if (prev.orderBy === newOrderBy) {
+                // Toggle order if it's the same orderBy
+                return { orderBy: newOrderBy, order: prev.order === 'desc' ? 'asc' : 'desc' };
+            }
+            // Default to 'desc' for new orderBy
+            return { orderBy: newOrderBy, order: 'desc' };
+        });
+    };
 
     const handleSelectMedia = (item: WpMediaItem) => {
         setSelectedMedia(item);
@@ -276,17 +307,16 @@ export default function AdvancedMediaLibraryPage() {
                             <div className="flex items-center gap-4 mb-4">
                                 <Label>Sort by:</Label>
                                 <div className="flex gap-2">
-                                    <Button variant={sortOrder === 'default' ? 'default' : 'outline'} size="sm" onClick={() => setSortOrder('default')}>Default</Button>
-                                    <Button variant={sortOrder === 'desc' ? 'default' : 'outline'} size="sm" onClick={() => setSortOrder('desc')}>
-                                        <ArrowUp className="mr-2 h-4 w-4" /> Size (Largest First)
+                                     <Button variant={sortState.orderBy === 'title' ? 'secondary' : 'outline'} size="sm" onClick={() => handleSortChange('title')}>
+                                        Size {sortState.orderBy === 'title' && (sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />)}
                                     </Button>
-                                    <Button variant={sortOrder === 'asc' ? 'default' : 'outline'} size="sm" onClick={() => setSortOrder('asc')}>
-                                        <ArrowDown className="mr-2 h-4 w-4" /> Size (Smallest First)
+                                    <Button variant={sortState.orderBy === 'date' ? 'secondary' : 'outline'} size="sm" onClick={() => handleSortChange('date')}>
+                                        Date {sortState.orderBy === 'date' && (sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />)}
                                     </Button>
                                 </div>
                             </div>
                             
-                            {isLoading && (
+                            {isLoading && mediaItems.length === 0 && (
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                     {Array.from({length: 10}).map((_, i) => (
                                         <Skeleton key={i} className="aspect-[4/5] rounded-lg" />
@@ -301,7 +331,7 @@ export default function AdvancedMediaLibraryPage() {
                                 </div>
                             )}
 
-                            {!isLoading && !error && sortedMediaItems.length === 0 && (
+                            {!isLoading && !error && mediaItems.length === 0 && (
                                 <div className="text-center text-muted-foreground p-12 border-dashed border-2 rounded-md">
                                     <ImageIcon className="mx-auto h-16 w-16" />
                                     <h3 className="mt-4 text-lg font-semibold">No Media Found</h3>
@@ -311,9 +341,9 @@ export default function AdvancedMediaLibraryPage() {
                                 </div>
                             )}
 
-                            {!isLoading && !error && sortedMediaItems.length > 0 && (
+                            {mediaItems.length > 0 && (
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                    {sortedMediaItems.map(item => (
+                                    {mediaItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden flex flex-col">
                                             <CardContent className="p-0 flex-grow">
                                                 <Image 
@@ -340,6 +370,20 @@ export default function AdvancedMediaLibraryPage() {
                                             </CardFooter>
                                         </Card>
                                     ))}
+                                </div>
+                            )}
+
+                             {hasMore && !isLoading && !isLoadingMore && (
+                                <div className="pt-6 text-center">
+                                    <Button onClick={() => handleFetchMedia(currentPage + 1)} variant="outline">
+                                        Load More
+                                    </Button>
+                                </div>
+                            )}
+
+                             {isLoadingMore && (
+                                <div className="pt-6 text-center">
+                                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                                 </div>
                             )}
                         </CardContent>
@@ -419,5 +463,3 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
-
-    
