@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem, backupMediaToCloud } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCheck, CheckCircle2, XCircle } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCheck, CheckCircle2, XCircle, Download } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,7 +48,11 @@ interface OptimizeDialogState {
     image: WpMediaItem | null;
 }
 
-type CloudProvider = 'gdrive' | 'dropbox' | 'aws';
+type CloudProvider = 'gdrive' | 'dropbox' | 'zip';
+interface CloudConnections {
+    gdrive: boolean;
+    dropbox: boolean;
+}
 
 interface BackupState {
     provider: CloudProvider;
@@ -102,6 +106,7 @@ export default function AdvancedMediaLibraryPage() {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
+    const [cloudConnections, setCloudConnections] = useLocalStorage<CloudConnections>('cloud-connections', { gdrive: false, dropbox: false });
     const [backupState, setBackupState] = useState<BackupState>({
         provider: 'gdrive',
         itemsToBackup: [],
@@ -126,6 +131,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsLoading(true);
         setError(null);
+        setMediaItems([]);
         allMediaCache.current = [];
         hasFetchedAll.current = false;
         
@@ -210,7 +216,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsSorting(true);
         setError(null);
-        const { id: toastId } = toast({ title: 'Fetching all media...', description: 'Sorting with current data and fetching the rest in the background.' });
+        const { id: toastId } = toast({ title: 'Sorting in background...', description: 'Initial sort is complete. Fetching all media for full sort.' });
 
         const currentData = [...allMediaCache.current];
         const sortedCurrent = currentData.sort((a, b) => {
@@ -356,6 +362,14 @@ export default function AdvancedMediaLibraryPage() {
         setBackupState(prev => ({...prev, isBackingUp: true}));
         
         const { itemsToBackup, provider } = backupState;
+        
+        if (provider === 'zip') {
+             toast({ title: 'Download Starting', description: 'This is a simulated zip download.' });
+             setBackupState(prev => ({...prev, isBackingUp: false}));
+             setIsBackupDialogOpen(false);
+             return;
+        }
+
         let completed = 0;
 
         for (const item of itemsToBackup) {
@@ -594,6 +608,8 @@ export default function AdvancedMediaLibraryPage() {
         );
     }
 
+    const backupButtonDisabled = backupState.isBackingUp || backupState.overallProgress > 0 || (backupState.provider === 'gdrive' && !cloudConnections.gdrive) || (backupState.provider === 'dropbox' && !cloudConnections.dropbox);
+
     return (
         <div className="space-y-8">
             <ImageOptimizeDialog 
@@ -634,29 +650,46 @@ export default function AdvancedMediaLibraryPage() {
                     <div className="py-4 space-y-6">
                         <div>
                             <Label className="font-semibold">Destination</Label>
-                            <RadioGroup 
+                             <RadioGroup 
                                 value={backupState.provider} 
                                 onValueChange={(value: CloudProvider) => setBackupState(prev => ({...prev, provider: value}))}
-                                className="mt-2 grid grid-cols-3 gap-4"
+                                className="mt-2 grid grid-cols-1 gap-2"
                                 disabled={backupState.isBackingUp}
                             >
-                                <Label htmlFor="gdrive" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                    <RadioGroupItem value="gdrive" id="gdrive" className="sr-only"/>
-                                    <CloudUpload className="mb-3 h-6 w-6" />
-                                    Google Drive
+                                <Label htmlFor="gdrive" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <div className="flex items-center gap-4">
+                                        <RadioGroupItem value="gdrive" id="gdrive" />
+                                        <CloudUpload className="h-6 w-6" />
+                                        <span className="font-semibold">Google Drive</span>
+                                    </div>
+                                    {cloudConnections.gdrive ? (
+                                        <Badge variant="secondary">Connected</Badge>
+                                    ) : (
+                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); setCloudConnections(c => ({...c, gdrive: true})) }}>Connect</Button>
+                                    )}
                                 </Label>
-                                <Label htmlFor="dropbox" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                     <RadioGroupItem value="dropbox" id="dropbox" className="sr-only"/>
-                                    <CloudUpload className="mb-3 h-6 w-6" />
-                                    Dropbox
+                                <Label htmlFor="dropbox" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <div className="flex items-center gap-4">
+                                        <RadioGroupItem value="dropbox" id="dropbox" />
+                                        <CloudUpload className="h-6 w-6" />
+                                        <span className="font-semibold">Dropbox</span>
+                                    </div>
+                                     {cloudConnections.dropbox ? (
+                                        <Badge variant="secondary">Connected</Badge>
+                                    ) : (
+                                        <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); setCloudConnections(c => ({...c, dropbox: true})) }}>Connect</Button>
+                                    )}
                                 </Label>
-                                 <Label htmlFor="aws" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                     <RadioGroupItem value="aws" id="aws" className="sr-only"/>
-                                    <CloudUpload className="mb-3 h-6 w-6" />
-                                    AWS S3
+                                 <Label htmlFor="zip" className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <div className="flex items-center gap-4">
+                                         <RadioGroupItem value="zip" id="zip"/>
+                                        <Download className="h-6 w-6" />
+                                        <span className="font-semibold">Download as Zip</span>
+                                    </div>
                                 </Label>
                             </RadioGroup>
                         </div>
+                        {backupState.provider !== 'zip' && (
                         <div>
                             <Label className="font-semibold">Upload Progress</Label>
                             <div className="mt-2 space-y-2">
@@ -679,14 +712,15 @@ export default function AdvancedMediaLibraryPage() {
                                 </ScrollArea>
                             </div>
                         </div>
+                        )}
                     </div>
                     <DialogFooter>
                          <Button variant="outline" onClick={() => setIsBackupDialogOpen(false)} disabled={backupState.isBackingUp}>
                              {backupState.overallProgress === 100 ? 'Close' : 'Cancel'}
                         </Button>
-                        <Button onClick={startBackup} disabled={backupState.isBackingUp || backupState.overallProgress > 0}>
+                        <Button onClick={startBackup} disabled={backupButtonDisabled}>
                             {backupState.isBackingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Start Backup
+                            {backupState.provider === 'zip' ? 'Download Zip' : 'Start Backup'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
