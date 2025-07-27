@@ -118,7 +118,7 @@ function constructPostHtml(originalContent: string, postImages: ImageState): str
       figure.className = "wp-block-image size-large content-forge-image"; 
       const img = doc.createElement('img');
       img.src = image.url;
-      img.alt = image.alt;
+      img.alt = image.alt || '';
       figure.appendChild(img);
       
       const figcaption = doc.createElement('figcaption');
@@ -288,7 +288,6 @@ export default function ImageGeneratorPage() {
     });
   }, [setImages]);
 
-
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
     if (!selectedSite) return;
     setIsFetchingPosts(true);
@@ -331,6 +330,16 @@ export default function ImageGeneratorPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId]);
+
+  useEffect(() => {
+    if (posts.length > 0) {
+      posts.forEach(post => {
+        if (!postDetailsMap.has(post.id)) {
+          processAndSetPostDetails(post);
+        }
+      });
+    }
+  }, [posts, postDetailsMap, processAndSetPostDetails]);
 
   const handleOpenSearchDialog = useCallback(async (postId: string, type: 'featured' | 'section', heading?: string) => {
     const post = posts.find(p => p.id === postId);
@@ -455,7 +464,7 @@ export default function ImageGeneratorPage() {
                 const uploadResult = await uploadImageToWp(selectedSite.url, selectedSite.user, selectedSite.appPassword!, {
                     base64Data: image.url,
                     fileName: fileName,
-                    altText: image.alt,
+                    altText: image.alt || post.title,
                     caption: caption,
                 });
 
@@ -565,14 +574,7 @@ export default function ImageGeneratorPage() {
                 <RefreshCw className="h-4 w-4" />
             </Button>
         </div>
-        <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
-            if (value) {
-                const post = posts.find(p => p.id === value);
-                if (post && !postDetailsMap.has(post.id)) {
-                    processAndSetPostDetails(post);
-                }
-            }
-        }}>
+        <Accordion type="single" collapsible className="w-full">
             {filteredPosts.map(post => {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
@@ -602,7 +604,7 @@ export default function ImageGeneratorPage() {
                                         <Progress value={(details.generatedCount / (details.requiredImages || 1)) * 100} />
                                     </div>
                                 ) : (
-                                    <div className="mt-2 pr-4 text-xs text-muted-foreground">Click to load details...</div>
+                                    <div className="mt-2 pr-4 text-xs text-muted-foreground">Loading details...</div>
                                 )}
                             </div>
                         </AccordionTrigger>
