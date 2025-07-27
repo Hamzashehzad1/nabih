@@ -152,21 +152,24 @@ export default function AdvancedMediaLibraryPage() {
     const handleOptimizedImageSave = (newImageData: { base64: string; size: number }) => {
         if (!selectedMedia) return;
 
-        const updatedMediaItem = {
+        const updatedMediaItem: WpMediaItem = {
             ...selectedMedia,
             fullUrl: newImageData.base64,
             thumbnailUrl: newImageData.base64,
             filesize: newImageData.size,
         };
 
+        // Update the selected media item state first, which will re-render the edit panel
         setSelectedMedia(updatedMediaItem);
+        
+        // Then update the main media list
         setMediaItems(prevItems => prevItems.map(item =>
             item.id === selectedMedia.id ? updatedMediaItem : item
         ));
         
         toast({
             title: "Image Optimized!",
-            description: "The image has been compressed. Save changes to upload it to WordPress.",
+            description: "The image has been compressed locally. Save your changes to upload the new version to WordPress.",
         });
     };
 
@@ -307,7 +310,7 @@ export default function AdvancedMediaLibraryPage() {
                                                     <TableCell>
                                                         <Image src={item.thumbnailUrl} alt={item.filename} width={64} height={64} className="rounded-md object-cover aspect-square"/>
                                                     </TableCell>
-                                                    <TableCell className="font-medium max-w-xs break-words">{item.filename}</TableCell>
+                                                    <TableCell className="font-medium max-w-[300px] break-words">{item.filename}</TableCell>
                                                     <TableCell>
                                                         <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
                                                     </TableCell>

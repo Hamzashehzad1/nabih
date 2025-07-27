@@ -33,15 +33,17 @@ interface ImageOptimizeDialogProps {
 
 function getBase64Size(base64: string): number {
     if (!base64) return 0;
-    const stringLength = base64.length - base64.indexOf(',');
-    const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624896334383812;
+    const stringLength = base64.length - (base64.indexOf(',') + 1);
+    const sizeInBytes = (stringLength * 3) / 4;
     return sizeInBytes;
 }
 
 async function generatePreview(
     imageUrl: string,
     format: ImageFormat,
-    quality: number
+    quality: number,
+    width: number,
+    height: number
 ): Promise<{ base64: string; size: number }> {
     const image = new window.Image();
     image.crossOrigin = 'anonymous';
@@ -52,12 +54,18 @@ async function generatePreview(
     });
 
     const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get canvas context');
     
-    ctx.drawImage(image, 0, 0);
+    // Fill background with white for JPGs to avoid black background
+    if (format === 'image/jpeg') {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+    }
+
+    ctx.drawImage(image, 0, 0, width, height);
     
     const base64 = canvas.toDataURL(format, quality / 100);
     const size = getBase64Size(base64);
@@ -88,17 +96,35 @@ export function ImageOptimizeDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
 
+  const handleGeneratePreview = useCallback(() => {
+    if (!image) return;
+    setIsLoading(true);
+    generatePreview(image.fullUrl, format, quality, image.width, image.height)
+      .then(setPreview)
+      .catch((err) => {
+          console.error(err);
+          // You might want to show a toast here
+      })
+      .finally(() => setIsLoading(false));
+  }, [image, format, quality]);
+  
   useEffect(() => {
     if (open && image) {
-      setIsLoading(true);
-      generatePreview(image.fullUrl, format, quality)
-        .then(setPreview)
-        .catch(console.error)
-        .finally(() => setIsLoading(false));
+      handleGeneratePreview();
     } else {
         setPreview(null); // Reset preview when dialog is closed
     }
-  }, [open, image, quality, format]);
+  }, [open, image, handleGeneratePreview]);
+
+  // Re-generate preview when quality or format changes
+  useEffect(() => {
+    if (open && image) {
+        const handler = setTimeout(() => {
+            handleGeneratePreview();
+        }, 500); // Debounce to avoid excessive re-renders
+        return () => clearTimeout(handler);
+    }
+  }, [quality, format, open, image, handleGeneratePreview]);
   
   const handleSave = () => {
     if (preview) {
@@ -110,6 +136,7 @@ export function ImageOptimizeDialog({
   const originalSize = useMemo(() => image ? image.filesize : 0, [image]);
   const sizeReduction = useMemo(() => {
       if (!originalSize || !preview?.size) return 0;
+      if (originalSize === 0) return 0; // Avoid division by zero
       return ((originalSize - preview.size) / originalSize) * 100;
   }, [originalSize, preview]);
 
@@ -131,13 +158,13 @@ export function ImageOptimizeDialog({
                 <h3 className="font-semibold text-center">Original ({formatBytes(originalSize)})</h3>
                 <div className="flex-grow bg-muted/50 rounded-md overflow-hidden">
                     {image && (
-                        <div className="w-full h-full overflow-auto">
+                        <div className="w-full h-full overflow-auto p-2">
                             <Image 
                                 src={image.fullUrl} 
                                 alt="Original" 
                                 width={image.width} 
                                 height={image.height} 
-                                className="transition-transform duration-300"
+                                className="transition-transform duration-300 origin-top-left"
                                 style={{ transform: `scale(${zoom})`}}
                             />
                         </div>
@@ -150,19 +177,19 @@ export function ImageOptimizeDialog({
                     Preview ({preview ? formatBytes(preview.size) : '...'})
                 </h3>
                 <div className="flex-grow bg-muted/50 rounded-md overflow-hidden relative">
-                    {(isLoading || !preview) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                    {isLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
                     )}
                     {preview && (
-                        <div className="w-full h-full overflow-auto">
+                        <div className="w-full h-full overflow-auto p-2">
                             <Image 
                                 src={preview.base64} 
                                 alt="Preview" 
                                 width={image?.width || 500} 
                                 height={image?.height || 500} 
-                                className="transition-transform duration-300"
+                                className="transition-transform duration-300 origin-top-left"
                                 style={{ transform: `scale(${zoom})`}}
                             />
                         </div>
@@ -205,7 +232,10 @@ export function ImageOptimizeDialog({
                          {format === 'image/png' && <p className="text-xs text-muted-foreground">PNG is a lossless format; quality slider is disabled.</p>}
                     </div>
                      <div className="space-y-2">
-                        <Label>Zoom</Label>
+                        <div className="flex justify-between items-center">
+                            <Label>Zoom</Label>
+                            <span className="text-sm font-medium">{zoom.toFixed(1)}x</span>
+                        </div>
                         <Slider 
                             value={[zoom]} 
                             onValueChange={([val]) => setZoom(val)}
@@ -220,9 +250,11 @@ export function ImageOptimizeDialog({
             <Card>
                 <CardHeader><CardTitle>Results</CardTitle></CardHeader>
                 <CardContent>
-                    {sizeReduction > 0 ? (
+                    {preview ? (
                         <div className="text-center">
-                            <p className="text-4xl font-bold text-green-500">{sizeReduction.toFixed(1)}%</p>
+                            <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
+                                {sizeReduction.toFixed(1)}%
+                            </p>
                             <p className="text-muted-foreground">reduction in file size</p>
                         </div>
                     ) : (
@@ -245,7 +277,8 @@ export function ImageOptimizeDialog({
 
         <DialogFooter className="flex-shrink-0 pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!preview}>
+          <Button onClick={handleSave} disabled={!preview || isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Optimized Image
           </Button>
         </DialogFooter>
