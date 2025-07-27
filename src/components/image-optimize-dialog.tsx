@@ -14,21 +14,30 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { AlertTriangle, Loader2, Move } from 'lucide-react';
-import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
+import { AlertTriangle, Loader2, Move, Replace, Save } from 'lucide-react';
+import { WpMediaItem, replaceWpMediaFile, uploadWpMedia } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 type ImageFormat = 'jpeg' | 'png' | 'webp';
+type UploadAction = 'replace' | 'saveAsCopy' | null;
+
+interface WpSite {
+  id: string;
+  url: string;
+  user: string;
+  appPassword?: string;
+}
 
 interface ImageOptimizeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   image: WpMediaItem | null;
-  onSave: (data: { base64: string; size: number }) => void;
+  onComplete: () => void;
+  site: WpSite | undefined;
 }
 
 async function fetchImageAsBase64(imageUrl: string): Promise<string> {
@@ -116,11 +125,13 @@ export function ImageOptimizeDialog({
   open,
   onOpenChange,
   image,
-  onSave,
+  onComplete,
+  site
 }: ImageOptimizeDialogProps) {
   const [format, setFormat] = useState<ImageFormat>('jpeg');
   const [quality, setQuality] = useState(85);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadAction, setUploadAction] = useState<UploadAction>(null);
   const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
   const [originalImageBase64, setOriginalImageBase64] = useState<string | null>(null);
   const { toast } = useToast();
@@ -161,6 +172,7 @@ export function ImageOptimizeDialog({
       setQuality(85);
       setZoom(1);
       setPosition({x: 0, y: 0});
+      setUploadAction(null);
 
       fetchImageAsBase64(image.fullUrl)
         .then(base64 => {
@@ -208,11 +220,45 @@ export function ImageOptimizeDialog({
     });
   };
 
-  const handleSave = () => {
-    if (preview) {
-      onSave(preview);
-      onOpenChange(false);
+  const handleSave = async (action: 'replace' | 'saveAsCopy') => {
+    if (!preview || !image || !site?.appPassword) {
+        toast({ title: "Error", description: "Cannot save, missing required data.", variant: "destructive" });
+        return;
     }
+    setUploadAction(action);
+
+    if (action === 'replace') {
+        const result = await replaceWpMediaFile(site.url, site.user, site.appPassword, image, preview);
+        if (result.success) {
+            toast({ title: "Success", description: "Original image has been replaced." });
+            onComplete();
+            onOpenChange(false);
+        } else {
+            toast({ title: "Replacement Failed", description: result.error, variant: "destructive" });
+        }
+    } else { // saveAsCopy
+        const originalFilename = image.filename.substring(0, image.filename.lastIndexOf('.'));
+        const newFilename = `${originalFilename}-optimized.${format}`;
+        
+        const result = await uploadWpMedia(site.url, site.user, site.appPassword, {
+            base64: preview.base64,
+            filename: newFilename,
+            alt: image.alt,
+            caption: image.caption,
+            description: image.description,
+            mimeType: `image/${format}`
+        });
+
+        if (result.success) {
+            toast({ title: "Success", description: "Optimized copy saved as a new image." });
+            onComplete();
+            onOpenChange(false);
+        } else {
+            toast({ title: "Save Failed", description: result.error, variant: "destructive" });
+        }
+    }
+
+    setUploadAction(null);
   };
   
   const originalSize = useMemo(() => image ? image.filesize : 0, [image]);
@@ -226,12 +272,131 @@ export function ImageOptimizeDialog({
       return reduction;
   }, [originalSize, preview, image, format]);
 
-  const isSaveDisabled = !preview || isLoading;
+  const isUploading = !!uploadAction;
 
   const imageTransform = {
       transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
       transformOrigin: 'top left',
   };
+
+  const renderControls = () => (
+    <>
+      <Card>
+          <CardHeader><CardTitle>Optimization Controls</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+              <div className="space-y-2">
+                  <Label>Output Format</Label>
+                  <Select value={format} onValueChange={(v) => setFormat(v as ImageFormat)}>
+                      <SelectTrigger>
+                          <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="jpeg">JPEG</SelectItem>
+                          <SelectItem value="png">PNG</SelectItem>
+                          <SelectItem value="webp">WebP</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                      <Label>Quality</Label>
+                      <span className="text-sm font-medium">{quality}%</span>
+                  </div>
+                  <Slider 
+                      value={[quality]} 
+                      onValueChange={([val]) => setQuality(val)}
+                      min={0}
+                      max={100}
+                      step={1}
+                  />
+                    {quality < 80 && format !== 'png' && (
+                      <Alert variant="warning" className="p-2 text-xs h-auto mt-2">
+                          <div className="flex items-center">
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertDescription className="ml-2">
+                                  Low quality may result in visual artifacts.
+                              </AlertDescription>
+                          </div>
+                      </Alert>
+                  )}
+              </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                      <Label>Zoom</Label>
+                      <span className="text-sm font-medium">{zoom.toFixed(1)}x</span>
+                  </div>
+                  <Slider 
+                      value={[zoom]} 
+                      onValueChange={([val]) => {
+                          setZoom(val);
+                          setPosition({x: 0, y: 0});
+                      }}
+                      min={1}
+                      max={5}
+                      step={0.1}
+                  />
+              </div>
+          </CardContent>
+      </Card>
+
+      <Card>
+          <CardHeader><CardTitle>Results</CardTitle></CardHeader>
+          <CardContent>
+              {preview ? (
+                  <div className="text-center">
+                      <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
+                          {sizeReduction >= 0 ? `-${sizeReduction.toFixed(1)}%` : `+${Math.abs(sizeReduction).toFixed(1)}%`}
+                      </p>
+                      <p className="text-muted-foreground">reduction in file size</p>
+                  </div>
+              ) : (
+                  <p className="text-center text-muted-foreground">Adjust quality to see size reduction.</p>
+              )}
+          </CardContent>
+      </Card>
+    </>
+  );
+
+  const renderSaveOptions = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Save to WordPress</CardTitle>
+        <CardDescription>How would you like to save the optimized image?</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Heads up!</AlertTitle>
+          <AlertDescription>
+            These actions will modify your WordPress media library directly. This cannot be undone.
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-col gap-2">
+            <Button
+                onClick={() => handleSave('replace')}
+                disabled={isUploading}
+            >
+                {uploadAction === 'replace' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <div className="text-left">
+                    <p className="font-semibold">Replace Original</p>
+                    <p className="text-xs font-normal">Overwrite the original file. Keeps the same URL.</p>
+                </div>
+            </Button>
+             <Button
+                onClick={() => handleSave('saveAsCopy')}
+                disabled={isUploading}
+                variant="secondary"
+            >
+                {uploadAction === 'saveAsCopy' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <div className="text-left">
+                    <p className="font-semibold">Save as Optimized Copy</p>
+                    <p className="text-xs font-normal">Upload as a new file (e.g., image-optimized.jpg).</p>
+                </div>
+            </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -321,90 +486,12 @@ export function ImageOptimizeDialog({
               <Move className="h-4 w-4" />
               Click and drag to pan images
             </div>
-            <Card>
-                <CardHeader><CardTitle>Optimization Controls</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Output Format</Label>
-                        <Select value={format} onValueChange={(v) => setFormat(v as ImageFormat)}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="jpeg">JPEG</SelectItem>
-                                <SelectItem value="png">PNG</SelectItem>
-                                <SelectItem value="webp">WebP</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label>Quality</Label>
-                            <span className="text-sm font-medium">{quality}%</span>
-                        </div>
-                        <Slider 
-                            value={[quality]} 
-                            onValueChange={([val]) => setQuality(val)}
-                            min={0}
-                            max={100}
-                            step={1}
-                        />
-                         {quality < 80 && format !== 'png' && (
-                            <Alert variant="warning" className="p-2 text-xs h-auto mt-2">
-                                <div className="flex items-center">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertDescription className="ml-2">
-                                        Low quality may result in visual artifacts.
-                                    </AlertDescription>
-                                </div>
-                            </Alert>
-                        )}
-                    </div>
-                     <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label>Zoom</Label>
-                            <span className="text-sm font-medium">{zoom.toFixed(1)}x</span>
-                        </div>
-                        <Slider 
-                            value={[zoom]} 
-                            onValueChange={([val]) => {
-                                setZoom(val);
-                                // Optional: Reset pan on zoom for simplicity
-                                setPosition({x: 0, y: 0});
-                            }}
-                            min={1}
-                            max={5}
-                            step={0.1}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader><CardTitle>Results</CardTitle></CardHeader>
-                <CardContent>
-                    {preview ? (
-                        <div className="text-center">
-                            <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
-                                {sizeReduction >= 0 ? `-${sizeReduction.toFixed(1)}%` : `+${Math.abs(sizeReduction).toFixed(1)}%`}
-                            </p>
-                            <p className="text-muted-foreground">reduction in file size</p>
-                        </div>
-                    ) : (
-                        <p className="text-center text-muted-foreground">Adjust quality to see size reduction.</p>
-                    )}
-                </CardContent>
-            </Card>
-            
+            {preview ? renderSaveOptions() : renderControls()}
           </div>
         </div>
 
         <DialogFooter className="flex-shrink-0 pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={isSaveDisabled}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Optimized Image
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

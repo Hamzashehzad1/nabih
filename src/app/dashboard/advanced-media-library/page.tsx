@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem, backupMediaToCloud } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download, Square } from "lucide-react";
+import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download, Square } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -94,6 +94,7 @@ export default function AdvancedMediaLibraryPage() {
     const [currentPage, setCurrentPage] = useState(1);
     
     const [selectedMedia, setSelectedMedia] = useState<WpMediaItem | null>(null);
+    const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
     const [editableDetails, setEditableDetails] = useState<EditableMediaDetails>({ alt: '', caption: '', description: '' });
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -211,7 +212,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsSorting(true);
         setError(null);
-        const { id: toastId } = toast({ title: 'Sorting in background...', description: 'Initial sort complete. Fetching remaining media...' });
+        const { id: toastId } = toast({ title: 'Sorting media...', description: 'Fetching all media items in the background. The list will update as data arrives.' });
 
         const currentData = [...allMediaCache.current];
         const sortedCurrent = currentData.sort((a, b) => {
@@ -223,18 +224,20 @@ export default function AdvancedMediaLibraryPage() {
 
         try {
             if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
+            
+            let allFetchedMedia = [...allMediaCache.current];
 
             for (let i = 2; i <= totalPages.current; i++) {
                 const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, i, PAGE_SIZE);
-                if (result.success) {
-                    allMediaCache.current.push(...result.data);
-                    const progressivelySorted = [...allMediaCache.current].sort((a, b) => {
+                if (result.success && result.data.length > 0) {
+                    allFetchedMedia.push(...result.data);
+                     const progressivelySorted = [...allFetchedMedia].sort((a, b) => {
                          if (newOrder === 'asc') return a.filesize - b.filesize;
                          return b.filesize - a.filesize;
                     });
                     allMediaCache.current = progressivelySorted;
                     setMediaItems(progressivelySorted.slice(0, currentPage * PAGE_SIZE));
-                } else {
+                } else if (!result.success) {
                      console.warn(`A page fetch failed: ${result.error}`);
                 }
             }
@@ -246,6 +249,7 @@ export default function AdvancedMediaLibraryPage() {
         } catch (e: any) {
             setError(e.message || "Failed to fetch and sort media.");
             setSortOrder(null); 
+            dismiss(toastId);
         } finally {
             setIsSorting(false);
         }
@@ -259,6 +263,7 @@ export default function AdvancedMediaLibraryPage() {
             caption: item.caption,
             description: item.description,
         });
+        setIsEditPanelOpen(true);
     }
     
     const handleUpdateDetails = async () => {
@@ -284,6 +289,7 @@ export default function AdvancedMediaLibraryPage() {
             if (allMediaCache.current.length > 0) {
                  allMediaCache.current = allMediaCache.current.map(item => item.id === selectedMedia.id ? updatedItem : item );
             }
+            setIsEditPanelOpen(false);
             setSelectedMedia(null);
 
         } else {
@@ -296,26 +302,8 @@ export default function AdvancedMediaLibraryPage() {
         setIsUpdating(false);
     };
 
-    const handleOptimizedImageSave = (newImageData: { base64: string; size: number }) => {
-        if (!selectedMedia) return;
-
-        const updatedMediaItem: WpMediaItem = {
-            ...selectedMedia,
-            fullUrl: newImageData.base64,
-            thumbnailUrl: newImageData.base64,
-            filesize: newImageData.size,
-        };
-
-        setSelectedMedia(updatedMediaItem);
-        setMediaItems(prevItems => prevItems.map(item => item.id === selectedMedia.id ? updatedMediaItem : item));
-        if (allMediaCache.current.length > 0) {
-            allMediaCache.current = allMediaCache.current.map(item => item.id === selectedMedia.id ? updatedMediaItem : item );
-        }
-        
-        toast({
-            title: "Image Optimized!",
-            description: "The image has been compressed locally. Save your changes to upload the new version to WordPress.",
-        });
+    const handleOptimizeComplete = () => {
+        loadInitialMedia(); // Refresh data from WP
     };
     
     const handleSelectionChange = (id: number, checked: boolean) => {
@@ -397,18 +385,17 @@ export default function AdvancedMediaLibraryPage() {
             return;
         }
 
-        // Logic for other providers (currently disabled)
         let completed = 0;
 
         for (const item of itemsToBackup) {
             setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {status: 'uploading', message: 'In progress...'}}}));
             
-            const result = await backupMediaToCloud(item, provider);
+            // const result = await backupMediaToCloud(item, provider);
             
-            setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {
-                status: result.success ? 'success' : 'error',
-                message: result.success ? 'Backed up!' : result.error,
-            }}}));
+            // setBackupState(prev => ({...prev, progress: {...prev.progress, [item.id]: {
+            //     status: result.success ? 'success' : 'error',
+            //     message: result.success ? 'Backed up!' : result.error,
+            // }}}));
 
             completed++;
             setBackupState(prev => ({...prev, overallProgress: (completed / itemsToBackup.length) * 100 }));
@@ -644,9 +631,10 @@ export default function AdvancedMediaLibraryPage() {
                 open={optimizeDialogState.open}
                 onOpenChange={(open) => setOptimizeDialogState({ ...optimizeDialogState, open })}
                 image={optimizeDialogState.image}
-                onSave={handleOptimizedImageSave}
+                onComplete={handleOptimizeComplete}
+                site={selectedSite}
             />
-            <Dialog open={!!selectedMedia} onOpenChange={(open) => !open && setSelectedMedia(null)}>
+            <Dialog open={isEditPanelOpen} onOpenChange={setIsEditPanelOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Edit Media</DialogTitle>
@@ -658,7 +646,7 @@ export default function AdvancedMediaLibraryPage() {
                         {renderEditPanelContent()}
                     </div>
                     <DialogFooter>
-                         <Button variant="outline" onClick={() => setSelectedMedia(null)}>Cancel</Button>
+                         <Button variant="outline" onClick={() => setIsEditPanelOpen(false)}>Cancel</Button>
                         <Button onClick={handleUpdateDetails} disabled={isUpdating}>
                             {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save Changes

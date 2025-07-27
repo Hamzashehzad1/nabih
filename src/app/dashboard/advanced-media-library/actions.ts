@@ -48,6 +48,7 @@ export interface WpMediaItem {
   alt: string;
   caption: string;
   description: string;
+  mime_type: string;
 }
 
 function stripHtml(html: string): string {
@@ -87,7 +88,11 @@ export async function fetchWpMedia(
         let errorDetails = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+             if (errorData.code === 'rest_post_invalid_page_number') {
+                errorDetails = "The page number requested is larger than the number of pages available.";
+            } else {
+                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+            }
         } catch (e) {}
         return { success: false, error: errorDetails };
     }
@@ -119,6 +124,7 @@ export async function fetchWpMedia(
         alt: item.alt_text,
         caption: stripHtml(item.caption.rendered),
         description: stripHtml(item.description.rendered),
+        mime_type: item.media_details.sizes.full?.mime_type || 'image/jpeg',
     }));
     
     return { success: true, data: mediaForPage, totalPages };
@@ -177,6 +183,119 @@ export async function updateWpMediaDetails(
 }
 
 
+export async function replaceWpMediaFile(
+  siteUrl: string,
+  username: string,
+  appPassword: string,
+  mediaItem: WpMediaItem,
+  optimizedImage: { base64: string }
+): Promise<{ success: true } | { success: false; error: string }> {
+  const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media/${mediaItem.id}`;
+  const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
+  const buffer = Buffer.from(optimizedImage.base64.split(';base64,').pop()!, 'base64');
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST', 
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': mediaItem.mime_type,
+        'Content-Disposition': `attachment; filename="${mediaItem.filename}"`,
+      },
+      body: buffer,
+    });
+
+    if (!response.ok) {
+      let errorDetails = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+      } catch (e) {}
+      return { success: false, error: errorDetails };
+    }
+    
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error replacing media file:', error);
+    if (error instanceof Error) {
+        return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unknown error occurred while replacing the media file.' };
+  }
+}
+
+export async function uploadWpMedia(
+  siteUrl: string,
+  username: string,
+  appPassword: string,
+  details: {
+    base64: string;
+    filename: string;
+    alt: string;
+    caption: string;
+    description: string;
+    mimeType: string;
+  }
+): Promise<{ success: true, data: any } | { success: false; error: string }> {
+  const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
+  const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
+  const buffer = Buffer.from(details.base64.split(';base64,').pop()!, 'base64');
+  
+  try {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': authHeader,
+            'Content-Type': details.mimeType,
+            'Content-Disposition': `attachment; filename="${details.filename}"`,
+        },
+        body: buffer,
+    });
+    
+    if (!response.ok) {
+      let errorDetails = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+      } catch (e) {}
+      return { success: false, error: errorDetails };
+    }
+
+    const mediaData = await response.json();
+
+    // Now, update the media item with alt text, title, and caption
+    const updateUrl = `${url}/${mediaData.id}`;
+    const updateResponse = await fetch(updateUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        alt_text: details.alt,
+        caption: details.caption,
+        description: details.description,
+        title: details.alt,
+      }),
+    });
+
+    if (!updateResponse.ok) {
+        console.warn(`Image uploaded but failed to set metadata: ${await updateResponse.text()}`);
+    }
+    
+    return { success: true, data: mediaData };
+  } catch (error) {
+    console.error('Error uploading new media:', error);
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unknown error occurred while uploading.' };
+  }
+}
+
+
+
 export async function backupMediaToCloud(
   mediaItem: { filename: string },
   destination: string
@@ -196,4 +315,3 @@ export async function backupMediaToCloud(
   
   return { success: true, message: `Successfully backed up ${mediaItem.filename} to ${destination}.` };
 }
-
