@@ -20,6 +20,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type ImageFormat = 'image/jpeg' | 'image/png' | 'image/webp';
 
@@ -54,6 +55,12 @@ async function generatePreview(
     width: number,
     height: number
 ): Promise<{ base64: string; size: number }> {
+    // If the format is PNG and the original is likely a PNG, don't re-render.
+    // This prevents the browser from creating a larger, unoptimized PNG.
+    if (format === 'image/png' && imageUrl.startsWith('data:image/png')) {
+        return { base64: imageUrl, size: getBase64Size(imageUrl) };
+    }
+    
     const image = new window.Image();
     image.src = imageUrl;
     await new Promise((resolve, reject) => {
@@ -161,6 +168,8 @@ export function ImageOptimizeDialog({
       return ((originalSize - preview.size) / originalSize) * 100;
   }, [originalSize, preview]);
 
+  const isSaveDisabled = !preview || isLoading || (format === 'image/png' && preview.size >= originalSize);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-6xl h-[90vh] flex flex-col p-4">
@@ -260,7 +269,7 @@ export function ImageOptimizeDialog({
                             <Alert variant="warning" className="p-2 text-xs">
                                 <AlertTriangle className="h-4 w-4" />
                                 <AlertDescription>
-                                    PNG is lossless. For size reduction, convert to WebP.
+                                    In-browser optimization for PNGs is not supported. For significant size reduction, please convert to WebP or JPEG.
                                 </AlertDescription>
                             </Alert>
                          ) : quality < 80 && (
@@ -309,7 +318,7 @@ export function ImageOptimizeDialog({
 
         <DialogFooter className="flex-shrink-0 pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!preview || isLoading}>
+          <Button onClick={handleSave} disabled={isSaveDisabled}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Optimized Image
           </Button>
