@@ -9,11 +9,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2 } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -288,28 +287,11 @@ export default function AdvancedMediaLibraryPage() {
                             </div>
                             
                             {isLoading && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[80px]">Preview</TableHead>
-                                            <TableHead>Filename</TableHead>
-                                            <TableHead>File Size</TableHead>
-                                            <TableHead>Dimensions</TableHead>
-                                            <TableHead className="w-[120px]">Action</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {Array.from({length: 5}).map((_, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell><Skeleton className="h-16 w-16 rounded-md" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                    {Array.from({length: 10}).map((_, i) => (
+                                        <Skeleton key={i} className="aspect-[4/5] rounded-lg" />
+                                    ))}
+                                </div>
                             )}
 
                             {!isLoading && error && (
@@ -330,35 +312,34 @@ export default function AdvancedMediaLibraryPage() {
                             )}
 
                             {!isLoading && !error && sortedMediaItems.length > 0 && (
-                                <div className="border rounded-md">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[80px]">Preview</TableHead>
-                                                <TableHead>Filename</TableHead>
-                                                <TableHead>File Size</TableHead>
-                                                <TableHead>Dimensions</TableHead>
-                                                <TableHead className="w-[120px]">Action</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {sortedMediaItems.map(item => (
-                                                <TableRow key={item.id} className={cn(selectedMedia?.id === item.id && 'bg-muted/50')}>
-                                                    <TableCell>
-                                                        <Image src={item.thumbnailUrl} alt={item.filename} width={64} height={64} className="rounded-md object-cover aspect-square"/>
-                                                    </TableCell>
-                                                    <TableCell className="font-medium max-w-[300px] break-words">{item.filename}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>{item.width} x {item.height}</TableCell>
-                                                    <TableCell>
-                                                        <Button variant="outline" size="sm" onClick={() => handleSelectMedia(item)}>Select</Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                    {sortedMediaItems.map(item => (
+                                        <Card key={item.id} className="overflow-hidden flex flex-col">
+                                            <CardContent className="p-0 flex-grow">
+                                                <Image 
+                                                    src={item.thumbnailUrl} 
+                                                    alt={item.filename} 
+                                                    width={300} 
+                                                    height={300} 
+                                                    className="aspect-square object-cover w-full h-full"
+                                                />
+                                            </CardContent>
+                                            <CardFooter className="p-2 flex-col items-start !space-y-2">
+                                                <p className="text-xs font-medium truncate w-full">{item.filename}</p>
+                                                <Badge variant={item.filesize > 500 * 1024 ? 'destructive' : 'outline'}>{formatBytes(item.filesize)}</Badge>
+                                                <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                                                    <Button variant="outline" size="sm" onClick={() => handleSelectMedia(item)}>
+                                                        <Edit className="h-3 w-3 mr-1"/>
+                                                        Edit
+                                                    </Button>
+                                                    <Button variant="secondary" size="sm" onClick={() => setOptimizeDialogState({open: true, image: item})}>
+                                                         <Settings2 className="h-3 w-3 mr-1"/>
+                                                        Optimize
+                                                    </Button>
+                                                </div>
+                                            </CardFooter>
+                                        </Card>
+                                    ))}
                                 </div>
                             )}
                         </CardContent>
@@ -438,3 +419,5 @@ export default function AdvancedMediaLibraryPage() {
         </div>
     );
 }
+
+    
