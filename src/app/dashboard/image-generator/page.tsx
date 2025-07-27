@@ -189,6 +189,19 @@ function parseContent(post: WpPost): {
 
   const sections: Section[] = [];
   const sectionImageUrls: { [key: string]: string } = {};
+
+  // Find featured image (official one or one we inserted)
+  let featuredUrl = post.featuredImageUrl || null;
+  if (!featuredUrl && firstP) {
+      let nextElement = firstP.nextElementSibling;
+      // The featured image is typically the first image after the first paragraph.
+      if (nextElement && (nextElement.tagName === 'FIGURE' || nextElement.classList.contains('wp-block-image'))) {
+          const img = nextElement.querySelector('img');
+          if (img) {
+              featuredUrl = img.src;
+          }
+      }
+  }
   
   doc.querySelectorAll('h2, h3').forEach((header) => {
     const headingText = header.textContent?.trim() || '';
@@ -208,6 +221,7 @@ function parseContent(post: WpPost): {
     let nextElement = header.nextElementSibling;
     let imageSrc: string | null = null;
     let foundImage = false;
+    // Look for an image between this heading and the next one
     while (nextElement && !['H2', 'H3'].includes(nextElement.tagName) && !foundImage) {
         let img = null;
         if (nextElement.tagName === 'FIGURE' || nextElement.classList.contains('wp-block-image')) {
@@ -234,7 +248,7 @@ function parseContent(post: WpPost): {
     }
   });
 
-  return { firstParagraph, sections, initialImages: { featuredUrl: post.featuredImageUrl || null, sectionImageUrls } };
+  return { firstParagraph, sections, initialImages: { featuredUrl, sectionImageUrls } };
 }
 
 export default function ImageGeneratorPage() {
