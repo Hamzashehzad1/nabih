@@ -77,7 +77,8 @@ export async function fetchWpMedia(
         
         const data = await response.json();
 
-        if (data.length === 0) {
+        // If the API returns an empty array, we've fetched all pages.
+        if (Array.isArray(data) && data.length === 0) {
             hasMore = false;
             continue;
         }
