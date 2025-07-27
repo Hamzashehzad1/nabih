@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowDown, ArrowUp, ExternalLink, X } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -357,3 +357,4 @@ export default function AdvancedMediaLibraryPage() {
     );
 }
 
+    
