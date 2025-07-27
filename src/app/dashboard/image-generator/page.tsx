@@ -132,6 +132,10 @@ function constructPostHtml(originalContent: string, postImages: ImageState): str
     // Remove only images previously added by this tool to avoid duplicates
     doc.querySelectorAll('.content-forge-image').forEach(el => el.remove());
     
+    // Attempt to remove the WordPress featured image if it was added by WP a certain way
+    const featuredImage = body.querySelector('figure.wp-block-image.size-full > img.wp-image-113');
+    featuredImage?.closest('figure')?.remove();
+    
     const firstParagraphEl = body.querySelector('p');
 
     if (postImages.featured) {
@@ -157,6 +161,7 @@ function constructPostHtml(originalContent: string, postImages: ImageState): str
     
     return doc.body.innerHTML;
 }
+
 
 function parseContent(post: WpPost): {
     firstParagraph: string;
@@ -454,8 +459,6 @@ export default function ImageGeneratorPage() {
       try {
         const uploadedImages: ImageState = JSON.parse(JSON.stringify(postImages));
         let uploadsFailed = false;
-
-        const uploadPromises: Promise<void>[] = [];
         
         const processImage = async (imageKey: 'featured' | string) => {
             const image = imageKey === 'featured' ? postImages.featured : postImages.sections[imageKey];
@@ -483,6 +486,7 @@ export default function ImageGeneratorPage() {
             }
         };
 
+        const uploadPromises: Promise<void>[] = [];
         if (postImages.featured && postImages.featured.url.startsWith('data:image')) {
             uploadPromises.push(processImage('featured'));
         }
