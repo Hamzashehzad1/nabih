@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Loader2, Move } from 'lucide-react';
 import { WpMediaItem } from '@/app/dashboard/advanced-media-library/actions';
@@ -219,7 +219,7 @@ export function ImageOptimizeDialog({
   const sizeReduction = useMemo(() => {
       if (!originalSize || !preview?.size) return 0;
       if (originalSize === 0) return 0; 
-      const reduction = ((originalSize - preview.size) / preview.size) * 100;
+      const reduction = ((originalSize - preview.size) / originalSize) * 100;
        if(image?.filename.endsWith('.png') && format === 'png' && reduction < 0){
           return 0;
       }
@@ -263,14 +263,16 @@ export function ImageOptimizeDialog({
                         </div>
                     )}
                      {originalImageBase64 && image && (
-                        <div className="absolute inset-0 flex items-center justify-center p-2">
+                        <div
+                            className="absolute inset-0 flex items-center justify-center"
+                            style={imageTransform}
+                        >
                             <Image
                                 src={originalImageBase64}
                                 alt="Original"
                                 width={image.width}
                                 height={image.height}
-                                className="transition-transform duration-100 ease-linear origin-center pointer-events-none max-w-full max-h-full object-contain"
-                                style={imageTransform}
+                                className="max-w-full max-h-full object-contain pointer-events-none"
                             />
                         </div>
                     )}
@@ -296,14 +298,16 @@ export function ImageOptimizeDialog({
                         </div>
                     )}
                     {preview && image && (
-                        <div className="absolute inset-0 flex items-center justify-center p-2">
+                        <div
+                            className="absolute inset-0 flex items-center justify-center"
+                            style={imageTransform}
+                        >
                             <Image
                                 src={preview.base64}
                                 alt="Preview"
                                 width={image.width}
                                 height={image.height}
-                                className="transition-transform duration-100 ease-linear origin-center pointer-events-none max-w-full max-h-full object-contain"
-                                style={imageTransform}
+                                className="max-w-full max-h-full object-contain pointer-events-none"
                             />
                         </div>
                     )}
@@ -350,7 +354,6 @@ export function ImageOptimizeDialog({
                             min={0}
                             max={100}
                             step={1}
-                            disabled={format === 'png'}
                         />
                          {quality < 80 && format !== 'png' && (
                             <Alert variant="warning" className="p-2 text-xs h-auto mt-2">
@@ -389,7 +392,7 @@ export function ImageOptimizeDialog({
                     {preview ? (
                         <div className="text-center">
                             <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
-                                {sizeReduction > 0 ? `-${sizeReduction.toFixed(1)}%` : '0%'}
+                                {sizeReduction >= 0 ? `-${sizeReduction.toFixed(1)}%` : `+${Math.abs(sizeReduction).toFixed(1)}%`}
                             </p>
                             <p className="text-muted-foreground">reduction in file size</p>
                         </div>
