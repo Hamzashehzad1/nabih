@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem, backupMediaToCloud } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, Sparkles, CheckCheck } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, X, Settings2, Edit, AlertCircle, CloudUpload, CheckCheck, CheckCircle2, XCircle } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
