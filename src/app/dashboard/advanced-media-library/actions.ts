@@ -61,17 +61,15 @@ function stripHtml(html: string): string {
 export async function fetchWpMedia(
     siteUrl: string,
     username: string,
-    appPassword: string,
-    { page = 1, perPage = 50, orderBy = 'date', order = 'desc' }: { page?: number; perPage?: number; orderBy?: 'date' | 'title'; order?: 'asc' | 'desc'}
+    appPassword: string
 ): Promise<{ success: true; data: WpMediaItem[] } | { success: false; error: string }> {
   
   const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
   const url = new URL(baseUrl);
   url.searchParams.append('context', 'edit');
-  url.searchParams.append('page', page.toString());
-  url.searchParams.append('per_page', perPage.toString());
-  url.searchParams.append('orderby', orderBy);
-  url.searchParams.append('order', order);
+  url.searchParams.append('per_page', '100'); // Fetch a larger batch for client-side sorting
+  url.searchParams.append('orderby', 'date');
+  url.searchParams.append('order', 'desc');
   
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
 

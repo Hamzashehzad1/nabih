@@ -32,7 +32,6 @@ interface WpSite {
 type SortOrder = 'desc' | 'asc';
 
 interface SortState {
-    orderBy: 'date' | 'title';
     order: SortOrder;
 }
 
@@ -64,12 +63,9 @@ export default function AdvancedMediaLibraryPage() {
     const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
     const [mediaItems, setMediaItems] = useState<WpMediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const [hasMore, setHasMore] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
     const [error, setError] = useState<string | null>(null);
 
-    const [sortState, setSortState] = useState<SortState>({ orderBy: 'date', order: 'desc' });
+    const [sortState, setSortState] = useState<SortState>({ order: 'desc' });
 
     const [selectedMedia, setSelectedMedia] = useState<WpMediaItem | null>(null);
     const [editableDetails, setEditableDetails] = useState<EditableMediaDetails>({ alt: '', caption: '', description: '' });
@@ -86,60 +82,45 @@ export default function AdvancedMediaLibraryPage() {
 
     const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
-    const handleFetchMedia = useCallback(async (page = 1, refresh = false) => {
+    const handleFetchMedia = useCallback(async () => {
         if (!selectedSite?.appPassword) {
              setError("Application password not found for this site. Please add it in Settings.");
              return;
         }
 
-        if (refresh) {
-            setMediaItems([]);
-            setHasMore(true);
-            setCurrentPage(1);
-            setIsLoading(true);
-        } else {
-            setIsLoadingMore(true);
-        }
-        
+        setIsLoading(true);
+        setMediaItems([]);
         setError(null);
         
-        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, { 
-            page, 
-            perPage: 50,
-            orderBy: sortState.orderBy,
-            order: sortState.order,
-        });
+        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword);
 
         if (result.success) {
-            if (result.data.length < 50) {
-                setHasMore(false);
-            }
-            setMediaItems(prev => refresh ? result.data : [...prev, ...result.data]);
-            setCurrentPage(page);
+            setMediaItems(result.data);
         } else {
             setError(result.error);
         }
 
         setIsLoading(false);
-        setIsLoadingMore(false);
-    }, [selectedSite, sortState]);
+    }, [selectedSite]);
     
     useEffect(() => {
         if (selectedSite) {
-            handleFetchMedia(1, true);
+            handleFetchMedia();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedSite, sortState.order, sortState.orderBy]);
+    }, [selectedSite]);
     
-    const handleSortChange = (newOrderBy: 'date' | 'title') => {
-        setSortState(prev => {
-            if (prev.orderBy === newOrderBy) {
-                // Toggle order if it's the same orderBy
-                return { orderBy: newOrderBy, order: prev.order === 'desc' ? 'asc' : 'desc' };
+    const sortedMedia = useMemo(() => {
+        return [...mediaItems].sort((a, b) => {
+            if (sortState.order === 'asc') {
+                return a.filesize - b.filesize;
             }
-            // Default to 'desc' for new orderBy
-            return { orderBy: newOrderBy, order: 'desc' };
+            return b.filesize - a.filesize;
         });
+    }, [mediaItems, sortState]);
+    
+    const handleSortChange = () => {
+        setSortState(prev => ({ order: prev.order === 'desc' ? 'asc' : 'desc' }));
     };
 
     const handleSelectMedia = (item: WpMediaItem) => {
@@ -295,7 +276,7 @@ export default function AdvancedMediaLibraryPage() {
                                 <div>
                                     <CardTitle>Your WordPress Media</CardTitle>
                                     <CardDescription>
-                                        All media from {new URL(selectedSite!.url).hostname} will appear here.
+                                        Displaying the 100 most recent items from {new URL(selectedSite!.url).hostname}.
                                     </CardDescription>
                                 </div>
                                 <Button onClick={() => setSelectedSiteId(null)} variant="outline">
@@ -307,8 +288,8 @@ export default function AdvancedMediaLibraryPage() {
                             <div className="flex items-center gap-4 mb-4">
                                 <Label>Sort by:</Label>
                                 <div className="flex gap-2">
-                                     <Button variant={sortState.orderBy === 'title' ? 'secondary' : 'outline'} size="sm" onClick={() => handleSortChange('title')}>
-                                        Size {sortState.orderBy === 'title' && (sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />)}
+                                     <Button variant='secondary' size="sm" onClick={handleSortChange}>
+                                        Size {sortState.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />}
                                     </Button>
                                 </div>
                             </div>
@@ -338,9 +319,9 @@ export default function AdvancedMediaLibraryPage() {
                                 </div>
                             )}
 
-                            {mediaItems.length > 0 && (
+                            {sortedMedia.length > 0 && (
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                    {mediaItems.map(item => (
+                                    {sortedMedia.map(item => (
                                         <Card key={item.id} className="overflow-hidden flex flex-col">
                                             <CardContent className="p-0 flex-grow">
                                                 <Image 
@@ -367,20 +348,6 @@ export default function AdvancedMediaLibraryPage() {
                                             </CardFooter>
                                         </Card>
                                     ))}
-                                </div>
-                            )}
-
-                             {hasMore && !isLoading && !isLoadingMore && (
-                                <div className="pt-6 text-center">
-                                    <Button onClick={() => handleFetchMedia(currentPage + 1)} variant="outline">
-                                        Load More
-                                    </Button>
-                                </div>
-                            )}
-
-                             {isLoadingMore && (
-                                <div className="pt-6 text-center">
-                                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                                 </div>
                             )}
                         </CardContent>
