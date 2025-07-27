@@ -100,6 +100,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsLoading(true);
         setError(null);
+        allMediaCache.current = [];
         
         const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, 1, PAGE_SIZE);
 
@@ -164,37 +165,48 @@ export default function AdvancedMediaLibraryPage() {
         const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
         setSortOrder(newOrder);
 
+        // If we already have the full cache, just sort and display
+        if (allMediaCache.current.length > 0) {
+            const sorted = [...allMediaCache.current].sort((a, b) => {
+                if (newOrder === 'asc') return a.filesize - b.filesize;
+                return b.filesize - a.filesize;
+            });
+            allMediaCache.current = sorted;
+            setMediaItems(sorted.slice(0, PAGE_SIZE));
+            setCurrentPage(1);
+            return;
+        }
+
         setIsSorting(true);
         setError(null);
+        toast({ title: 'Fetching all media...', description: 'This may take a moment for large libraries.' });
 
         try {
-            // Use cache if available
-            if (allMediaCache.current.length === 0) {
-                toast({ title: 'Fetching all media...', description: 'This may take a moment for large libraries.' });
+            if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
 
-                if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
+            // First, get total pages to set up fetch promises
+            const initialResult = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, 1, 1);
+            if (!initialResult.success) throw new Error(initialResult.error);
 
-                // First, get total pages to set up fetch promises
-                const initialResult = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, 1, 1);
-                if (!initialResult.success) throw new Error(initialResult.error);
-
-                const totalPagesToFetch = initialResult.totalPages;
-                let fetchedMedia: WpMediaItem[] = [];
-
-                // Fetch all pages
-                for (let i = 1; i <= totalPagesToFetch; i++) {
-                     const pageResult = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, i, 100);
-                     if (pageResult.success) {
-                        fetchedMedia.push(...pageResult.data);
-                     } else {
-                        console.warn(`Failed to fetch page ${i}: ${pageResult.error}`);
-                     }
-                }
-                allMediaCache.current = fetchedMedia;
+            const totalPagesToFetch = initialResult.totalPages;
+            
+            const fetchPromises = [];
+            for (let i = 1; i <= totalPagesToFetch; i++) {
+                fetchPromises.push(fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, i, 100));
             }
 
-            // Sort the entire cached list
-            const sorted = [...allMediaCache.current].sort((a, b) => {
+            const results = await Promise.all(fetchPromises);
+            let fetchedMedia: WpMediaItem[] = [];
+            for (const result of results) {
+                if (result.success) {
+                    fetchedMedia.push(...result.data);
+                } else {
+                    console.warn(`A page fetch failed: ${result.error}`);
+                }
+            }
+            
+            // Sort the entire fetched list
+            const sorted = [...fetchedMedia].sort((a, b) => {
                 if (newOrder === 'asc') return a.filesize - b.filesize;
                 return b.filesize - a.filesize;
             });
@@ -209,7 +221,7 @@ export default function AdvancedMediaLibraryPage() {
         } finally {
             setIsSorting(false);
         }
-    }, [sortOrder, selectedSite]);
+    }, [sortOrder, selectedSite, toast]);
     
     
     const handleSelectMedia = (item: WpMediaItem) => {
