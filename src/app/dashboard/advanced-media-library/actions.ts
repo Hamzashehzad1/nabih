@@ -69,44 +69,58 @@ export async function fetchWpMedia(
   const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media`;
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
   const allMediaData: z.infer<typeof MediaItemSchema>[] = [];
-  let page = 1;
   const perPage = 100; // Max per_page for WP REST API by default
 
   try {
-    while (true) {
+    // First, make a HEAD request or a request for a single item to get total pages
+    const initialUrl = new URL(baseUrl);
+    initialUrl.searchParams.append('per_page', '1');
+    const initialResponse = await fetch(initialUrl.toString(), {
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+    });
+
+    if (!initialResponse.ok) {
+        let errorDetails = `HTTP error! status: ${initialResponse.status}`;
+        try {
+            const errorData = await initialResponse.json();
+            errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+        } catch (e) {}
+        return { success: false, error: errorDetails };
+    }
+
+    const totalPagesHeader = initialResponse.headers.get('x-wp-totalpages');
+    const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
+
+    // Now, fetch all pages
+    const pagePromises = [];
+    for (let page = 1; page <= totalPages; page++) {
         const url = new URL(baseUrl);
         url.searchParams.append('context', 'edit');
         url.searchParams.append('per_page', perPage.toString());
         url.searchParams.append('page', page.toString());
-        
-        const response = await fetch(url.toString(), {
-            headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
-            cache: 'no-store',
-        });
 
-        if (!response.ok) {
-            let errorDetails = `HTTP error! status: ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
-            } catch (e) {}
-            return { success: false, error: errorDetails };
-        }
-        
-        const data = await response.json();
-
-        if (!Array.isArray(data)) {
-            return { success: false, error: 'Unexpected response format from WordPress.' };
-        }
-        
-        if (data.length === 0) {
-            // No more pages to fetch, break the loop
-            break;
-        }
-
-        allMediaData.push(...data);
-        page++;
+        pagePromises.push(
+            fetch(url.toString(), {
+                headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+                cache: 'no-store',
+            }).then(res => {
+                if (!res.ok) {
+                    // We can still try to get a message, but we won't fail the whole batch for one page failure
+                    console.error(`Failed to fetch page ${page}: ${res.statusText}`);
+                    return []; 
+                }
+                return res.json();
+            })
+        );
     }
+    
+    const allPagesData = await Promise.all(pagePromises);
+    allPagesData.forEach(pageData => {
+        if (Array.isArray(pageData)) {
+            allMediaData.push(...pageData);
+        }
+    });
 
     const parsedData = MediaItemsSchema.safeParse(allMediaData);
      if (!parsedData.success) {
