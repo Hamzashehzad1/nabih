@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageOptimizeDialog } from '@/components/image-optimize-dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface WpSite {
   id: string;
@@ -52,6 +55,7 @@ function formatBytes(bytes: number, decimals = 2) {
 
 export default function AdvancedMediaLibraryPage() {
     const { toast } = useToast();
+    const isMobile = useIsMobile();
     const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
     const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
     const [mediaItems, setMediaItems] = useState<WpMediaItem[]>([]);
@@ -173,6 +177,38 @@ export default function AdvancedMediaLibraryPage() {
         });
     };
 
+    const renderEditPanelContent = () => {
+        if (!selectedMedia) return null;
+        
+        return (
+            <>
+                <div className="relative">
+                    <Image src={selectedMedia.fullUrl} alt={selectedMedia.filename} width={400} height={300} className="rounded-md object-contain w-full" />
+                    <Button asChild size="icon" variant="secondary" className="absolute top-2 right-2">
+                        <a href={selectedMedia.fullUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                        </a>
+                    </Button>
+                </div>
+                <Button variant="outline" className="w-full" onClick={() => setOptimizeDialogState({ open: true, image: selectedMedia })}>
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Optimize Image
+                </Button>
+                <div className="space-y-2">
+                    <Label htmlFor="alt-text">Alternative Text</Label>
+                    <Input id="alt-text" value={editableDetails.alt} onChange={e => setEditableDetails({...editableDetails, alt: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="caption">Caption</Label>
+                    <Textarea id="caption" value={editableDetails.caption} onChange={e => setEditableDetails({...editableDetails, caption: e.target.value})} />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea id="description" value={editableDetails.description} onChange={e => setEditableDetails({...editableDetails, description: e.target.value})} />
+                </div>
+            </>
+        );
+    }
 
     const renderSiteSelection = () => {
         if (sites.length === 0) {
@@ -221,7 +257,7 @@ export default function AdvancedMediaLibraryPage() {
     const renderMediaLibrary = () => {
         return (
             <div className="grid lg:grid-cols-3 gap-8 items-start">
-                <div className={cn("lg:col-span-3", selectedMedia && "lg:col-span-2")}>
+                <div className={cn("lg:col-span-3", selectedMedia && !isMobile && "lg:col-span-2")}>
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
@@ -327,7 +363,7 @@ export default function AdvancedMediaLibraryPage() {
                         </CardContent>
                     </Card>
                 </div>
-                {selectedMedia && (
+                {selectedMedia && !isMobile && (
                     <div className="lg:col-span-1 sticky top-4">
                        <Card>
                             <CardHeader>
@@ -342,30 +378,7 @@ export default function AdvancedMediaLibraryPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="relative">
-                                    <Image src={selectedMedia.fullUrl} alt={selectedMedia.filename} width={400} height={300} className="rounded-md object-contain w-full" />
-                                    <Button asChild size="icon" variant="secondary" className="absolute top-2 right-2">
-                                        <a href={selectedMedia.fullUrl} target="_blank" rel="noopener noreferrer">
-                                            <ExternalLink className="h-4 w-4" />
-                                        </a>
-                                    </Button>
-                                </div>
-                                <Button variant="outline" className="w-full" onClick={() => setOptimizeDialogState({ open: true, image: selectedMedia })}>
-                                    <Settings2 className="mr-2 h-4 w-4" />
-                                    Optimize Image
-                                </Button>
-                                <div className="space-y-2">
-                                    <Label htmlFor="alt-text">Alternative Text</Label>
-                                    <Input id="alt-text" value={editableDetails.alt} onChange={e => setEditableDetails({...editableDetails, alt: e.target.value})} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="caption">Caption</Label>
-                                    <Textarea id="caption" value={editableDetails.caption} onChange={e => setEditableDetails({...editableDetails, caption: e.target.value})} />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea id="description" value={editableDetails.description} onChange={e => setEditableDetails({...editableDetails, description: e.target.value})} />
-                                </div>
+                                {renderEditPanelContent()}
                             </CardContent>
                             <CardFooter>
                                 <Button className="w-full" onClick={handleUpdateDetails} disabled={isUpdating}>
@@ -388,6 +401,29 @@ export default function AdvancedMediaLibraryPage() {
                 image={optimizeDialogState.image}
                 onSave={handleOptimizedImageSave}
             />
+            {isMobile && (
+                 <Sheet open={!!selectedMedia} onOpenChange={(open) => !open && setSelectedMedia(null)}>
+                    <SheetContent side="bottom" className="h-[90vh] flex flex-col">
+                         <SheetHeader>
+                            <SheetTitle>Edit Media</SheetTitle>
+                            <SheetDescription className="truncate max-w-xs">
+                                {selectedMedia?.filename}
+                            </SheetDescription>
+                        </SheetHeader>
+                        <ScrollArea className="flex-grow">
+                             <div className="space-y-4 p-4">
+                                {renderEditPanelContent()}
+                            </div>
+                        </ScrollArea>
+                        <SheetFooter className="p-4 border-t">
+                            <Button className="w-full" onClick={handleUpdateDetails} disabled={isUpdating}>
+                                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Changes
+                            </Button>
+                        </SheetFooter>
+                    </SheetContent>
+                </Sheet>
+            )}
             <div className="space-y-8">
                 <div>
                     <h1 className="text-3xl font-headline font-bold">Advanced Media Library</h1>
@@ -401,3 +437,5 @@ export default function AdvancedMediaLibraryPage() {
         </>
     );
 }
+
+    
