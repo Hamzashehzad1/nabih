@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -87,4 +88,83 @@ body {
     @apply bg-background text-foreground;
     scroll-behavior: smooth;
   }
+}
+
+/* Device Mockup Styles */
+.device-mockup {
+    @apply relative transition-all duration-300;
+}
+.device-mockup .device-frame {
+    @apply absolute inset-0 z-10 rounded-[1.5rem] border-[14px] border-black;
+    pointer-events: none;
+}
+.device-mockup .device-screen {
+    @apply w-full h-full overflow-hidden bg-black;
+}
+.device-mockup.device-smartphone .device-screen {
+    @apply rounded-[1rem];
+}
+.device-mockup .device-header {
+    @apply absolute left-1/2 top-0 z-20 h-6 w-[56%] -translate-x-1/2 rounded-b-xl bg-black;
+}
+.device-mockup .device-sensors {
+    @apply absolute left-1/2 top-2 z-20 h-2 w-[15%] -translate-x-1/2 rounded-xl bg-gray-800;
+}
+.device-mockup .device-btns {
+    @apply absolute -left-1 top-[72px] h-[32px] w-[3px] rounded-l-lg bg-black;
+}
+.device-mockup .device-btns:after,
+.device-mockup .device-btns:before {
+    content: "";
+    @apply absolute -left-0 h-[62px] w-[3px] rounded-l-lg bg-black;
+}
+.device-mockup .device-btns:after {
+    @apply top-[62px];
+}
+.device-mockup .device-btns:before {
+    @apply top-[128px];
+}
+.device-mockup .device-power {
+    @apply absolute -right-1 top-[100px] h-[100px] w-[3px] rounded-r-lg bg-black;
+}
+
+.device-mockup.device-tablet .device-frame {
+    @apply rounded-[1.75rem] border-[18px];
+}
+.device-mockup.device-tablet .device-screen {
+    @apply rounded-xl;
+}
+.device-mockup.device-tablet .device-header,
+.device-mockup.device-tablet .device-sensors,
+.device-mockup.device-tablet .device-btns,
+.device-mockup.device-tablet .device-power {
+    @apply hidden;
+}
+
+.device-mockup.device-laptop {
+    @apply pt-[2.5%];
+}
+.device-mockup.device-laptop .device-frame {
+    @apply absolute inset-x-0 bottom-0 top-[2.5%] mx-auto h-[97.5%] w-[95%] max-w-full rounded-t-xl border-x-[16px] border-t-[16px] border-b-0 border-black;
+}
+.device-mockup.device-laptop .device-screen {
+    @apply h-full w-full rounded-t-lg;
+}
+.device-mockup.device-laptop .device-header {
+    @apply absolute left-1/2 top-2.5 z-20 h-4 w-20 -translate-x-1/2 rounded-full bg-gray-800;
+}
+.device-mockup.device-laptop .device-stripe {
+    @apply absolute bottom-0 left-0 h-4 w-full;
+}
+.device-mockup.device-laptop .device-stripe:after,
+.device-mockup.device-laptop .device-stripe:before {
+    content: "";
+    @apply absolute bottom-0 h-full w-full rounded-b-xl rounded-t-sm bg-black;
+}
+.device-mockup.device-laptop .device-stripe:before {
+    @apply left-0 w-full;
+}
+.device-mockup.device-laptop .device-btns,
+.device-mockup.device-laptop .device-power {
+    @apply hidden;
 }

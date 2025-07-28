@@ -1,3 +1,4 @@
+
 // src/app/dashboard/layout.tsx
 "use client";
 
@@ -56,7 +57,7 @@ const contentSuiteNav = [
 const siteManagementNav = [
     { href: "/dashboard/ai-chatbot", icon: <Bot />, label: "AI Chatbot", tooltip: { children: "AI Chatbot", side: "right" } },
     { href: "/dashboard/website-audit", icon: <Activity />, label: "Website Audit", tooltip: { children: "Website Audit", side: "right" } },
-    { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Responsiveness", tooltip: { children: "Responsiveness Checker", side: "right" } },
+    { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
     { href: "/dashboard/advanced-media-library", icon: <Library />, label: "Media Library", tooltip: { children: "Media Library", side: "right" } },
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
