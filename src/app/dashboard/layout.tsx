@@ -35,6 +35,7 @@ import {
   Paintbrush,
   Shield,
   TrendingDown,
+  Link2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
