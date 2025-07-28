@@ -41,7 +41,6 @@ import {
   Smartphone,
   MessageSquareQuote,
   Receipt,
-  Briefcase,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -129,10 +128,10 @@ export default function DashboardLayout({
                   <Link href="/dashboard">
                     <SidebarMenuButton
                       isActive={pathname === "/dashboard"}
-                      tooltip={{children: "Project Hub", side: "right"}}
+                      tooltip={{children: "Dashboard", side: "right"}}
                     >
-                      <Briefcase />
-                      <span>Project Hub</span>
+                      <LayoutDashboard />
+                      <span>Dashboard</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
