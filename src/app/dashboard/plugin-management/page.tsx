@@ -1,4 +1,3 @@
-
 // src/app/dashboard/plugin-management/page.tsx
 "use client";
 
@@ -14,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { fetchPlugins, fetchThemes, togglePluginStatus, updatePlugin, activateTheme, updateTheme, type WpPlugin, type WpTheme } from "./actions";
 
 interface WpSite {
@@ -72,37 +72,49 @@ export default function PluginManagementPage() {
     }
   }, [selectedSiteId, handleFetchData]);
 
-  const handleAction = async (action: 'togglePlugin' | 'updatePlugin' | 'activateTheme' | 'updateTheme', name: string, currentStatus?: 'active' | 'inactive') => {
+  const handleAction = async (action: 'togglePlugin' | 'updatePlugin' | 'activateTheme' | 'updateTheme', name: string, data?: any) => {
+      if (!selectedSite?.appPassword) {
+        toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
+        return;
+      }
       setActionStates(prev => ({...prev, [name]: true}));
       
       let result;
       switch(action) {
           case 'togglePlugin':
-              result = await togglePluginStatus(name, currentStatus!);
+              result = await togglePluginStatus(selectedSite.url, selectedSite.user, selectedSite.appPassword, name, data);
               if(result.success) {
-                  setPlugins(prev => prev.map(p => p.name === name ? {...p, status: result.newStatus} : p));
                   toast({title: "Plugin status updated"});
+                  handleFetchData(); // Refresh data
+              } else {
+                toast({title: "Error", description: result.error, variant: 'destructive'});
               }
               break;
           case 'updatePlugin':
-              result = await updatePlugin(name);
+              result = await updatePlugin(selectedSite.url, selectedSite.user, selectedSite.appPassword, name);
               if(result.success) {
-                   setPlugins(prev => prev.map(p => p.name === name ? {...p, updateAvailable: false, version: p.updateVersion || p.version} : p));
-                   toast({title: "Plugin updated"});
+                   toast({title: "Plugin update started"});
+                   handleFetchData(); // Refresh data
+              } else {
+                 toast({title: "Error", description: result.error, variant: 'destructive'});
               }
               break;
           case 'activateTheme':
-              result = await activateTheme(name);
+              result = await activateTheme(selectedSite.url, selectedSite.user, selectedSite.appPassword, name);
                if(result.success) {
-                   setThemes(prev => prev.map(t => ({...t, status: t.name === name ? 'active' : 'inactive'})));
                    toast({title: "Theme activated"});
+                   handleFetchData(); // Refresh data
+              } else {
+                 toast({title: "Error", description: result.error, variant: 'destructive'});
               }
               break;
           case 'updateTheme':
-              result = await updateTheme(name);
+              result = await updateTheme(selectedSite.url, selectedSite.user, selectedSite.appPassword, name);
                if(result.success) {
-                   setThemes(prev => prev.map(t => t.name === name ? {...t, updateAvailable: false, version: t.updateVersion || t.version} : t));
-                   toast({title: "Theme updated"});
+                   toast({title: "Theme update started"});
+                   handleFetchData(); // Refresh data
+              } else {
+                 toast({title: "Error", description: result.error, variant: 'destructive'});
               }
               break;
       }
@@ -170,6 +182,13 @@ export default function PluginManagementPage() {
             </div>
           </CardHeader>
           <CardContent>
+             <Alert variant="warning" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Companion Plugin Required</AlertTitle>
+                <AlertDescription>
+                    This feature requires a custom companion plugin to be installed and activated on your WordPress site to function correctly.
+                </AlertDescription>
+            </Alert>
              {isLoading ? (
                <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -177,8 +196,8 @@ export default function PluginManagementPage() {
             ) : (
                 <Tabs defaultValue="plugins">
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="plugins"><Puzzle className="mr-2 h-4 w-4"/> Plugins</TabsTrigger>
-                        <TabsTrigger value="themes"><Paintbrush className="mr-2 h-4 w-4"/> Themes</TabsTrigger>
+                        <TabsTrigger value="plugins"><Puzzle className="mr-2 h-4 w-4"/> Plugins ({plugins.length})</TabsTrigger>
+                        <TabsTrigger value="themes"><Paintbrush className="mr-2 h-4 w-4"/> Themes ({themes.length})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="plugins" className="mt-4">
                         <Table>
@@ -206,12 +225,12 @@ export default function PluginManagementPage() {
                                         <TableCell>{plugin.version}</TableCell>
                                         <TableCell className="text-right space-x-2">
                                             {plugin.updateAvailable && (
-                                                 <Button size="sm" variant="outline" onClick={() => handleAction('updatePlugin', plugin.name)} disabled={actionStates[plugin.name]}>
+                                                 <Button size="sm" variant="outline" onClick={() => handleAction('updatePlugin', plugin.plugin)} disabled={actionStates[plugin.name]}>
                                                     {actionStates[plugin.name] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4"/>}
                                                     Update to {plugin.updateVersion}
                                                 </Button>
                                             )}
-                                            <Button size="sm" onClick={() => handleAction('togglePlugin', plugin.name, plugin.status)} disabled={actionStates[plugin.name]}>
+                                            <Button size="sm" onClick={() => handleAction('togglePlugin', plugin.plugin, plugin.status)} disabled={actionStates[plugin.name]}>
                                                 {actionStates[plugin.name] && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                                 {plugin.status === 'active' ? 'Deactivate' : 'Activate'}
                                             </Button>
@@ -247,13 +266,13 @@ export default function PluginManagementPage() {
                                         <TableCell>{theme.version}</TableCell>
                                         <TableCell className="text-right space-x-2">
                                             {theme.updateAvailable && (
-                                                <Button size="sm" variant="outline" onClick={() => handleAction('updateTheme', theme.name)} disabled={actionStates[theme.name]}>
+                                                <Button size="sm" variant="outline" onClick={() => handleAction('updateTheme', theme.theme)} disabled={actionStates[theme.name]}>
                                                     {actionStates[theme.name] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4"/>}
                                                     Update to {theme.updateVersion}
                                                 </Button>
                                             )}
                                             {theme.status === 'inactive' && (
-                                                <Button size="sm" onClick={() => handleAction('activateTheme', theme.name)} disabled={actionStates[theme.name]}>
+                                                <Button size="sm" onClick={() => handleAction('activateTheme', theme.theme)} disabled={actionStates[theme.name]}>
                                                     {actionStates[theme.name] && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                                     Activate
                                                 </Button>

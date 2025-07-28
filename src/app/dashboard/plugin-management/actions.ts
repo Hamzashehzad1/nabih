@@ -3,8 +3,29 @@
 
 import { z } from 'zod';
 
+const PluginSchema = z.object({
+  name: z.string(),
+  plugin: z.string(), // e.g., "akismet/akismet.php"
+  version: z.string(),
+  author: z.string(),
+  status: z.enum(['active', 'inactive']),
+  update: z.enum(['available', 'none', 'latest-installed']),
+  update_version: z.string().optional(),
+});
+
+const ThemeSchema = z.object({
+  name: z.string(),
+  theme: z.string(), // e.g. "twentytwentyfour"
+  version: z.string(),
+  author: z.string(),
+  status: z.enum(['active', 'inactive']),
+  update: z.enum(['available', 'none', 'latest-installed']),
+  update_version: z.string().optional(),
+});
+
 export interface WpPlugin {
     name: string;
+    plugin: string;
     version: string;
     author: string;
     status: 'active' | 'inactive';
@@ -14,6 +35,7 @@ export interface WpPlugin {
 
 export interface WpTheme {
     name: string;
+    theme: string;
     version: string;
     author: string;
     status: 'active' | 'inactive';
@@ -21,83 +43,97 @@ export interface WpTheme {
     updateVersion?: string;
 }
 
-// In a real app, this data would come from the WordPress REST API.
-// We are using mock data here for demonstration purposes.
-const mockPlugins: WpPlugin[] = [
-    { name: 'Akismet Anti-Spam', version: '5.3', author: 'Automattic', status: 'active', updateAvailable: false },
-    { name: 'Classic Editor', version: '1.6.3', author: 'WordPress Contributors', status: 'inactive', updateAvailable: false },
-    { name: 'Elementor', version: '3.18.3', author: 'Elementor.com', status: 'active', updateAvailable: true, updateVersion: '3.19.0' },
-    { name: 'Jetpack', version: '12.9', author: 'Automattic', status: 'active', updateAvailable: false },
-    { name: 'WooCommerce', version: '8.4.0', author: 'Automattic', status: 'inactive', updateAvailable: true, updateVersion: '8.5.0' },
-];
-
-const mockThemes: WpTheme[] = [
-    { name: 'Twenty Twenty-Four', version: '1.0', author: 'the WordPress team', status: 'active', updateAvailable: false },
-    { name: 'Astra', version: '4.6.0', author: 'Brainstorm Force', status: 'inactive', updateAvailable: true, updateVersion: '4.6.2' },
-    { name: 'Hello Elementor', version: '3.0.1', author: 'Elementor', status: 'inactive', updateAvailable: false },
-];
+async function makeWpApiRequest(siteUrl: string, username: string, appPassword: string, endpoint: string, method: 'GET' | 'POST' = 'GET', body?: object) {
+    const url = `${siteUrl.replace(/\/$/, '')}/wp-json/content-forge/v1/${endpoint}`;
+    const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
+    
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+            let errorDetails = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+            } catch (e) {}
+            return { success: false, error: errorDetails };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+        
+    } catch (error) {
+        console.error(`Error during WP API request to ${endpoint}:`, error);
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred.' };
+    }
+}
 
 
 export async function fetchPlugins(siteUrl: string, username: string, appPassword: string): Promise<{ success: true; data: WpPlugin[] } | { success: false; error: string }> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const result = await makeWpApiRequest(siteUrl, username, appPassword, 'plugins');
+    if (!result.success) return result;
     
-    // In a real application, you would use siteUrl, username, and appPassword to make an authenticated request
-    // to a custom REST API endpoint on the WordPress site that provides plugin information.
-    // For now, we return mock data.
+    const parsed = z.array(PluginSchema).safeParse(result.data);
+    if(!parsed.success) {
+      return { success: false, error: "Failed to parse plugin data from site." };
+    }
     
-    console.log(`Fetching plugins for ${siteUrl} with user ${username}`);
-    return { success: true, data: mockPlugins };
+    const formattedData = parsed.data.map(p => ({
+      name: p.name,
+      plugin: p.plugin,
+      version: p.version,
+      author: p.author,
+      status: p.status,
+      updateAvailable: p.update === 'available',
+      updateVersion: p.update_version,
+    }));
+    
+    return { success: true, data: formattedData };
 }
 
 export async function fetchThemes(siteUrl: string, username: string, appPassword: string): Promise<{ success: true; data: WpTheme[] } | { success: false; error: string }> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const result = await makeWpApiRequest(siteUrl, username, appPassword, 'themes');
+    if (!result.success) return result;
     
-    console.log(`Fetching themes for ${siteUrl} with user ${username}`);
-    return { success: true, data: mockThemes };
-}
-
-// Action functions to simulate plugin/theme changes
-export async function togglePluginStatus(pluginName: string, currentStatus: 'active' | 'inactive'): Promise<{ success: true, newStatus: 'active' | 'inactive' }> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    console.log(`Toggling plugin ${pluginName} from ${currentStatus}`);
-    // In a real app, you'd make an API call here.
-    // We'll update our mock data for demonstration.
-    const plugin = mockPlugins.find(p => p.name === pluginName);
-    if (plugin) {
-        plugin.status = currentStatus === 'active' ? 'inactive' : 'active';
+    const parsed = z.array(ThemeSchema).safeParse(result.data);
+    if(!parsed.success) {
+      return { success: false, error: "Failed to parse theme data from site." };
     }
-    return { success: true, newStatus: currentStatus === 'active' ? 'inactive' : 'active' };
+    
+    const formattedData = parsed.data.map(t => ({
+      name: t.name,
+      theme: t.theme,
+      version: t.version,
+      author: t.author,
+      status: t.status,
+      updateAvailable: t.update === 'available',
+      updateVersion: t.update_version,
+    }));
+    
+    return { success: true, data: formattedData };
 }
 
-export async function updatePlugin(pluginName: string): Promise<{ success: true }> {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log(`Updating plugin ${pluginName}`);
-    const plugin = mockPlugins.find(p => p.name === pluginName);
-    if (plugin) {
-        plugin.updateAvailable = false;
-        plugin.version = plugin.updateVersion || plugin.version;
-    }
-    return { success: true };
+export async function togglePluginStatus(siteUrl: string, username: string, appPassword: string, plugin: string, currentStatus: 'active' | 'inactive') {
+    const action = currentStatus === 'active' ? 'deactivate' : 'activate';
+    return makeWpApiRequest(siteUrl, username, appPassword, `plugins/${action}`, 'POST', { plugin });
 }
 
-export async function activateTheme(themeName: string): Promise<{ success: true }> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    console.log(`Activating theme ${themeName}`);
-    mockThemes.forEach(t => {
-        t.status = t.name === themeName ? 'active' : 'inactive';
-    });
-    return { success: true };
+export async function updatePlugin(siteUrl: string, username: string, appPassword: string, plugin: string) {
+    return makeWpApiRequest(siteUrl, username, appPassword, 'plugins/update', 'POST', { plugin });
 }
 
-export async function updateTheme(themeName: string): Promise<{ success: true }> {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log(`Updating theme ${themeName}`);
-    const theme = mockThemes.find(t => t.name === themeName);
-    if(theme) {
-        theme.updateAvailable = false;
-        theme.version = theme.updateVersion || theme.version;
-    }
-    return { success: true };
+export async function activateTheme(siteUrl: string, username: string, appPassword: string, theme: string) {
+    return makeWpApiRequest(siteUrl, username, appPassword, 'themes/activate', 'POST', { theme });
+}
+
+export async function updateTheme(siteUrl: string, username: string, appPassword: string, theme: string) {
+    return makeWpApiRequest(siteUrl, username, appPassword, 'themes/update', 'POST', { theme });
 }

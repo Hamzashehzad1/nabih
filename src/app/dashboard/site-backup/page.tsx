@@ -1,4 +1,3 @@
-
 // src/app/dashboard/site-backup/page.tsx
 "use client";
 
@@ -33,20 +32,26 @@ export default function SiteBackupPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isActionRunning, setIsActionRunning] = useState(false);
+  const [actionProgress, setActionProgress] = useState(0);
+  const [actionStatus, setActionStatus] = useState("");
   const [backups, setBackups] = useState<SiteBackup[]>([]);
-  const [backupProgress, setBackupProgress] = useState(0);
   
   const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
   const handleFetchBackups = useCallback(async () => {
-    if (!selectedSite) return;
+    if (!selectedSite?.appPassword) {
+      toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
-    const result = await fetchBackups(selectedSite.id);
+    const result = await fetchBackups(selectedSite.url, selectedSite.user, selectedSite.appPassword);
     if (result.success) {
       setBackups(result.data);
+    } else {
+      toast({title: "Error fetching backups", description: result.error, variant: 'destructive'});
     }
     setIsLoading(false);
-  }, [selectedSite]);
+  }, [selectedSite, toast]);
   
   useEffect(() => {
     if (selectedSiteId) {
@@ -57,46 +62,47 @@ export default function SiteBackupPage() {
   }, [selectedSiteId, handleFetchBackups]);
 
   const handleCreateBackup = async () => {
-      if (!selectedSite) return;
+      if (!selectedSite?.appPassword) return;
       setIsActionRunning(true);
-      setBackupProgress(0);
+      setActionStatus("Starting backup...");
       
-      const interval = setInterval(() => {
-          setBackupProgress(prev => (prev < 90 ? prev + 10 : prev));
-      }, 500);
-      
-      const result = await createBackup(selectedSite.id);
-      
-      clearInterval(interval);
-      setBackupProgress(100);
+      const result = await createBackup(selectedSite.url, selectedSite.user, selectedSite.appPassword);
       
       if(result.success) {
-          setBackups(prev => [result.data, ...prev.filter(b => b.id !== result.data.id)]);
-          toast({title: "Backup Complete!", description: "A new full backup has been created."});
+          toast({title: "Backup In Progress", description: "Your site backup has started. This may take some time."});
+          // Refresh backups to show the "in-progress" one
+          handleFetchBackups();
       } else {
-          toast({title: "Backup Failed", variant: "destructive"});
+          toast({title: "Backup Failed to Start", description: result.error, variant: "destructive"});
       }
 
-      setTimeout(() => {
-        setIsActionRunning(false);
-        setBackupProgress(0);
-      }, 1000);
+      setIsActionRunning(false);
+      setActionStatus("");
   };
   
   const handleRestore = async (backupId: string) => {
-      if (!selectedSite) return;
+      if (!selectedSite?.appPassword) return;
       setIsActionRunning(true);
       toast({title: "Restore Initialized", description: "Restoring your site. This may take several minutes."});
-      await restoreBackup(selectedSite.id, backupId);
+      const result = await restoreBackup(selectedSite.url, selectedSite.user, selectedSite.appPassword, backupId);
       setIsActionRunning(false);
-      toast({title: "Restore Complete!", description: "Your site has been restored to the selected backup."});
+      
+      if(result.success) {
+        toast({title: "Restore Complete!", description: "Your site has been restored to the selected backup."});
+      } else {
+        toast({title: "Restore Failed", description: result.error, variant: 'destructive'});
+      }
   }
 
   const handleDelete = async (backupId: string) => {
-      if (!selectedSite) return;
-      await deleteBackup(selectedSite.id, backupId);
-      setBackups(prev => prev.filter(b => b.id !== backupId));
-      toast({title: "Backup Deleted"});
+      if (!selectedSite?.appPassword) return;
+      const result = await deleteBackup(selectedSite.url, selectedSite.user, selectedSite.appPassword, backupId);
+      if(result.success) {
+        setBackups(prev => prev.filter(b => b.id !== backupId));
+        toast({title: "Backup Deleted"});
+      } else {
+        toast({title: "Delete Failed", description: result.error, variant: 'destructive'});
+      }
   }
 
 
@@ -157,7 +163,7 @@ export default function SiteBackupPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button onClick={handleCreateBackup} disabled={isActionRunning}>
-                    {isActionRunning && backupProgress > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4"/>}
+                    {isActionRunning && actionProgress > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4"/>}
                     Create New Backup
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setSelectedSiteId(null)}>Change Site</Button>
@@ -165,10 +171,17 @@ export default function SiteBackupPage() {
             </div>
           </CardHeader>
           <CardContent>
-             {isActionRunning && backupProgress > 0 && (
+            <Alert variant="warning" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Companion Plugin Required</AlertTitle>
+                <AlertDescription>
+                    This feature requires a custom backup plugin (e.g., UpdraftPlus with its REST API addon, or a custom-built solution) to be installed on your WordPress site to function correctly.
+                </AlertDescription>
+            </Alert>
+             {isActionRunning && actionProgress > 0 && (
                  <div className="mb-4 space-y-2">
-                    <p className="text-sm font-medium">Backup in progress...</p>
-                    <Progress value={backupProgress} />
+                    <p className="text-sm font-medium">{actionStatus}</p>
+                    <Progress value={actionProgress} />
                  </div>
              )}
             {isLoading ? (
@@ -200,6 +213,7 @@ export default function SiteBackupPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant={backup.status === 'completed' ? 'default' : backup.status === 'in-progress' ? 'secondary' : 'destructive'}>
+                                        {backup.status === 'in-progress' && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
                                         {backup.status}
                                     </Badge>
                                 </TableCell>
@@ -210,7 +224,7 @@ export default function SiteBackupPage() {
                                 <TableCell className="text-right space-x-2">
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                           <Button size="sm" variant="outline" disabled={isActionRunning}>
+                                           <Button size="sm" variant="outline" disabled={isActionRunning || backup.status !== 'completed'}>
                                                 <History className="mr-2 h-4 w-4"/>
                                                 Restore
                                             </Button>
@@ -229,7 +243,7 @@ export default function SiteBackupPage() {
                                         </AlertDialogContent>
                                     </AlertDialog>
 
-                                    <Button size="sm" variant="ghost" disabled={isActionRunning}>
+                                    <Button size="sm" variant="ghost" disabled={isActionRunning || backup.status !== 'completed'}>
                                         <Download className="mr-2 h-4 w-4"/>
                                         Download
                                     </Button>

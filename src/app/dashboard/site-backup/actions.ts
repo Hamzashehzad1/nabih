@@ -3,80 +3,74 @@
 
 import { z } from 'zod';
 
-export interface SiteBackup {
-    id: string;
-    date: string;
-    status: 'completed' | 'failed' | 'in-progress';
-    size: string; // e.g., "1.2 GB"
-    type: 'full' | 'database_only';
-    files: number;
-    dbTables: number;
-}
+const BackupSchema = z.object({
+  id: z.string(),
+  date: z.string(), // ISO 8601 format
+  status: z.enum(['completed', 'failed', 'in-progress']),
+  size: z.string(),
+  type: z.enum(['full', 'database_only']),
+  files: z.number(),
+  dbTables: z.number(),
+});
 
-// Mock data store for backups
-const mockBackups: { [siteId: string]: SiteBackup[] } = {};
-
-function createMockBackup(siteId: string): SiteBackup {
-    const id = new Date().toISOString();
-    const size = (Math.random() * 2 + 0.5).toFixed(2); // 0.5 to 2.5 GB
-    const files = Math.floor(Math.random() * 10000) + 5000; // 5k to 15k files
-    const tables = Math.floor(Math.random() * 50) + 10; // 10 to 60 tables
-
-    return {
-        id,
-        date: id,
-        status: 'in-progress',
-        size: `${size} GB`,
-        type: 'full',
-        files: files,
-        dbTables: tables,
-    };
-}
+export type SiteBackup = z.infer<typeof BackupSchema>;
 
 
-export async function fetchBackups(siteId: string): Promise<{ success: true; data: SiteBackup[] }> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+async function makeBackupApiRequest(siteUrl: string, username: string, appPassword: string, endpoint: string, method: 'GET' | 'POST' = 'GET', body?: object) {
+    const url = `${siteUrl.replace(/\/$/, '')}/wp-json/content-forge/v1/backups${endpoint}`;
+    const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
     
-    if (!mockBackups[siteId]) {
-        mockBackups[siteId] = []; // Initialize if none exist
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+            let errorDetails = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+            } catch (e) {}
+            return { success: false, error: errorDetails };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+        
+    } catch (error) {
+        console.error(`Error during Backup API request to ${endpoint}:`, error);
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred.' };
     }
-
-    return { success: true, data: mockBackups[siteId].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) };
 }
 
-export async function createBackup(siteId: string): Promise<{ success: true, data: SiteBackup }> {
-    const newBackup = createMockBackup(siteId);
+
+export async function fetchBackups(siteUrl: string, username: string, appPassword: string): Promise<{ success: true; data: SiteBackup[] } | { success: false; error: string }> {
+    const result = await makeBackupApiRequest(siteUrl, username, appPassword, '');
+    if (!result.success) return result;
     
-    if (!mockBackups[siteId]) {
-        mockBackups[siteId] = [];
+    const parsed = z.array(BackupSchema).safeParse(result.data);
+     if (!parsed.success) {
+      console.error('Backup Parse Error:', parsed.error);
+      return { success: false, error: "Failed to parse backup data from your site. Ensure the companion plugin is active and returns data in the correct format." };
     }
     
-    mockBackups[siteId].unshift(newBackup); // Add to the beginning of the list
-
-    // Simulate the backup process
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    const completedBackup = { ...newBackup, status: 'completed' as const };
-    
-    // Update the "master" list
-    mockBackups[siteId] = mockBackups[siteId].map(b => b.id === newBackup.id ? completedBackup : b);
-    
-    return { success: true, data: completedBackup };
+    return { success: true, data: parsed.data.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) };
 }
 
-export async function restoreBackup(siteId: string, backupId: string): Promise<{ success: true }> {
-    // Simulate a restore process
-    await new Promise(resolve => setTimeout(resolve, 8000));
-    console.log(`Restoring backup ${backupId} for site ${siteId}`);
-    return { success: true };
+export async function createBackup(siteUrl: string, username: string, appPassword: string): Promise<{ success: true, data: SiteBackup } | { success: false, error: string }> {
+    return makeBackupApiRequest(siteUrl, username, appPassword, '/create', 'POST');
 }
 
-export async function deleteBackup(siteId: string, backupId: string): Promise<{ success: true }> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (mockBackups[siteId]) {
-        mockBackups[siteId] = mockBackups[siteId].filter(b => b.id !== backupId);
-    }
-    console.log(`Deleting backup ${backupId} for site ${siteId}`);
-    return { success: true };
+export async function restoreBackup(siteUrl: string, username: string, appPassword: string, backupId: string): Promise<{ success: true } | { success: false, error: string }> {
+    return makeBackupApiRequest(siteUrl, username, appPassword, `/restore`, 'POST', { backupId });
+}
+
+export async function deleteBackup(siteUrl: string, username: string, appPassword: string, backupId: string): Promise<{ success: true } | { success: false, error: string }> {
+    return makeBackupApiRequest(siteUrl, username, appPassword, `/delete`, 'POST', { backupId });
 }
