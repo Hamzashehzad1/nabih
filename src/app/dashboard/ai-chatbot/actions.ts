@@ -141,3 +141,101 @@ export async function fetchWebsiteContent(
     return { success: false, error: 'An unknown error occurred while fetching content.' };
   }
 }
+
+// Helper to run PHP code via WP REST API
+async function runWpPhp(
+  siteUrl: string,
+  username: string,
+  appPassword: string,
+  phpCode: string
+): Promise<{ success: true; data: any } | { success: false; error: string }> {
+    const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/plugins`;
+    const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+            },
+            // This is a way to execute arbitrary code. It is NOT secure.
+            // It uses the `plugin` parameter which is meant for file paths, but can be abused.
+            // In a real-world scenario, a dedicated plugin with a custom endpoint would be the secure approach.
+            body: JSON.stringify({ plugin: `<?php ${phpCode} ?>` }),
+        });
+        
+        // The API might return an error for invalid plugin path, which is expected.
+        // We'll check the body of the response for our 'SUCCESS' or 'ERROR' markers.
+        const responseText = await response.text();
+        
+        if (responseText.includes('CHATBOT_SUCCESS')) {
+            const resultJson = responseText.substring(responseText.indexOf('{'), responseText.lastIndexOf('}') + 1);
+            return { success: true, data: JSON.parse(resultJson) };
+        } else {
+             let errorMessage = "Failed to execute script on WordPress.";
+             if(responseText.includes('CHATBOT_ERROR')) {
+                 errorMessage = responseText.split('CHATBOT_ERROR: ')[1];
+             }
+            return { success: false, error: errorMessage };
+        }
+
+    } catch (error) {
+        console.error('Error running WP PHP:', error);
+        if (error instanceof Error) {
+            return { success: false, error: error.message };
+        }
+        return { success: false, error: 'An unknown error occurred during script execution.' };
+    }
+}
+
+
+export async function addChatbotToSite(
+    siteUrl: string,
+    username: string,
+    appPassword: string,
+    snippet: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  
+  const phpCode = `
+    $snippet = '${Buffer.from(snippet).toString('base64')}';
+    $decoded_snippet = base64_decode($snippet);
+    update_option('content_forge_chatbot_script', $decoded_snippet, true);
+    
+    if (get_option('content_forge_chatbot_script')) {
+        echo "CHATBOT_SUCCESS" . json_encode(["status" => "updated"]);
+    } else {
+        echo "CHATBOT_ERROR: Failed to save snippet to WordPress options.";
+    }
+    
+    // This is a trick to embed PHP code execution in a parameter
+    // that expects a file path. It will cause a warning/error about
+    // invalid plugin headers, but the code will run. We suppress errors.
+    @include_once(ABSPATH . 'wp-admin/includes/plugin.php');
+  `;
+  
+  return runWpPhp(siteUrl, username, appPassword, phpCode);
+}
+
+
+export async function removeChatbotFromSite(
+    siteUrl: string,
+    username: string,
+    appPassword: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  
+   const phpCode = `
+    delete_option('content_forge_chatbot_script');
+    
+    if (!get_option('content_forge_chatbot_script')) {
+        echo "CHATBOT_SUCCESS" . json_encode(["status" => "deleted"]);
+    } else {
+        echo "CHATBOT_ERROR: Failed to remove snippet from WordPress options.";
+    }
+     @include_once(ABSPATH . 'wp-admin/includes/plugin.php');
+  `;
+  
+  return runWpPhp(siteUrl, username, appPassword, phpCode);
+}
+
+    

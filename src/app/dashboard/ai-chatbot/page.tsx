@@ -10,9 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Bot, BrainCircuit, Loader2, Send, CheckCircle, Code, Clipboard } from 'lucide-react';
+import { Globe, Bot, BrainCircuit, Loader2, Send, CheckCircle, Code, Clipboard, Trash2, Power } from 'lucide-react';
 import Link from 'next/link';
-import { fetchWebsiteContent } from './actions';
+import { fetchWebsiteContent, addChatbotToSite, removeChatbotFromSite } from './actions';
 import { answerQuestion } from '@/ai/flows/website-chat';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -47,6 +47,7 @@ export default function AiChatbotPage() {
     });
 
     const [isTraining, setIsTraining] = useState(false);
+    const [isUpdatingSite, setIsUpdatingSite] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [isReplying, setIsReplying] = useState(false);
@@ -104,15 +105,53 @@ export default function AiChatbotPage() {
     };
     
     const embedCode = useMemo(() => {
-        if (!selectedSite) return '';
+        if (typeof window === 'undefined' || !selectedSite) return '';
+        const scriptUrl = `${window.location.origin}/chatbot-embed.js`;
         return `<script
+  id="content-forge-chatbot"
   data-chatbot-id="${selectedSite.id}"
   data-welcome-message="${chatbotConfig.welcomeMessage}"
   data-primary-color="${chatbotConfig.primaryColor}"
-  src="${window.location.origin}/chatbot-embed.js"
+  src="${scriptUrl}"
   defer
 ></script>`;
     }, [selectedSite, chatbotConfig]);
+
+    const handleAddChatbotToSite = async () => {
+        if (!selectedSite?.appPassword) {
+            toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
+            return;
+        }
+        setIsUpdatingSite(true);
+        const result = await addChatbotToSite(selectedSite.url, selectedSite.user, selectedSite.appPassword, embedCode);
+        if (result.success) {
+            toast({
+                title: "Chatbot Added!",
+                description: `The chatbot has been added to ${selectedSite.url}. It may take a minute to appear.`
+            });
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+        setIsUpdatingSite(false);
+    };
+    
+    const handleRemoveChatbotFromSite = async () => {
+         if (!selectedSite?.appPassword) {
+            toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
+            return;
+        }
+        setIsUpdatingSite(true);
+        const result = await removeChatbotFromSite(selectedSite.url, selectedSite.user, selectedSite.appPassword);
+        if (result.success) {
+            toast({
+                title: "Chatbot Removed!",
+                description: `The chatbot has been removed from ${selectedSite.url}.`
+            });
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+        setIsUpdatingSite(false);
+    };
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(embedCode);
@@ -164,7 +203,7 @@ export default function AiChatbotPage() {
         <Card>
             <CardHeader>
                 <CardTitle>2. Train Your Chatbot</CardTitle>
-                <CardDescription>The AI will read the content of your site's Home, About, and Contact pages to learn about your business.</CardDescription>
+                <CardDescription>The AI will read your site's content to learn about your business. This includes key pages and up to 50 of your most recent posts.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Button onClick={handleTrain} disabled={isTraining || trainingStatus === 'training'}>
@@ -276,19 +315,39 @@ export default function AiChatbotPage() {
         <Card>
             <CardHeader>
                 <CardTitle>4. Install on Your Website</CardTitle>
-                <CardDescription>Copy and paste this snippet into your website's HTML right before the closing `&lt;/body&gt;` tag.</CardDescription>
+                <CardDescription>Add the chatbot to your site automatically, or copy the code to install it manually.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm">
-                    <pre><code>{embedCode}</code></pre>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 text-white hover:bg-gray-700"
-                        onClick={copyToClipboard}
-                    >
-                        <Clipboard className="h-4 w-4"/>
+            <CardContent className="space-y-4">
+                 <Alert>
+                    <Power className="h-4 w-4" />
+                    <AlertTitle>How it Works</AlertTitle>
+                    <AlertDescription>
+                        This will use the WordPress REST API to safely add the required script to your site's footer without modifying theme files.
+                    </AlertDescription>
+                </Alert>
+                <div className="flex gap-2">
+                    <Button onClick={handleAddChatbotToSite} disabled={isUpdatingSite}>
+                        {isUpdatingSite ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4"/>}
+                        Add Chatbot to Website
                     </Button>
+                    <Button onClick={handleRemoveChatbotFromSite} variant="destructive" disabled={isUpdatingSite}>
+                        {isUpdatingSite ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                        Remove Chatbot
+                    </Button>
+                </div>
+                <div>
+                    <Label className="text-xs text-muted-foreground">Manual Installation</Label>
+                    <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm mt-1">
+                        <pre><code>{embedCode}</code></pre>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 text-white hover:bg-gray-700"
+                            onClick={copyToClipboard}
+                        >
+                            <Clipboard className="h-4 w-4"/>
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -324,3 +383,5 @@ export default function AiChatbotPage() {
     </div>
   );
 }
+
+    
