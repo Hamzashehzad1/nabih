@@ -20,7 +20,7 @@ const PostSchema = z.object({
   link: z.string(),
   _embedded: z.optional(z.object({
     'wp:featuredmedia': z.optional(z.array(z.object({
-      source_url: z.string(),
+      source_url: z.string().optional(),
     }))),
   })),
 });
