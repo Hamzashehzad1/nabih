@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Globe, FileText, ImageIcon, PlusCircle, RefreshCw, Edit, Library, ArrowRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -144,12 +143,12 @@ export default function DashboardPage() {
                       <TableCell className="text-right">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Link href={`/dashboard/blog-editor/${post.id}`} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="icon">
+                            <Button asChild variant="ghost" size="icon">
+                              <Link href={`/dashboard/blog-editor/${post.id}`}>
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edit Post</span>
-                              </Button>
-                            </Link>
+                              </Link>
+                            </Button>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>Edit Post</p>
@@ -241,3 +240,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

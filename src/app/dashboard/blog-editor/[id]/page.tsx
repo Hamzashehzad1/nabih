@@ -77,9 +77,9 @@ export default function BlogEditorPage() {
   return (
     <div className="space-y-8">
         <div>
-            <Button variant="ghost" onClick={() => router.back()}>
+            <Button variant="ghost" onClick={() => router.push('/dashboard')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
+                Back to Project Hub
             </Button>
         </div>
       <Card>
@@ -115,3 +115,5 @@ export default function BlogEditorPage() {
     </div>
   );
 }
+
+    
