@@ -37,6 +37,7 @@ import {
   Link2,
   Files,
   Palette,
+  LayoutTemplate,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -48,6 +49,7 @@ const contentSuiteNav = [
     { href: "/dashboard/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator", tooltip: { children: "Bulk Blog Generator", side: "right" } },
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
     { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
+    { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator", tooltip: { children: "Wireframe Generator", side: "right" } },
 ];
 
 const siteManagementNav = [
