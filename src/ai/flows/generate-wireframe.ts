@@ -67,7 +67,7 @@ const prompt = ai.definePrompt({
 
 4.  **High-Fidelity Wireframe (HTML & CSS):** Generate a SINGLE, complete HTML file.
     *   **Structure:** Use semantic HTML5 (header, nav, main, section, footer). The page should be well-structured and visually appealing.
-    *   **Styling:** Embed a `<style>` tag in the `<head>`. Use CSS to create a professional, clean, and modern layout. Define a color palette based on the provided brand colors or, if none are provided, on the psychology of the business type. Use CSS variables for colors. Style buttons, cards, and typography.
+    *   **Styling:** Embed a \`<style>\` tag in the \`<head>\`. Use CSS to create a professional, clean, and modern layout. Define a color palette based on the provided brand colors or, if none are provided, on the psychology of the business type. Use CSS variables for colors. Style buttons, cards, and typography.
     *   **Placeholders:** For images, use a placeholder like \`<img src="https://placehold.co/800x400.png" data-ai-hint="hero-background" alt="A descriptive alt text">\`. The 'data-ai-hint' value MUST correspond to one of the IDs from your image query list.
     *   **Responsiveness:** Ensure the design is responsive using media queries.
     *   **Header & Footer:** Include a well-designed header with navigation and a comprehensive footer with links and social media icons.
