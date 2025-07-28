@@ -36,7 +36,6 @@ import {
   TrendingDown,
   Link2,
   Files,
-  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -57,7 +56,6 @@ const siteManagementNav = [
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
     { href: "/dashboard/legal-generator", icon: <Shield />, label: "Legal Generator", tooltip: { children: "Legal Generator", side: "right" } },
-    { href: "/dashboard/gdpr-compliance", icon: <ShieldCheck />, label: "GDPR Checklist", tooltip: { children: "GDPR Checklist", side: "right" } },
 ];
 
 const generalNav = [
