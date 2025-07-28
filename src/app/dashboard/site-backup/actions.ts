@@ -42,7 +42,7 @@ export async function fetchBackups(siteId: string): Promise<{ success: true; dat
         mockBackups[siteId] = []; // Initialize if none exist
     }
 
-    return { success: true, data: mockBackups[siteId] };
+    return { success: true, data: mockBackups[siteId].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) };
 }
 
 export async function createBackup(siteId: string): Promise<{ success: true, data: SiteBackup }> {

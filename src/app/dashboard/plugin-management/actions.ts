@@ -62,23 +62,42 @@ export async function fetchThemes(siteUrl: string, username: string, appPassword
 export async function togglePluginStatus(pluginName: string, currentStatus: 'active' | 'inactive'): Promise<{ success: true, newStatus: 'active' | 'inactive' }> {
     await new Promise(resolve => setTimeout(resolve, 500));
     console.log(`Toggling plugin ${pluginName} from ${currentStatus}`);
+    // In a real app, you'd make an API call here.
+    // We'll update our mock data for demonstration.
+    const plugin = mockPlugins.find(p => p.name === pluginName);
+    if (plugin) {
+        plugin.status = currentStatus === 'active' ? 'inactive' : 'active';
+    }
     return { success: true, newStatus: currentStatus === 'active' ? 'inactive' : 'active' };
 }
 
 export async function updatePlugin(pluginName: string): Promise<{ success: true }> {
     await new Promise(resolve => setTimeout(resolve, 1500));
     console.log(`Updating plugin ${pluginName}`);
+    const plugin = mockPlugins.find(p => p.name === pluginName);
+    if (plugin) {
+        plugin.updateAvailable = false;
+        plugin.version = plugin.updateVersion || plugin.version;
+    }
     return { success: true };
 }
 
 export async function activateTheme(themeName: string): Promise<{ success: true }> {
     await new Promise(resolve => setTimeout(resolve, 500));
     console.log(`Activating theme ${themeName}`);
+    mockThemes.forEach(t => {
+        t.status = t.name === themeName ? 'active' : 'inactive';
+    });
     return { success: true };
 }
 
 export async function updateTheme(themeName: string): Promise<{ success: true }> {
     await new Promise(resolve => setTimeout(resolve, 1500));
     console.log(`Updating theme ${themeName}`);
+    const theme = mockThemes.find(t => t.name === themeName);
+    if(theme) {
+        theme.updateAvailable = false;
+        theme.version = theme.updateVersion || theme.version;
+    }
     return { success: true };
 }
