@@ -138,6 +138,9 @@ export default function AdvancedMediaLibraryPage() {
             setMediaItems(result.data);
             totalPages.current = result.totalPages;
             setCurrentPage(1);
+            if (result.data.length < PAGE_SIZE) {
+                hasFetchedAll.current = true;
+            }
         } else {
             setError(result.error);
         }
@@ -161,34 +164,40 @@ export default function AdvancedMediaLibraryPage() {
     }, [selectedSite]);
 
     const loadMoreMedia = useCallback(async () => {
-        if (isLoading || isSorting || isLoadingMore || currentPage >= totalPages.current) {
+        if (isLoading || isSorting || isLoadingMore || hasFetchedAll.current) {
             return;
         }
         setIsLoadingMore(true);
         
         const nextPage = currentPage + 1;
         
-        if (sortOrder && hasFetchedAll.current) {
-            // If sorted and all data is present, just paginate from cache
+        if (sortOrder) {
+            // If sorted, we've already fetched everything. Just paginate from cache.
             const nextItems = allMediaCache.current.slice(0, nextPage * PAGE_SIZE);
             setMediaItems(nextItems);
             setCurrentPage(nextPage);
-        } else if (!sortOrder) {
-            // Fetch next page from API if not sorting
-            const result = await fetchWpMedia(selectedSite!.url, selectedSite!.user, selectedSite!.appPassword!, nextPage, PAGE_SIZE);
-            if(result.success){
-                if (result.data.length === 0) {
-                    totalPages.current = currentPage; // No more pages
-                } else {
-                    const newItems = [...mediaItems, ...result.data];
-                    allMediaCache.current = newItems;
-                    setMediaItems(newItems);
-                    setCurrentPage(nextPage);
-                }
-            } else {
-                toast({ title: "Error", description: "Failed to load more media.", variant: "destructive" });
+            setIsLoadingMore(false);
+            if(nextItems.length >= allMediaCache.current.length){
+                hasFetchedAll.current = true;
             }
+            return;
         }
+        
+        // Fetch next page from API if not sorting
+        const result = await fetchWpMedia(selectedSite!.url, selectedSite!.user, selectedSite!.appPassword!, nextPage, PAGE_SIZE);
+        if(result.success){
+            if (result.data.length === 0) {
+                hasFetchedAll.current = true;
+            } else {
+                const newItems = [...mediaItems, ...result.data];
+                allMediaCache.current = newItems;
+                setMediaItems(newItems);
+                setCurrentPage(nextPage);
+            }
+        } else {
+            toast({ title: "Error", description: "Failed to load more media.", variant: "destructive" });
+        }
+
         setIsLoadingMore(false);
 
     }, [isLoading, isSorting, isLoadingMore, currentPage, sortOrder, selectedSite, toast, mediaItems]);
@@ -230,9 +239,10 @@ export default function AdvancedMediaLibraryPage() {
             if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
             
             let allFetchedMedia = [...allMediaCache.current];
+            let pageToFetch = 2; // Start from page 2 since page 1 is already loaded
 
-            for (let i = 2; i <= totalPages.current; i++) {
-                const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, i, PAGE_SIZE);
+            while (true) {
+                const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, pageToFetch, PAGE_SIZE);
                 if (result.success && result.data.length > 0) {
                     allFetchedMedia.push(...result.data);
                      const progressivelySorted = [...allFetchedMedia].sort((a, b) => {
@@ -241,11 +251,10 @@ export default function AdvancedMediaLibraryPage() {
                     });
                     allMediaCache.current = progressivelySorted;
                     setMediaItems(progressivelySorted.slice(0, currentPage * PAGE_SIZE));
-                } else if (!result.success) {
-                     console.warn(`A page fetch failed: ${result.error}`);
-                     break; // Stop fetching if an error occurs
-                } else if (result.data.length === 0) {
-                    break; // No more pages, stop fetching
+                    pageToFetch++;
+                } else {
+                    // This will trigger if the page has no items or if there was an error
+                    break;
                 }
             }
             
@@ -486,9 +495,7 @@ export default function AdvancedMediaLibraryPage() {
     }
     
     const renderMediaLibrary = () => {
-        const showLoadMore = sortOrder 
-            ? mediaItems.length < allMediaCache.current.length 
-            : currentPage < totalPages.current;
+        const showLoadMore = !hasFetchedAll.current;
         const selectedItems = mediaItems.filter(item => selectedIds.has(item.id));
 
         return (
