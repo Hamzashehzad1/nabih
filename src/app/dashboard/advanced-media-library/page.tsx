@@ -82,7 +82,6 @@ export default function AdvancedMediaLibraryPage() {
     
     // Cache for all media items from the site
     const allMediaCache = useRef<WpMediaItem[]>([]);
-    const totalPages = useRef(1);
     const hasFetchedAll = useRef(false);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -136,9 +135,8 @@ export default function AdvancedMediaLibraryPage() {
         if (result.success) {
             allMediaCache.current = result.data;
             setMediaItems(result.data);
-            totalPages.current = result.totalPages;
             setCurrentPage(1);
-            if (result.data.length < PAGE_SIZE) {
+            if (result.data.length < PAGE_SIZE || result.totalPages <= 1) {
                 hasFetchedAll.current = true;
             }
         } else {
@@ -150,7 +148,6 @@ export default function AdvancedMediaLibraryPage() {
     useEffect(() => {
         setMediaItems([]);
         allMediaCache.current = [];
-        totalPages.current = 1;
         hasFetchedAll.current = false;
         setCurrentPage(1);
         setSortOrder(null);
@@ -164,7 +161,7 @@ export default function AdvancedMediaLibraryPage() {
     }, [selectedSite]);
 
     const loadMoreMedia = useCallback(async () => {
-        if (isLoading || isSorting || isLoadingMore || hasFetchedAll.current) {
+        if (isLoading || isSorting || isLoadingMore || hasFetchedAll.current || !selectedSite?.appPassword) {
             return;
         }
         setIsLoadingMore(true);
@@ -184,12 +181,12 @@ export default function AdvancedMediaLibraryPage() {
         }
         
         // Fetch next page from API if not sorting
-        const result = await fetchWpMedia(selectedSite!.url, selectedSite!.user, selectedSite!.appPassword!, nextPage, PAGE_SIZE);
+        const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, nextPage, PAGE_SIZE);
         if(result.success){
             if (result.data.length === 0) {
                 hasFetchedAll.current = true;
             } else {
-                const newItems = [...mediaItems, ...result.data];
+                const newItems = [...allMediaCache.current, ...result.data];
                 allMediaCache.current = newItems;
                 setMediaItems(newItems);
                 setCurrentPage(nextPage);
@@ -200,7 +197,7 @@ export default function AdvancedMediaLibraryPage() {
 
         setIsLoadingMore(false);
 
-    }, [isLoading, isSorting, isLoadingMore, currentPage, sortOrder, selectedSite, toast, mediaItems]);
+    }, [isLoading, isSorting, isLoadingMore, currentPage, sortOrder, selectedSite, toast]);
     
     useEffect(() => {
         if(inView) {
@@ -212,64 +209,84 @@ export default function AdvancedMediaLibraryPage() {
     const handleSort = useCallback(async () => {
         const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
         setSortOrder(newOrder);
+        setIsSorting(true);
+        setError(null);
 
-        if (hasFetchedAll.current) {
-            const sorted = [...allMediaCache.current].sort((a, b) => {
-                if (newOrder === 'asc') return a.filesize - b.filesize;
-                return b.filesize - a.filesize;
-            });
-            allMediaCache.current = sorted;
-            setMediaItems(sorted.slice(0, currentPage * PAGE_SIZE));
+        if (!selectedSite?.appPassword) {
+            setError("WordPress credentials not found.");
+            setIsSorting(false);
             return;
         }
 
-        setIsSorting(true);
-        setError(null);
-        const { id: toastId } = toast({ title: 'Sorting media...', description: 'Fetching all media items in the background. The list will update as data arrives.' });
-
-        const currentData = [...allMediaCache.current];
-        const sortedCurrent = currentData.sort((a, b) => {
-            if (newOrder === 'asc') return a.filesize - b.filesize;
-            return b.filesize - a.filesize;
-        });
-        setMediaItems(sortedCurrent.slice(0, PAGE_SIZE));
-        setCurrentPage(1);
-
+        const { id: toastId } = toast({ title: 'Sorting media...', description: 'Fetching all media items. This may take a moment.' });
+        
         try {
-            if (!selectedSite?.appPassword) throw new Error("WordPress credentials not found.");
-            
-            let allFetchedMedia = [...allMediaCache.current];
-            let pageToFetch = 2; // Start from page 2 since page 1 is already loaded
+            // If we have already fetched everything, sort from cache.
+            if (hasFetchedAll.current) {
+                const sorted = [...allMediaCache.current].sort((a, b) => {
+                    if (newOrder === 'asc') return a.filesize - b.filesize;
+                    return b.filesize - a.filesize;
+                });
+                allMediaCache.current = sorted;
+                setMediaItems(sorted.slice(0, PAGE_SIZE));
+                setCurrentPage(1);
+                setIsSorting(false);
+                dismiss(toastId);
+                toast({ title: "Sort Complete", description: "Media sorted by size." });
+                return;
+            }
 
-            while (true) {
-                const result = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, pageToFetch, PAGE_SIZE);
-                if (result.success && result.data.length > 0) {
-                    allFetchedMedia.push(...result.data);
-                     const progressivelySorted = [...allFetchedMedia].sort((a, b) => {
-                         if (newOrder === 'asc') return a.filesize - b.filesize;
-                         return b.filesize - a.filesize;
-                    });
-                    allMediaCache.current = progressivelySorted;
-                    setMediaItems(progressivelySorted.slice(0, currentPage * PAGE_SIZE));
-                    pageToFetch++;
-                } else {
-                    // This will trigger if the page has no items or if there was an error
-                    break;
+            // Fetch the first page to get total pages and initial data
+            const firstPageResult = await fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, 1, PAGE_SIZE);
+
+            if (!firstPageResult.success) {
+                throw new Error(firstPageResult.error);
+            }
+
+            let allFetchedMedia = firstPageResult.data;
+            const totalPages = firstPageResult.totalPages;
+
+            // If there are more pages, fetch them in parallel
+            if (totalPages > 1) {
+                const pagePromises = [];
+                for (let page = 2; page <= totalPages; page++) {
+                    pagePromises.push(fetchWpMedia(selectedSite.url, selectedSite.user, selectedSite.appPassword, page, PAGE_SIZE));
+                }
+                const results = await Promise.all(pagePromises);
+                
+                for (const result of results) {
+                    if (result.success) {
+                        allFetchedMedia.push(...result.data);
+                    } else {
+                        // Log or handle partial failures if necessary
+                        console.warn(`Failed to fetch page: ${result.error}`);
+                    }
                 }
             }
-            
+
+            // Once all media is fetched, sort it
+            const sorted = allFetchedMedia.sort((a, b) => {
+                if (newOrder === 'asc') return a.filesize - b.filesize;
+                return b.filesize - a.filesize;
+            });
+
+            allMediaCache.current = sorted;
+            setMediaItems(sorted.slice(0, PAGE_SIZE));
+            setCurrentPage(1);
             hasFetchedAll.current = true;
+            
             dismiss(toastId);
-            toast({ title: "Sorting complete!", description: "All media has been fetched and sorted."});
+            toast({ title: "Sorting complete!", description: `All ${sorted.length} media items have been fetched and sorted.`});
 
         } catch (e: any) {
             setError(e.message || "Failed to fetch and sort media.");
             setSortOrder(null); 
             dismiss(toastId);
+            toast({ title: "Error", description: "Could not complete sorting.", variant: "destructive" });
         } finally {
             setIsSorting(false);
         }
-    }, [sortOrder, selectedSite, toast, currentPage, dismiss]);
+    }, [sortOrder, selectedSite, toast, dismiss]);
     
     
     const handleSelectMedia = (item: WpMediaItem) => {
@@ -522,8 +539,8 @@ export default function AdvancedMediaLibraryPage() {
                                         <Button size="sm" onClick={() => handleOpenBackupDialog(selectedItems)} disabled={selectedIds.size === 0}>
                                             <CloudUpload className="mr-2 h-4 w-4" /> Backup Selected ({selectedIds.size})
                                         </Button>
-                                        <Button size="sm" variant="secondary" onClick={() => handleOpenBackupDialog(mediaItems)}>
-                                            Backup All ({mediaItems.length})
+                                        <Button size="sm" variant="secondary" onClick={() => handleOpenBackupDialog(allMediaCache.current)}>
+                                            Backup All ({allMediaCache.current.length})
                                         </Button>
                                         <Button size="sm" variant="ghost" onClick={handleSelectAll}>Select All</Button>
                                         <Button size="sm" variant="ghost" onClick={handleClearSelection}>Clear Selection</Button>
