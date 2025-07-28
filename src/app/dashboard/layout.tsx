@@ -129,10 +129,10 @@ export default function DashboardLayout({
                   <Link href="/dashboard">
                     <SidebarMenuButton
                       isActive={pathname === "/dashboard"}
-                      tooltip={{children: "Dashboard", side: "right"}}
+                      tooltip={{children: "Project Hub", side: "right"}}
                     >
-                      <LayoutDashboard />
-                      <span>Dashboard</span>
+                      <Briefcase />
+                      <span>Project Hub</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
