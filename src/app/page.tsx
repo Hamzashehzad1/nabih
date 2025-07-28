@@ -87,14 +87,14 @@ export default function Home() {
       title: 'Content Marketer',
       avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
       review:
-        "Content Forge has revolutionized my workflow. I'm producing 5x the content without sacrificing quality. The AI is scarily good at matching my tone.",
+        "ApexFlow has revolutionized my workflow. I'm producing 5x the content without sacrificing quality. The AI is scarily good at matching my tone.",
     },
     {
       name: 'Mike R.',
       title: 'Indie Hacker',
       avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d',
       review:
-        "As a solo founder, I wear many hats. Content Forge is my secret weapon for SEO. It's like having a dedicated content team for the price of a coffee.",
+        "As a solo founder, I wear many hats. ApexFlow is my secret weapon for SEO. It's like having a dedicated content team for the price of a coffee.",
     },
     {
       name: 'Jenna K.',
@@ -160,7 +160,7 @@ export default function Home() {
               <span className="text-primary">Web Agencies & Creators.</span>
             </h1>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground mb-8">
-              Stop juggling dozens of apps. Content Forge is the ultimate AI-powered platform to write content, manage websites, and streamline client workflows.
+              Stop juggling dozens of apps. ApexFlow is the ultimate AI-powered platform to write content, manage websites, and streamline client workflows.
             </p>
             <div className="flex justify-center gap-4">
               <Button asChild size="lg">
@@ -274,7 +274,7 @@ export default function Home() {
               Ready to Supercharge Your Content?
             </h2>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground mb-8">
-              Join thousands of creators who are building their empires with Content Forge. Your first few posts are on us.
+              Join thousands of creators who are building their empires with ApexFlow. Your first few posts are on us.
             </p>
             <Button asChild size="lg">
               <Link href="/signup">

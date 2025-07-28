@@ -1,4 +1,3 @@
-
 // src/app/dashboard/invoice-generator/page.tsx
 "use client";
 
@@ -56,7 +55,7 @@ export default function InvoiceGeneratorPage() {
     const form = useForm<InvoiceFormData>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            businessName: 'Content Forge Inc.',
+            businessName: 'ApexFlow Inc.',
             businessInfo: '123 AI Lane, Tech City, 12345',
             clientName: 'Big Corp',
             clientInfo: '456 Business Ave, Metro City, 67890',

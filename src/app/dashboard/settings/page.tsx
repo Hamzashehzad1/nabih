@@ -82,7 +82,7 @@ export default function SettingsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-headline font-bold">Settings</h1>
-        <p className="text-muted-foreground">Configure Content Forge to work your way. Settings are saved to your browser.</p>
+        <p className="text-muted-foreground">Configure ApexFlow to work your way. Settings are saved to your browser.</p>
       </div>
 
       <Card>
