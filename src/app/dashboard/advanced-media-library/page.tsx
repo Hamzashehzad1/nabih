@@ -177,10 +177,14 @@ export default function AdvancedMediaLibraryPage() {
             // Fetch next page from API if not sorting
             const result = await fetchWpMedia(selectedSite!.url, selectedSite!.user, selectedSite!.appPassword!, nextPage, PAGE_SIZE);
             if(result.success){
-                const newItems = [...mediaItems, ...result.data];
-                allMediaCache.current = newItems;
-                setMediaItems(newItems);
-                setCurrentPage(nextPage);
+                if (result.data.length === 0) {
+                    totalPages.current = currentPage; // No more pages
+                } else {
+                    const newItems = [...mediaItems, ...result.data];
+                    allMediaCache.current = newItems;
+                    setMediaItems(newItems);
+                    setCurrentPage(nextPage);
+                }
             } else {
                 toast({ title: "Error", description: "Failed to load more media.", variant: "destructive" });
             }
@@ -239,6 +243,9 @@ export default function AdvancedMediaLibraryPage() {
                     setMediaItems(progressivelySorted.slice(0, currentPage * PAGE_SIZE));
                 } else if (!result.success) {
                      console.warn(`A page fetch failed: ${result.error}`);
+                     break; // Stop fetching if an error occurs
+                } else if (result.data.length === 0) {
+                    break; // No more pages, stop fetching
                 }
             }
             
