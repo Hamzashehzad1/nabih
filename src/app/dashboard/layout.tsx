@@ -28,6 +28,7 @@ import {
   Library,
   Bot,
   Activity,
+  Lightbulb,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -35,6 +36,7 @@ import { app } from "@/lib/firebase"; // Make sure firebase config is in this fi
 
 const navItems = [
   { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: { children: "Dashboard", side: "right" } },
+  { href: "/dashboard/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
   { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
   { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
   { href: "/dashboard/ai-chatbot", icon: <Bot />, label: "AI Chatbot", tooltip: { children: "AI Chatbot", side: "right" } },
