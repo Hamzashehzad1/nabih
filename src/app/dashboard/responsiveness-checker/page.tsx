@@ -8,11 +8,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Smartphone, Tablet, Laptop, Globe } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 const devices = [
-  { name: 'Mobile', width: '375px', height: '667px', icon: <Smartphone /> },
-  { name: 'Tablet', width: '768px', height: '1024px', icon: <Tablet /> },
-  { name: 'Desktop', width: '100%', height: '100%', icon: <Laptop /> },
+    // Mobile Devices
+    { name: 'iPhone SE', width: '375px', height: '667px', icon: <Smartphone /> },
+    { name: 'iPhone 12 Pro', width: '390px', height: '844px', icon: <Smartphone /> },
+    { name: 'Pixel 7', width: '412px', height: '915px', icon: <Smartphone /> },
+    { name: 'Samsung Galaxy S20 Ultra', width: '412px', height: '915px', icon: <Smartphone /> },
+    // Tablet Devices
+    { name: 'iPad Mini', width: '768px', height: '1024px', icon: <Tablet /> },
+    { name: 'iPad Air', width: '820px', height: '1180px', icon: <Tablet /> },
+    { name: 'Surface Pro 7', width: '912px', height: '1368px', icon: <Tablet /> },
+    // Desktop Devices
+    { name: 'Small Laptop', width: '1366px', height: '768px', icon: <Laptop /> },
+    { name: 'Large Laptop/Desktop', width: '1920px', height: '1080px', icon: <Laptop /> },
+    { name: 'Full Width', width: '100%', height: '100%', icon: <Laptop /> },
 ];
 
 export default function ResponsivenessCheckerPage() {
@@ -27,6 +39,13 @@ export default function ResponsivenessCheckerPage() {
         }
         setDisplayUrl(finalUrl);
     };
+    
+    const handleDeviceChange = (deviceName: string) => {
+        const device = devices.find(d => d.name === deviceName);
+        if(device) {
+            setActiveDevice(device);
+        }
+    }
 
     return (
         <div className="space-y-8">
@@ -57,29 +76,33 @@ export default function ResponsivenessCheckerPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-center items-center gap-2 p-4 rounded-md bg-muted">
-                       {devices.map(device => (
-                            <Button 
-                                key={device.name}
-                                variant={activeDevice.name === device.name ? 'default' : 'outline'}
-                                onClick={() => setActiveDevice(device)}
-                                className="gap-2"
-                            >
-                                {device.icon}
-                                <span>{device.name}</span>
-                            </Button>
-                       ))}
+                       <Select value={activeDevice.name} onValueChange={handleDeviceChange}>
+                            <SelectTrigger className="w-[280px]">
+                                <SelectValue placeholder="Select a device" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {devices.map(device => (
+                                    <SelectItem key={device.name} value={device.name}>
+                                        <div className="flex items-center gap-2">
+                                            {device.icon}
+                                            <span>{device.name} ({device.width === '100%' ? 'Full' : device.width.replace('px', '')}w)</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div 
-                        className="mx-auto mt-6 bg-background p-2 border-4 rounded-2xl shadow-lg transition-all duration-300" 
-                        style={{ width: `calc(${activeDevice.width} + 16px)`}}
+                        className="mx-auto mt-6 bg-background p-2 border-4 border-foreground rounded-2xl shadow-lg transition-all duration-300 flex flex-col items-center" 
+                        style={{ width: activeDevice.width === '100%' ? '100%' : `calc(${activeDevice.width} + 24px)`}}
                     >
-                         <div className="bg-black text-white text-xs rounded-t-lg p-2 truncate text-center">
+                         <div className="bg-black text-white text-xs rounded-t-lg p-2 truncate text-center w-full">
                             {displayUrl || 'Enter a URL to begin'}
                         </div>
                         <div 
-                            className="bg-muted transition-all duration-300 overflow-hidden"
-                            style={{height: activeDevice.height}}
+                            className="bg-muted transition-all duration-300 overflow-hidden w-full"
+                            style={{height: activeDevice.width === '100%' ? '80vh' : activeDevice.height}}
                         >
                         {displayUrl ? (
                             <iframe 
