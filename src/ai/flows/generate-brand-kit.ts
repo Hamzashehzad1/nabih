@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -11,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateBrandKitInputSchema = z.object({
+const GenerateBrandKitInputSchema = z.object({
   businessName: z.string().describe("The name of the website or business."),
   description: z.string().describe("A brief description of what the website is about."),
   websiteType: z.enum(['Blog', 'Portfolio', 'Online Store', 'Service-based', 'Landing Page', 'Membership/Community', 'Other']).describe("The type of website being created."),
@@ -41,7 +42,7 @@ const MoodboardSchema = z.object({
 
 const ThemeSuggestionSchema = z.enum(['Minimal', 'Elegant', 'Vibrant', 'Corporate', 'Bold & Youthful', 'Artistic / Portfolio']);
 
-export const GenerateBrandKitOutputSchema = z.object({
+const GenerateBrandKitOutputSchema = z.object({
     colorPalette: ColorPaletteSchema,
     colorPsychology: z.string().describe("A paragraph explaining the psychological meaning of the suggested color palette and why it's a good fit for the brand."),
     fontCombination: FontCombinationSchema,
