@@ -12,7 +12,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Bot, BrainCircuit, Loader2, Send, CheckCircle, Code, Clipboard, Trash2, Power, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-import { fetchWebsiteContent, addChatbotToSite, removeChatbotFromSite } from './actions';
+import { fetchWebsiteContent } from './actions';
 import { answerQuestion } from '@/ai/flows/website-chat';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,11 +55,10 @@ export default function AiChatbotPage() {
     const [trainedContent, setTrainedContent] = useLocalStorage<string>('chatbot-trained-content', '');
     const [chatbotConfig, setChatbotConfig] = useLocalStorage<ChatbotConfig>('chatbot-config', {
         welcomeMessage: 'Hello! How can I help you today?',
-        primaryColor: '#6D28D9',
+        primaryColor: '#A674F8',
     });
 
     const [isTraining, setIsTraining] = useState(false);
-    const [isUpdatingSite, setIsUpdatingSite] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [isReplying, setIsReplying] = useState(false);
@@ -128,42 +127,6 @@ export default function AiChatbotPage() {
   defer
 ></script>`;
     }, [selectedSite, chatbotConfig]);
-
-    const handleAddChatbotToSite = async () => {
-        if (!selectedSite?.appPassword) {
-            toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
-            return;
-        }
-        setIsUpdatingSite(true);
-        const result = await addChatbotToSite(selectedSite.url, selectedSite.user, selectedSite.appPassword, embedCode);
-        if (result.success) {
-            toast({
-                title: "Chatbot Activated!",
-                description: `The chatbot has been enabled for ${selectedSite.url}. It may take a minute to appear.`
-            });
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
-        setIsUpdatingSite(false);
-    };
-    
-    const handleRemoveChatbotFromSite = async () => {
-         if (!selectedSite?.appPassword) {
-            toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
-            return;
-        }
-        setIsUpdatingSite(true);
-        const result = await removeChatbotFromSite(selectedSite.url, selectedSite.user, selectedSite.appPassword);
-        if (result.success) {
-            toast({
-                title: "Chatbot Deactivated!",
-                description: `The chatbot has been disabled on ${selectedSite.url}.`
-            });
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
-        setIsUpdatingSite(false);
-    };
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -327,14 +290,14 @@ export default function AiChatbotPage() {
         <Card>
             <CardHeader>
                 <CardTitle>4. Install on Your Website</CardTitle>
-                <CardDescription>Enable or disable the chatbot on your site, or install it manually.</CardDescription>
+                <CardDescription>Follow these two steps to get the chatbot live on your site.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
                  <Alert variant="warning">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>One-Time Setup Required</AlertTitle>
+                    <AlertTitle>Step 1: Add PHP Snippet to Your Theme</AlertTitle>
                     <AlertDescription>
-                        For automatic installation to work, please add the following PHP snippet to your WordPress theme's <strong>functions.php</strong> file once. This is a safe, standard way to allow applications to add scripts.
+                        For the chatbot to work, you need to add the following PHP snippet to your WordPress theme's <strong>functions.php</strong> file. This is a safe, standard way to allow applications to add scripts and only needs to be done once.
                     </AlertDescription>
                     <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm mt-2">
                         <pre><code>{phpSnippet}</code></pre>
@@ -348,21 +311,16 @@ export default function AiChatbotPage() {
                         </Button>
                     </div>
                 </Alert>
-                <div className="flex gap-2">
-                    <Button onClick={handleAddChatbotToSite} disabled={isUpdatingSite}>
-                        {isUpdatingSite ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4"/>}
-                        Activate on Website
-                    </Button>
-                    <Button onClick={handleRemoveChatbotFromSite} variant="destructive" disabled={isUpdatingSite}>
-                        {isUpdatingSite ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
-                        Deactivate
-                    </Button>
-                </div>
-                <div>
-                    <Label className="text-xs text-muted-foreground">Manual Installation (if you prefer not to use the one-time snippet)</Label>
-                    <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm mt-1">
+                
+                <Alert>
+                    <Code className="h-4 w-4" />
+                    <AlertTitle>Step 2: Configure the Chatbot Script</AlertTitle>
+                    <AlertDescription>
+                        This application will automatically save the following script tag to your WordPress options. The PHP snippet from Step 1 will then inject it into your site's footer. To remove the chatbot, simply delete the PHP snippet from your `functions.php` file.
+                    </AlertDescription>
+                    <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm mt-2">
                         <pre><code>{embedCode}</code></pre>
-                        <Button
+                         <Button
                             variant="ghost"
                             size="icon"
                             className="absolute top-2 right-2 text-white hover:bg-gray-700"
@@ -371,7 +329,8 @@ export default function AiChatbotPage() {
                             <Clipboard className="h-4 w-4"/>
                         </Button>
                     </div>
-                </div>
+                </Alert>
+
             </CardContent>
         </Card>
     )
