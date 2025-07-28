@@ -39,7 +39,10 @@ export default function BrandKitGeneratorPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      businessName: "",
+      description: "",
       websiteType: 'Blog',
+      targetAudience: "",
     },
   });
 
