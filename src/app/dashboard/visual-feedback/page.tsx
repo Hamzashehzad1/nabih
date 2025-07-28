@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, MessageSquare, X, Send, Pin } from 'lucide-react';
+import { UploadCloud, MessageSquare, X, Send, Pin, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Comment {
