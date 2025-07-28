@@ -38,6 +38,7 @@ import {
   Files,
   Palette,
   LayoutTemplate,
+  Smartphone,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -55,6 +56,7 @@ const contentSuiteNav = [
 const siteManagementNav = [
     { href: "/dashboard/ai-chatbot", icon: <Bot />, label: "AI Chatbot", tooltip: { children: "AI Chatbot", side: "right" } },
     { href: "/dashboard/website-audit", icon: <Activity />, label: "Website Audit", tooltip: { children: "Website Audit", side: "right" } },
+    { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Responsiveness", tooltip: { children: "Responsiveness Checker", side: "right" } },
     { href: "/dashboard/advanced-media-library", icon: <Library />, label: "Media Library", tooltip: { children: "Media Library", side: "right" } },
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
@@ -154,7 +156,7 @@ export default function DashboardLayout({
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
-                        isActive={pathname === item.href}
+                        isActive={pathname.startsWith(item.href)}
                         tooltip={item.tooltip}
                         >
                         {item.icon}
