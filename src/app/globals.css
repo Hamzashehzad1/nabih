@@ -96,7 +96,6 @@ body {
 }
 .device-mockup .device-frame {
     @apply absolute inset-0 z-10 rounded-[1.5rem] border-[14px] border-black;
-    pointer-events: none;
 }
 .device-mockup .device-screen {
     @apply w-full h-full overflow-hidden bg-black;
