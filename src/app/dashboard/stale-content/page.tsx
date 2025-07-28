@@ -1,7 +1,7 @@
 // src/app/dashboard/stale-content/page.tsx
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from 'next/link';
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useToast } from "@/hooks/use-toast";
@@ -31,16 +31,9 @@ export default function StaleContentPage() {
   const [posts, setPosts] = useState<WpPost[]>([]);
   const [timeFilter, setTimeFilter] = useState<number>(365); // Default to 1 year
   
-  const selectedSite = sites.find(s => s.id === selectedSiteId);
+  const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
-  useEffect(() => {
-    if (selectedSite) {
-        handleFetchPosts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSite]);
-
-  const handleFetchPosts = async () => {
+  const handleFetchPosts = useCallback(async () => {
     if (!selectedSite?.appPassword) {
       toast({ title: "Error", description: "WordPress credentials not found.", variant: "destructive" });
       return;
@@ -60,7 +53,16 @@ export default function StaleContentPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedSite, toast]);
+  
+  useEffect(() => {
+    if (selectedSiteId) {
+      handleFetchPosts();
+    } else {
+      setPosts([]);
+    }
+  }, [selectedSiteId, handleFetchPosts]);
+
 
   const filteredPosts = useMemo(() => {
     const now = new Date();
