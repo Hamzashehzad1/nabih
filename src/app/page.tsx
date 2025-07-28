@@ -12,9 +12,9 @@ export default function Home() {
   const features = [
     {
       icon: <Bot className="w-8 h-8 text-primary" />,
-      title: 'AI-Powered Blog Posts',
+      title: 'Scale Content Creation',
       description:
-        'Stop staring at a blank page. Generate complete, SEO-optimized articles from a single title and watch your content calendar fill up.',
+        'From single blog posts to bulk generation, create SEO-optimized articles in minutes. The perfect tool for agencies and marketing teams.',
     },
     {
       icon: (
@@ -42,9 +42,9 @@ export default function Home() {
           />
         </svg>
       ),
-      title: 'Smart Image Generation',
+      title: 'Streamline Client Workflow',
       description:
-        'Automatically find and place the perfect images for your content. Our AI suggests relevant visuals for every section of your blog.',
+        'Use the visual feedback tool to get client approval on designs, then generate invoices to bill for your work, all in one place.',
     },
     {
       icon: (
@@ -75,9 +75,9 @@ export default function Home() {
           />
         </svg>
       ),
-      title: 'WordPress Integration',
+      title: 'Manage WordPress Sites',
       description:
-        'Connect your WordPress sites in seconds. Publish your generated content directly to your blog with a single click. No more copy-pasting.',
+        'Connect your client sites to audit performance, manage media, find stale content, and deploy an AI chatbot with ease.',
     },
   ];
 
@@ -156,13 +156,11 @@ export default function Home() {
         <section id="hero" className="py-20 text-center">
           <div className="container mx-auto px-4">
             <h1 className="text-4xl md:text-6xl font-headline font-bold mb-4 tracking-tight">
-              10x Your Content Output,{' '}
-              <span className="text-primary">Not Your Workload.</span>
+              Your All-In-One Toolkit for{' '}
+              <span className="text-primary">Web Agencies & Creators.</span>
             </h1>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground mb-8">
-              Are you tired of the content grind? Content Forge is the ultimate
-              AI-powered tool that transforms your ideas into high-ranking,
-              beautifully-illustrated blog posts in minutes, not hours.
+              Stop juggling dozens of apps. Content Forge is the ultimate AI-powered platform to write content, manage websites, and streamline client workflows.
             </p>
             <div className="flex justify-center gap-4">
               <Button asChild size="lg">
