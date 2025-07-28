@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Globe, FileText, ImageIcon, PlusCircle, ArrowRight, Edit, Settings, Activity } from "lucide-react";
+import { Globe, FileText, ImageIcon, PlusCircle, ArrowRight, Edit, Settings, Activity, Smartphone } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -51,7 +51,7 @@ export default function DashboardPage() {
       { title: "Create New Post", description: "Use the AI blog generator.", href: "/dashboard/blog-generator", icon: <PlusCircle/> },
       { title: "Generate Images", description: "Find or create images for posts.", href: "/dashboard/image-generator", icon: <ImageIcon/> },
       { title: "Audit a Website", description: "Check performance and SEO.", href: "/dashboard/website-audit", icon: <Activity/> },
-      { title: "Manage Settings", description: "Configure API keys and sites.", href: "/dashboard/settings", icon: <Settings/> },
+      { title: "Test Responsiveness", description: "Check your site on mockups.", href: "/dashboard/responsiveness-checker", icon: <Smartphone/> },
   ]
 
   return (
