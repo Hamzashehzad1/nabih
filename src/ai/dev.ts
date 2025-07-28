@@ -9,3 +9,4 @@ import '@/ai/flows/website-chat.ts';
 import '@/ai/flows/generate-content-ideas.ts';
 import '@/ai/flows/generate-legal-document.ts';
 import '@/ai/flows/suggest-internal-links.ts';
+import '@/ai/flows/generate-brand-kit.ts';
