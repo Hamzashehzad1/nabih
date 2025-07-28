@@ -1,17 +1,17 @@
-
 // src/app/dashboard/wireframe-generator/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, LayoutTemplate, Clipboard, Info, BookOpen, Image as ImageIcon } from "lucide-react";
+import { Loader2, LayoutTemplate, Clipboard, Info, BookOpen } from "lucide-react";
 import * as cheerio from 'cheerio';
+import { createRoot } from 'react-dom/client';
 
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -38,50 +38,40 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const WireframePreview = ({ htmlContent, imageQueries }: { htmlContent: string, imageQueries: GenerateWireframeOutput['imageQueries'] }) => {
-    if (typeof window === 'undefined') {
-        return <iframe srcDoc={htmlContent} className="w-full h-full" title="Wireframe Preview" />;
-    }
-    
-    const $ = cheerio.load(htmlContent);
-    const queryMap = new Map(imageQueries.map(q => [q.id, q.query]));
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
-    $('img[data-ai-hint]').each((i, el) => {
-        const hint = $(el).attr('data-ai-hint');
-        if (hint && queryMap.has(hint)) {
-             $(el).attr('data-pexels-query', queryMap.get(hint) as string);
-        }
-    });
+    useState(() => {
+        if (iframeRef.current && htmlContent) {
+            const doc = iframeRef.current.contentWindow?.document;
+            if (doc) {
+                doc.open();
+                doc.write(htmlContent);
+                doc.close();
 
-    const modifiedHtml = $.html();
-    
-    // This is a bit of a hack to get React components into an iframe.
-    // In a real-world, more robust app, you might use a different approach
-    // like a web component or postMessage API.
-    // For this prototype, we'll mount the images after the iframe loads.
-    const iframeRef = (iframe: HTMLIFrameElement | null) => {
-        if (iframe) {
-            iframe.srcdoc = modifiedHtml;
-            iframe.onload = () => {
-                const doc = iframe.contentWindow?.document;
-                if(doc) {
-                    const react_dom_client = require('react-dom/client');
-                    doc.querySelectorAll('img[data-pexels-query]').forEach(imgEl => {
-                        const query = imgEl.getAttribute('data-pexels-query');
-                        if (query) {
+                const queryMap = new Map(imageQueries.map(q => [q.id, q.query]));
+
+                // Use requestAnimationFrame to ensure the DOM is ready for manipulation
+                requestAnimationFrame(() => {
+                    doc.querySelectorAll('img[data-ai-hint]').forEach(imgEl => {
+                        const hint = imgEl.getAttribute('data-ai-hint');
+                        if (hint && queryMap.has(hint)) {
+                           const query = queryMap.get(hint) as string;
                            const container = doc.createElement('div');
+                           // Match the style of the original img element if needed
+                           container.style.width = '100%';
+                           container.style.height = '100%';
                            imgEl.parentNode?.replaceChild(container, imgEl);
-                           const root = react_dom_client.createRoot(container);
+                           const root = createRoot(container);
                            const pexelsImageElement = <PexelsImage query={query} className="w-full h-full object-cover" />;
                            root.render(pexelsImageElement);
                         }
                     });
-                }
-            };
+                });
+            }
         }
-    };
+    });
 
-
-    return <iframe ref={iframeRef} className="w-full h-full" title="Wireframe Preview" />;
+    return <iframe ref={iframeRef} className="w-full h-full bg-white" title="Wireframe Preview" />;
 };
 
 
