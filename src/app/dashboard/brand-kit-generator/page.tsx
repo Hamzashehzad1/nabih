@@ -1,3 +1,4 @@
+
 // src/app/dashboard/brand-kit-generator/page.tsx
 "use client";
 
@@ -5,7 +6,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Palette, Sparkles, Wand2, ArrowRight, ArrowLeft, Copy, Download, RefreshCw, Check, Upload, Bot } from "lucide-react";
+import { Loader2, Palette, Sparkles, Wand2, ArrowRight, ArrowLeft, Copy, Download, RefreshCw, Check, Upload, Bot, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -15,19 +16,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { generateBrandKit, GenerateBrandKitInput, GenerateBrandKitOutput } from "@/ai/flows/generate-brand-kit";
+import { generateBrandKit, GenerateBrandKitInputSchema, GenerateBrandKitOutput } from "@/ai/flows/generate-brand-kit";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const formSchema = z.object({
-  businessName: z.string().min(2, "Please enter your business name."),
-  description: z.string().min(10, "Please provide a brief description."),
-  websiteType: z.enum(['Blog', 'Portfolio', 'Online Store', 'Service-based', 'Landing Page', 'Membership/Community', 'Other']),
-  targetAudience: z.string().min(10, "Please describe your target audience."),
-  hasLogo: z.boolean().default(false),
-  logoFile: z.any().optional(),
-});
+
+const formSchema = GenerateBrandKitInputSchema;
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -44,6 +41,7 @@ export default function BrandKitGeneratorPage() {
       description: "",
       websiteType: 'Blog',
       targetAudience: "",
+      hasLogo: false,
     },
   });
 
@@ -186,7 +184,7 @@ export default function BrandKitGeneratorPage() {
 
     if (!generatedKit) return null;
     
-    const { colorPalette, colorPsychology, fontCombination, moodboard, suggestedTheme } = generatedKit;
+    const { colorPalette, colorPsychology, fontCombination, moodboard, suggestedThemes, uxTip } = generatedKit;
     const palette = [
         { name: "Primary", value: colorPalette.primary },
         { name: "Secondary", value: colorPalette.secondary },
@@ -235,39 +233,75 @@ export default function BrandKitGeneratorPage() {
                             <p className="text-sm text-muted-foreground">Body</p>
                             <p className="text-lg" style={{ fontFamily: `'${fontCombination.body}', sans-serif` }}>{fontCombination.body}</p>
                         </div>
+                        <Alert>
+                           <AlertTitle className="font-semibold">Reasoning</AlertTitle>
+                           <AlertDescription className="text-muted-foreground">{fontCombination.reasoning}</AlertDescription>
+                        </Alert>
                     </CardContent>
                 </Card>
                  <Card>
-                    <CardHeader><CardTitle>Suggested Theme</CardTitle></CardHeader>
-                    <CardContent>
-                        <div className="bg-muted text-muted-foreground rounded-lg p-6 text-center">
-                            <p className="text-6xl font-headline font-bold">{suggestedTheme}</p>
-                        </div>
+                    <CardHeader><CardTitle>Suggested Themes</CardTitle></CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                        {suggestedThemes.map((theme) => (
+                           <div key={theme} className="bg-muted text-muted-foreground rounded-lg p-4 text-center">
+                                <p className="text-2xl font-headline font-bold">{theme}</p>
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
             </div>
 
             <Card>
-                <CardHeader><CardTitle>Moodboard</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Moodboard Image Queries</CardTitle></CardHeader>
                 <CardContent>
-                    <p className="text-muted-foreground mb-4">Style: {moodboard.style}</p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {moodboard.keywords.map(keyword => (
-                            <div key={keyword}>
-                                <Image 
-                                    src={`https://placehold.co/400x300.png`} 
-                                    alt={keyword} 
-                                    width={400} 
-                                    height={300} 
-                                    className="rounded-lg aspect-[4/3] object-cover bg-muted"
-                                    data-ai-hint={keyword}
-                                />
-                                <p className="text-center text-sm mt-2 text-muted-foreground">{keyword}</p>
+                    <Tabs defaultValue="pexels">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="pexels">Pexels</TabsTrigger>
+                            <TabsTrigger value="unsplash">Unsplash</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="pexels" className="mt-4">
+                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                {moodboard.pexelsQueries.map(keyword => (
+                                    <div key={keyword}>
+                                        <Image 
+                                            src={`https://placehold.co/400x300.png`} 
+                                            alt={keyword} 
+                                            width={400} 
+                                            height={300} 
+                                            className="rounded-lg aspect-[4/3] object-cover bg-muted"
+                                            data-ai-hint={keyword}
+                                        />
+                                        <p className="text-center text-sm mt-2 text-muted-foreground">{keyword}</p>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </TabsContent>
+                        <TabsContent value="unsplash" className="mt-4">
+                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                {moodboard.unsplashQueries.map(keyword => (
+                                    <div key={keyword}>
+                                        <Image 
+                                            src={`https://placehold.co/400x300.png`} 
+                                            alt={keyword} 
+                                            width={400} 
+                                            height={300} 
+                                            className="rounded-lg aspect-[4/3] object-cover bg-muted"
+                                            data-ai-hint={keyword}
+                                        />
+                                        <p className="text-center text-sm mt-2 text-muted-foreground">{keyword}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </CardContent>
             </Card>
+
+            <Alert variant="default" className="bg-primary/10 border-primary/20">
+                <Lightbulb className="h-5 w-5 text-primary" />
+                <AlertTitle className="text-primary font-bold">Bonus UX/UI Tip</AlertTitle>
+                <AlertDescription className="text-primary/90">{uxTip}</AlertDescription>
+            </Alert>
             
             <div className="flex justify-center gap-4">
                 <Button variant="outline" onClick={handleRegenerate}>

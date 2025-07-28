@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const GenerateBrandKitInputSchema = z.object({
+export const GenerateBrandKitInputSchema = z.object({
   businessName: z.string().describe("The name of the website or business."),
   description: z.string().describe("A brief description of what the website is about."),
   websiteType: z.enum(['Blog', 'Portfolio', 'Online Store', 'Service-based', 'Landing Page', 'Membership/Community', 'Other']).describe("The type of website being created."),
@@ -33,21 +33,21 @@ const ColorPaletteSchema = z.object({
 const FontCombinationSchema = z.object({
     headline: z.string().describe("The name of a Google Font for headlines (e.g., 'Space Grotesk')."),
     body: z.string().describe("The name of a Google Font for body text (e.g., 'Inter')."),
+    reasoning: z.string().describe("An explanation for why these fonts were chosen.")
 });
 
 const MoodboardSchema = z.object({
-    keywords: z.array(z.string()).describe("A list of 3-5 descriptive keywords for sourcing moodboard images."),
-    style: z.string().describe("A brief description of the suggested image style (e.g., 'Clean and modern', 'Natural and organic', 'Vibrant and energetic')."),
+    pexelsQueries: z.array(z.string()).describe("A list of 5 image search queries for Pexels."),
+    unsplashQueries: z.array(z.string()).describe("A list of 5 image search queries for Unsplash."),
 });
 
-const ThemeSuggestionSchema = z.enum(['Minimal', 'Elegant', 'Vibrant', 'Corporate', 'Bold & Youthful', 'Artistic / Portfolio']);
-
-const GenerateBrandKitOutputSchema = z.object({
+export const GenerateBrandKitOutputSchema = z.object({
     colorPalette: ColorPaletteSchema,
     colorPsychology: z.string().describe("A paragraph explaining the psychological meaning of the suggested color palette and why it's a good fit for the brand."),
     fontCombination: FontCombinationSchema,
+    suggestedThemes: z.array(z.string()).describe("A list of 2-3 suggested visual theme styles (e.g., Minimal, Corporate)."),
     moodboard: MoodboardSchema,
-    suggestedTheme: ThemeSuggestionSchema,
+    uxTip: z.string().describe("A specific UX or UI design tip for this project."),
 });
 export type GenerateBrandKitOutput = z.infer<typeof GenerateBrandKitOutputSchema>;
 
@@ -60,37 +60,27 @@ const prompt = ai.definePrompt({
   name: 'generateBrandKitPrompt',
   input: {schema: GenerateBrandKitInputSchema},
   output: {schema: GenerateBrandKitOutputSchema},
-  prompt: `You are an expert brand identity designer and color psychologist. Your task is to generate a comprehensive brand kit for a new website based on user-provided information.
+  prompt: `You are a creative branding and web design expert. Based on the following project information, generate an ideal color palette, font suggestions, theme style, and relevant moodboard image search queries from Pexels and Unsplash.
 
-**User's Business Information:**
-- **Business Name:** {{{businessName}}}
-- **Description:** {{{description}}}
-- **Website Type:** {{{websiteType}}}
-- **Target Audience:** {{{targetAudience}}}
+**Project Info:**
+- Website Name: {{{businessName}}}
+- Type of Website: {{{websiteType}}}
+- Target Audience: {{{targetAudience}}}
+- Description: {{{description}}}
 
-**Your Task:**
-Generate a complete brand identity kit.
+**Now do the following:**
 
-1.  **Color Palette:**
-    *   Create a 5-color palette (primary, secondary, accent, background, text) using hex codes.
-    *   The palette should be visually appealing and psychologically appropriate for the business niche and target audience.
-    *   Ensure high contrast and accessibility, especially between background and text colors.
+1.  **Color Palette:** Generate 5 HEX colors (primary, secondary, accent, background, text) based on the business type, audience, and industry. Ensure the primary and secondary colors are well-balanced and accessible.
 
-2.  **Color Psychology:**
-    *   Write a concise paragraph explaining the psychological associations of the chosen colors and why they are suitable for the brand's identity and target audience.
+2.  **Color Psychology:** Explain why these colors are chosen, referring to emotional triggers or user perception.
 
-3.  **Font Combination:**
-    *   Suggest one Google Font for headlines and one for body text.
-    *   The fonts should complement each other and match the brand's intended personality. Prioritize readability.
+3.  **Font Suggestions:** Recommend 2 web-safe fonts (heading, body) and explain the reasoning behind them in terms of tone, audience match, and design balance.
 
-4.  **Moodboard Suggestion:**
-    *   Provide 3-5 descriptive keywords for sourcing images that would fit the brand's mood (e.g., "minimalist workspace", "vibrant street art", "serene nature").
-    *   Briefly describe the overall image style.
+4.  **Theme Style:** Suggest 2-3 visual theme ideas (e.g., minimalistic, corporate, fun & bold, editorial) that best suit the website and business goals.
 
-5.  **Suggested Theme Type:**
-    *   Based on all the inputs, recommend one of the following theme types: 'Minimal', 'Elegant', 'Vibrant', 'Corporate', 'Bold & Youthful', 'Artistic / Portfolio'.
+5.  **Moodboard Queries:** Based on all of the above, generate 5 image search queries for Pexels and 5 image search queries for Unsplash. These should match the visual identity and theme.
 
-Generate the response in the required structured format.`,
+6.  **Bonus Tip:** Provide 1 UX or UI design tip specifically suited to this project.`,
 });
 
 const generateBrandKitFlow = ai.defineFlow(
