@@ -41,6 +41,7 @@ import {
   Smartphone,
   MessageSquareQuote,
   Receipt,
+  Briefcase,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -53,19 +54,22 @@ const contentSuiteNav = [
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
     { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
     { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator", tooltip: { children: "Wireframe Generator", side: "right" } },
-    { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator", tooltip: { children: "Invoice Generator", side: "right" } },
 ];
 
 const siteManagementNav = [
     { href: "/dashboard/ai-chatbot", icon: <Bot />, label: "AI Chatbot", tooltip: { children: "AI Chatbot", side: "right" } },
     { href: "/dashboard/website-audit", icon: <Activity />, label: "Website Audit", tooltip: { children: "Website Audit", side: "right" } },
-    { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
-    { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
     { href: "/dashboard/advanced-media-library", icon: <Library />, label: "Media Library", tooltip: { children: "Media Library", side: "right" } },
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
-    { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
     { href: "/dashboard/legal-generator", icon: <Shield />, label: "Legal Generator", tooltip: { children: "Legal Generator", side: "right" } },
+];
+
+const agencyToolkitNav = [
+    { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator", tooltip: { children: "Invoice Generator", side: "right" } },
+    { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
+    { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
+    { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
 ];
 
 const generalNav = [
@@ -141,7 +145,7 @@ export default function DashboardLayout({
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
-                        isActive={pathname === item.href}
+                        isActive={pathname.startsWith(item.href)}
                         tooltip={item.tooltip}
                         >
                         {item.icon}
@@ -157,6 +161,25 @@ export default function DashboardLayout({
                 <SidebarGroupLabel>Site Management</SidebarGroupLabel>
                 <SidebarMenu>
                 {siteManagementNav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <Link href={item.href}>
+                        <SidebarMenuButton
+                        isActive={pathname.startsWith(item.href)}
+                        tooltip={item.tooltip}
+                        >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                    </SidebarMenuItem>
+                ))}
+                </SidebarMenu>
+            </SidebarGroup>
+            
+            <SidebarGroup>
+                <SidebarGroupLabel>Agency Toolkit</SidebarGroupLabel>
+                <SidebarMenu>
+                {agencyToolkitNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
