@@ -1,4 +1,3 @@
-
 // src/app/dashboard/layout.tsx
 "use client";
 
@@ -36,6 +35,7 @@ import {
   Shield,
   TrendingDown,
   Link2,
+  Files,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -44,6 +44,7 @@ import { app } from "@/lib/firebase"; // Make sure firebase config is in this fi
 const contentSuiteNav = [
     { href: "/dashboard/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
     { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
+    { href: "/dashboard/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator", tooltip: { children: "Bulk Blog Generator", side: "right" } },
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
 ];
 
