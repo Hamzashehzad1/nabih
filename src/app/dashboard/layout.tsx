@@ -64,8 +64,6 @@ const siteManagementNav = [
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
     { href: "/dashboard/legal-generator", icon: <Shield />, label: "Legal Generator", tooltip: { children: "Legal Generator", side: "right" } },
-    { href: "/dashboard/plugin-management", icon: <Puzzle />, label: "Plugin Management", tooltip: { children: "Plugin Management", side: "right" } },
-    { href: "/dashboard/site-backup", icon: <Database />, label: "Site Backup", tooltip: { children: "Site Backup", side: "right" } },
 ];
 
 const agencyToolkitNav = [
