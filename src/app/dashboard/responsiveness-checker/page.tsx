@@ -9,15 +9,16 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Smartphone, Tablet, Laptop, Globe } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PexelsImage } from '@/components/pexels-image';
 
 const devices = [
-    { name: 'iPhone SE', width: '375px', height: '667px', type: 'smartphone' },
-    { name: 'iPhone 12 Pro', width: '390px', height: '844px', type: 'smartphone' },
-    { name: 'Pixel 7', width: '412px', height: '915px', type: 'smartphone' },
-    { name: 'iPad Mini', width: '768px', height: '1024px', type: 'tablet' },
-    { name: 'iPad Air', width: '820px', height: '1180px', type: 'tablet' },
-    { name: 'Laptop', width: '1366px', height: '768px', type: 'laptop' },
-    { name: 'Large Desktop', width: '1920px', height: '1080px', type: 'laptop' },
+    { name: 'iPhone SE', width: '375px', height: '667px', type: 'smartphone', bgQuery: 'phone on desk' },
+    { name: 'iPhone 12 Pro', width: '390px', height: '844px', type: 'smartphone', bgQuery: 'phone on modern desk' },
+    { name: 'Pixel 7', width: '412px', height: '915px', type: 'smartphone', bgQuery: 'phone on wooden table' },
+    { name: 'iPad Mini', width: '768px', height: '1024px', type: 'tablet', bgQuery: 'tablet on table' },
+    { name: 'iPad Air', width: '820px', height: '1180px', type: 'tablet', bgQuery: 'tablet on white desk' },
+    { name: 'Laptop', width: '1366px', height: '768px', type: 'laptop', bgQuery: 'laptop on office desk' },
+    { name: 'Large Desktop', width: '1920px', height: '1080px', type: 'laptop', bgQuery: 'desktop computer setup' },
 ];
 
 export default function WebsiteMockupPage() {
@@ -95,8 +96,13 @@ export default function WebsiteMockupPage() {
                         </Select>
                     </div>
 
-                    <div className="flex justify-center items-center">
-                         <div className={cn("device-mockup", `device-${activeDevice.type}`)} style={{ width: activeDevice.width, height: activeDevice.height }}>
+                     <div className="flex justify-center items-center relative overflow-hidden rounded-lg shadow-2xl">
+                        <PexelsImage 
+                            query={activeDevice.bgQuery} 
+                            className="absolute inset-0 w-full h-full object-cover z-0"
+                        />
+                        <div className="absolute inset-0 bg-black/30 z-10"></div>
+                         <div className={cn("device-mockup z-20", `device-${activeDevice.type}`)} style={{ width: activeDevice.width, height: activeDevice.height }}>
                             <div className="device-frame">
                                 {displayUrl ? (
                                     <iframe 
