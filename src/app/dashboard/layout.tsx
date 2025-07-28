@@ -1,4 +1,3 @@
-
 // src/app/dashboard/layout.tsx
 "use client";
 
@@ -41,6 +40,7 @@ import {
   LayoutTemplate,
   Smartphone,
   MessageSquareQuote,
+  Receipt,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -53,6 +53,7 @@ const contentSuiteNav = [
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
     { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
     { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator", tooltip: { children: "Wireframe Generator", side: "right" } },
+    { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator", tooltip: { children: "Invoice Generator", side: "right" } },
 ];
 
 const siteManagementNav = [
