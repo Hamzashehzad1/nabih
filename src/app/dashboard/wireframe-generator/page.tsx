@@ -1,14 +1,12 @@
+
 // src/app/dashboard/wireframe-generator/page.tsx
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, LayoutTemplate, Clipboard, Info, BookOpen } from "lucide-react";
-import * as cheerio from 'cheerio';
-import { createRoot } from 'react-dom/client';
-
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,9 +26,6 @@ const formSchema = z.object({
   websiteType: z.string().min(1, "Please select a website type."),
   targetAudience: z.string().min(10, "Please describe your target audience."),
   primaryGoal: z.string().min(10, "Please describe the website's primary goal."),
-  pagesRequired: z.string().min(3, "Please list at least one page (e.g., Home)."),
-  layoutPreferences: z.string().optional(),
-  specialSections: z.string().optional(),
   brandColors: z.string().optional(),
   fonts: z.string().optional(),
 });
@@ -40,7 +35,7 @@ type FormValues = z.infer<typeof formSchema>;
 const WireframePreview = ({ htmlContent, imageQueries }: { htmlContent: string, imageQueries: GenerateWireframeOutput['imageQueries'] }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
-    useState(() => {
+    useEffect(() => {
         if (iframeRef.current && htmlContent) {
             const doc = iframeRef.current.contentWindow?.document;
             if (doc) {
@@ -49,27 +44,21 @@ const WireframePreview = ({ htmlContent, imageQueries }: { htmlContent: string, 
                 doc.close();
 
                 const queryMap = new Map(imageQueries.map(q => [q.id, q.query]));
-
+                
                 // Use requestAnimationFrame to ensure the DOM is ready for manipulation
                 requestAnimationFrame(() => {
                     doc.querySelectorAll('img[data-ai-hint]').forEach(imgEl => {
                         const hint = imgEl.getAttribute('data-ai-hint');
-                        if (hint && queryMap.has(hint)) {
-                           const query = queryMap.get(hint) as string;
-                           const container = doc.createElement('div');
-                           // Match the style of the original img element if needed
-                           container.style.width = '100%';
-                           container.style.height = '100%';
-                           imgEl.parentNode?.replaceChild(container, imgEl);
-                           const root = createRoot(container);
-                           const pexelsImageElement = <PexelsImage query={query} className="w-full h-full object-cover" />;
-                           root.render(pexelsImageElement);
+                        const query = hint ? queryMap.get(hint) : null;
+                        if (query) {
+                           // Use a service that generates an image from a URL with keywords
+                           (imgEl as HTMLImageElement).src = `https://source.unsplash.com/800x600/?${encodeURIComponent(query)}`;
                         }
                     });
                 });
             }
         }
-    });
+    }, [htmlContent, imageQueries]);
 
     return <iframe ref={iframeRef} className="w-full h-full bg-white" title="Wireframe Preview" />;
 };
@@ -87,9 +76,6 @@ export default function WireframeGeneratorPage() {
       websiteType: "Blog",
       targetAudience: "",
       primaryGoal: "",
-      pagesRequired: "Home, About, Services, Contact, Blog",
-      layoutPreferences: "",
-      specialSections: "",
       brandColors: "",
       fonts: "",
     },
@@ -179,6 +165,20 @@ export default function WireframeGeneratorPage() {
                   <FormItem>
                     <FormLabel>Primary Goal of the Website</FormLabel>
                     <FormControl><Textarea placeholder="e.g., Sell products, showcase work, generate leads" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                 <FormField control={form.control} name="brandColors" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Brand Colors (Optional)</FormLabel>
+                    <FormControl><Input placeholder="e.g., #A674F8, #1A202C" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                 <FormField control={form.control} name="fonts" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preferred Fonts (Optional)</FormLabel>
+                    <FormControl><Input placeholder="e.g., 'Inter', 'Space Grotesk'" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
