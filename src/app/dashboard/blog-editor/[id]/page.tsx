@@ -79,7 +79,7 @@ export default function BlogEditorPage() {
         <div>
             <Button variant="ghost" onClick={() => router.push('/dashboard')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Project Hub
+                Back to Dashboard
             </Button>
         </div>
       <Card>
@@ -115,5 +115,3 @@ export default function BlogEditorPage() {
     </div>
   );
 }
-
-    

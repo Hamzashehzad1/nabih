@@ -1,9 +1,9 @@
 
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Globe, FileText, ImageIcon, PlusCircle, RefreshCw } from "lucide-react";
+import { Globe, FileText, ImageIcon, PlusCircle, ArrowRight, Edit, Settings, Activity } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -46,6 +46,13 @@ export default function DashboardPage() {
     { title: "Images Added", value: totalImages, icon: <ImageIcon className="h-6 w-6 text-muted-foreground" /> },
     { title: "Connected Sites", value: sites.length, icon: <Globe className="h-6 w-6 text-muted-foreground" /> },
   ];
+  
+  const quickActions = [
+      { title: "Create New Post", description: "Use the AI blog generator.", href: "/dashboard/blog-generator", icon: <PlusCircle/> },
+      { title: "Generate Images", description: "Find or create images for posts.", href: "/dashboard/image-generator", icon: <ImageIcon/> },
+      { title: "Audit a Website", description: "Check performance and SEO.", href: "/dashboard/website-audit", icon: <Activity/> },
+      { title: "Manage Settings", description: "Configure API keys and sites.", href: "/dashboard/settings", icon: <Settings/> },
+  ]
 
   return (
     <div className="space-y-8">
@@ -67,18 +74,36 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+      
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {quickActions.map(action => (
+             <Card key={action.title} className="flex flex-col">
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-md">
+                           {action.icon}
+                        </div>
+                        <CardTitle className="text-lg">{action.title}</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                    <p className="text-sm text-muted-foreground">{action.description}</p>
+                </CardContent>
+                <div className="p-6 pt-0">
+                    <Button asChild variant="outline" className="w-full">
+                        <Link href={action.href}>
+                            Go to Tool <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                    </Button>
+                </div>
+            </Card>
+          ))}
+       </div>
 
        <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div >
-            <CardTitle>Generated Blog Posts</CardTitle>
-            <p className="text-sm text-muted-foreground pt-1">Here are the locally-saved posts you've generated.</p>
-          </div>
-           <Button asChild>
-            <Link href="/dashboard/blog-generator">
-              <PlusCircle className="mr-2 h-4 w-4" /> New Post
-            </Link>
-          </Button>
+        <CardHeader>
+            <CardTitle>Recent Blog Posts</CardTitle>
+            <CardDescription>Here are the latest posts you've saved locally.</CardDescription>
         </CardHeader>
         <CardContent>
           {posts.length > 0 ? (
@@ -91,12 +116,16 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {posts.map((post) => (
+                {posts.slice(0, 5).map((post) => (
                   <TableRow key={post.id}>
                     <TableCell className="font-medium">{post.title}</TableCell>
                     <TableCell>{post.date}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Edit</Button>
+                      <Button variant="ghost" size="sm" asChild>
+                         <Link href={`/dashboard/blog-editor/${post.id}`}>
+                            <Edit className="mr-2 h-4 w-4" /> Edit
+                        </Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -115,70 +144,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div >
-            <CardTitle>Connected WordPress Sites</CardTitle>
-            <p className="text-sm text-muted-foreground pt-1">Manage your sites or add a new one.</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled>
-                <RefreshCw className="mr-2 h-4 w-4" /> Sync from WordPress
-            </Button>
-            <Button asChild>
-                <Link href="/dashboard/settings">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Site
-                </Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {sites.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Site Name</TableHead>
-                  <TableHead>URL</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sites.map((site) => (
-                  <TableRow key={site.id}>
-                    <TableCell className="font-medium">{new URL(site.url).hostname}</TableCell>
-                    <TableCell>
-                      <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
-                        {site.url}
-                      </a>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                        Connected
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href="/dashboard/settings">Manage</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-md">
-              <Globe className="mx-auto h-12 w-12" />
-              <h3 className="mt-4 text-lg font-semibold">No Connected Sites</h3>
-              <p className="mt-1 text-sm">Connect your WordPress site in the settings page to publish your content directly.</p>
-              <Button asChild size="sm" className="mt-4">
-                <Link href="/dashboard/settings">Go to Settings</Link>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
