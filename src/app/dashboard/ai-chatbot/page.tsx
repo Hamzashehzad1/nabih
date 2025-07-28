@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Bot, BrainCircuit, Loader2, Send, CheckCircle, Code, Clipboard, Trash2, Power } from 'lucide-react';
+import { Globe, Bot, BrainCircuit, Loader2, Send, CheckCircle, Code, Clipboard, Trash2, Power, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { fetchWebsiteContent, addChatbotToSite, removeChatbotFromSite } from './actions';
 import { answerQuestion } from '@/ai/flows/website-chat';
@@ -33,6 +33,18 @@ interface ChatMessage {
   sender: 'user' | 'bot';
   text: string;
 }
+
+const phpSnippet = `
+if ( ! function_exists( 'content_forge_chatbot' ) ) {
+    function content_forge_chatbot() {
+        $chatbot_script = get_option('content_forge_chatbot_script');
+        if ($chatbot_script) {
+            echo $chatbot_script;
+        }
+    }
+    add_action('wp_footer', 'content_forge_chatbot');
+}
+`.trim();
 
 export default function AiChatbotPage() {
     const { toast } = useToast();
@@ -126,8 +138,8 @@ export default function AiChatbotPage() {
         const result = await addChatbotToSite(selectedSite.url, selectedSite.user, selectedSite.appPassword, embedCode);
         if (result.success) {
             toast({
-                title: "Chatbot Added!",
-                description: `The chatbot has been added to ${selectedSite.url}. It may take a minute to appear.`
+                title: "Chatbot Activated!",
+                description: `The chatbot has been enabled for ${selectedSite.url}. It may take a minute to appear.`
             });
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -144,8 +156,8 @@ export default function AiChatbotPage() {
         const result = await removeChatbotFromSite(selectedSite.url, selectedSite.user, selectedSite.appPassword);
         if (result.success) {
             toast({
-                title: "Chatbot Removed!",
-                description: `The chatbot has been removed from ${selectedSite.url}.`
+                title: "Chatbot Deactivated!",
+                description: `The chatbot has been disabled on ${selectedSite.url}.`
             });
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -153,11 +165,11 @@ export default function AiChatbotPage() {
         setIsUpdatingSite(false);
     };
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(embedCode);
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
         toast({
           title: "Copied to clipboard!",
-          description: "The embed code has been copied.",
+          description: "The snippet has been copied.",
         });
       };
 
@@ -315,35 +327,46 @@ export default function AiChatbotPage() {
         <Card>
             <CardHeader>
                 <CardTitle>4. Install on Your Website</CardTitle>
-                <CardDescription>Add the chatbot to your site automatically, or copy the code to install it manually.</CardDescription>
+                <CardDescription>Enable or disable the chatbot on your site, or install it manually.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                 <Alert>
-                    <Power className="h-4 w-4" />
-                    <AlertTitle>How it Works</AlertTitle>
+                 <Alert variant="warning">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>One-Time Setup Required</AlertTitle>
                     <AlertDescription>
-                        This will use the WordPress REST API to safely add the required script to your site's footer without modifying theme files.
+                        For automatic installation to work, please add the following PHP snippet to your WordPress theme's <strong>functions.php</strong> file once. This is a safe, standard way to allow applications to add scripts.
                     </AlertDescription>
+                    <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm mt-2">
+                        <pre><code>{phpSnippet}</code></pre>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 text-white hover:bg-gray-700"
+                            onClick={() => copyToClipboard(phpSnippet)}
+                        >
+                            <Clipboard className="h-4 w-4"/>
+                        </Button>
+                    </div>
                 </Alert>
                 <div className="flex gap-2">
                     <Button onClick={handleAddChatbotToSite} disabled={isUpdatingSite}>
                         {isUpdatingSite ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4"/>}
-                        Add Chatbot to Website
+                        Activate on Website
                     </Button>
                     <Button onClick={handleRemoveChatbotFromSite} variant="destructive" disabled={isUpdatingSite}>
                         {isUpdatingSite ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
-                        Remove Chatbot
+                        Deactivate
                     </Button>
                 </div>
                 <div>
-                    <Label className="text-xs text-muted-foreground">Manual Installation</Label>
+                    <Label className="text-xs text-muted-foreground">Manual Installation (if you prefer not to use the one-time snippet)</Label>
                     <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm mt-1">
                         <pre><code>{embedCode}</code></pre>
                         <Button
                             variant="ghost"
                             size="icon"
                             className="absolute top-2 right-2 text-white hover:bg-gray-700"
-                            onClick={copyToClipboard}
+                            onClick={() => copyToClipboard(embedCode)}
                         >
                             <Clipboard className="h-4 w-4"/>
                         </Button>
@@ -383,5 +406,3 @@ export default function AiChatbotPage() {
     </div>
   );
 }
-
-    
