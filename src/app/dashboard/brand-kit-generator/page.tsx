@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Palette, Sparkles, Wand2, ArrowRight, ArrowLeft, Copy, Download, RefreshCw, Check, Upload, Bot, Lightbulb } from "lucide-react";
+import { Loader2, Palette, Sparkles, Wand2, ArrowRight, ArrowLeft, Download, RefreshCw, Upload, Bot, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -19,9 +19,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { generateBrandKit, type GenerateBrandKitOutput } from "@/ai/flows/generate-brand-kit";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { PexelsImage } from "@/components/pexels-image";
 
 
 const formSchema = z.object({
@@ -270,14 +270,7 @@ export default function BrandKitGeneratorPage() {
                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 {moodboard.pexelsQueries.map(keyword => (
                                     <div key={keyword}>
-                                        <Image 
-                                            src={`https://placehold.co/400x300.png`} 
-                                            alt={keyword} 
-                                            width={400} 
-                                            height={300} 
-                                            className="rounded-lg aspect-[4/3] object-cover bg-muted"
-                                            data-ai-hint={keyword}
-                                        />
+                                       <PexelsImage query={keyword} />
                                         <p className="text-center text-sm mt-2 text-muted-foreground">{keyword}</p>
                                     </div>
                                 ))}
@@ -287,14 +280,7 @@ export default function BrandKitGeneratorPage() {
                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 {moodboard.unsplashQueries.map(keyword => (
                                     <div key={keyword}>
-                                        <Image 
-                                            src={`https://placehold.co/400x300.png`} 
-                                            alt={keyword} 
-                                            width={400} 
-                                            height={300} 
-                                            className="rounded-lg aspect-[4/3] object-cover bg-muted"
-                                            data-ai-hint={keyword}
-                                        />
+                                        <PexelsImage query={keyword} />
                                         <p className="text-center text-sm mt-2 text-muted-foreground">{keyword}</p>
                                     </div>
                                 ))}
