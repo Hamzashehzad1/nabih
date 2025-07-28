@@ -89,7 +89,9 @@ export async function fetchWpMedia(
         try {
             const errorData = await response.json();
              if (errorData.code === 'rest_post_invalid_page_number') {
-                errorDetails = "The page number requested is larger than the number of pages available.";
+                // This is not a fatal error, it just means we're past the last page.
+                // Return success with empty data.
+                return { success: true, data: [], totalPages: 0 };
             } else {
                 errorDetails += ` - ${errorData.message || 'Unknown error'}`;
             }
