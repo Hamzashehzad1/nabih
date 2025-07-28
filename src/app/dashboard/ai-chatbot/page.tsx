@@ -12,7 +12,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Bot, BrainCircuit, Loader2, Send, CheckCircle, Code, Clipboard } from 'lucide-react';
 import Link from 'next/link';
-import { fetchAllPostsContent } from './actions';
+import { fetchWebsiteContent } from './actions';
 import { answerQuestion } from '@/ai/flows/website-chat';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -67,7 +67,7 @@ export default function AiChatbotPage() {
         setIsTraining(true);
         setTrainingStatus('training');
         
-        const result = await fetchAllPostsContent(selectedSite.url, selectedSite.user, selectedSite.appPassword);
+        const result = await fetchWebsiteContent(selectedSite.url, selectedSite.user, selectedSite.appPassword);
         
         if (result.success) {
             const combinedContent = result.data.map(post => `Title: ${post.title}\nContent: ${post.content}`).join('\n\n---\n\n');
@@ -164,7 +164,7 @@ export default function AiChatbotPage() {
         <Card>
             <CardHeader>
                 <CardTitle>2. Train Your Chatbot</CardTitle>
-                <CardDescription>The AI will read all the posts on your selected site to learn about your content. This might take a few moments.</CardDescription>
+                <CardDescription>The AI will read the content of your site's Home, About, and Contact pages to learn about your business.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Button onClick={handleTrain} disabled={isTraining || trainingStatus === 'training'}>

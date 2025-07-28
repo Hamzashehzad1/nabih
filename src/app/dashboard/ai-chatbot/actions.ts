@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-const PostSchema = z.object({
+const PageSchema = z.object({
   id: z.number(),
   title: z.object({
     rendered: z.string(),
@@ -11,11 +11,12 @@ const PostSchema = z.object({
   content: z.object({
     rendered: z.string(),
   }),
+  slug: z.string(),
 });
 
-const PostsSchema = z.array(PostSchema);
+const PagesSchema = z.array(PageSchema);
 
-interface PostContent {
+interface PageContent {
     id: number;
     title: string;
     content: string;
@@ -32,70 +33,68 @@ function stripHtml(html: string): string {
 }
 
 
-export async function fetchAllPostsContent(
+export async function fetchWebsiteContent(
     siteUrl: string,
     username: string,
     appPassword: string,
-): Promise<{ success: true; data: PostContent[] } | { success: false; error: string }> {
+): Promise<{ success: true; data: PageContent[] } | { success: false; error: string }> {
   
-  const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`;
+  const baseUrl = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/pages`;
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
-  let allPosts: PostContent[] = [];
-  let page = 1;
-  const perPage = 100; // Fetch max posts per page
-
+  const targetSlugs = ['home', 'about', 'contact', 'about-us', 'contact-us'];
+  
   try {
-    while (true) {
-        const url = new URL(baseUrl);
-        url.searchParams.append('context', 'edit');
-        url.searchParams.append('_fields', 'id,title,content');
-        url.searchParams.append('per_page', perPage.toString());
-        url.searchParams.append('page', page.toString());
-        
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
-            cache: 'no-store',
-        });
-        
-        if (!response.ok) {
-            let errorDetails = `HTTP error! status: ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
-            } catch (e) {}
-            return { success: false, error: errorDetails };
-        }
+    const url = new URL(baseUrl);
+    url.searchParams.append('context', 'view');
+    url.searchParams.append('_fields', 'id,title,content,slug');
+    url.searchParams.append('per_page', '50'); // Fetch up to 50 pages, should be enough
+    
+    const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+        let errorDetails = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorDetails += ` - ${errorData.message || 'Unknown error'}`;
+        } catch (e) {}
+        return { success: false, error: errorDetails };
+    }
 
-        const pageData = await response.json();
+    const pageData = await response.json();
 
-        if (!Array.isArray(pageData) || pageData.length === 0) {
-            break; // No more posts
-        }
-        
-        const parsedData = PostsSchema.safeParse(pageData);
-        if (!parsedData.success) {
-            console.error('WP Post Parse Error:', parsedData.error);
-            return { success: false, error: 'Failed to parse posts from WordPress.' };
-        }
+    if (!Array.isArray(pageData)) {
+         return { success: false, error: 'Could not fetch pages from WordPress.' };
+    }
+    
+    const parsedData = PagesSchema.safeParse(pageData);
+    if (!parsedData.success) {
+        console.error('WP Page Parse Error:', parsedData.error);
+        return { success: false, error: 'Failed to parse pages from WordPress.' };
+    }
 
-        const postsForPage: PostContent[] = parsedData.data.map(item => ({
+    const relevantPages: PageContent[] = parsedData.data
+        .filter(page => targetSlugs.includes(page.slug.toLowerCase()) || (page.slug.toLowerCase() === 'front-page'))
+        .map(item => ({
             id: item.id,
             title: item.title.rendered,
             content: stripHtml(item.content.rendered).replace(/\s\s+/g, ' ').trim(),
         }));
 
-        allPosts = [...allPosts, ...postsForPage];
-        page++;
+    if (relevantPages.length === 0) {
+        return { success: false, error: "Could not find Home, About, or Contact pages. Please ensure they exist and have simple slugs (e.g., 'about', 'contact')." };
     }
     
-    return { success: true, data: allPosts };
+    return { success: true, data: relevantPages };
 
   } catch (error) {
-    console.error('Error fetching all posts from WP:', error);
+    console.error('Error fetching website content from WP:', error);
     if (error instanceof Error) {
         return { success: false, error: error.message };
     }
-    return { success: false, error: 'An unknown error occurred while fetching posts.' };
+    return { success: false, error: 'An unknown error occurred while fetching pages.' };
   }
 }
