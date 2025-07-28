@@ -1,3 +1,4 @@
+
 // src/app/dashboard/wireframe-generator/page.tsx
 "use client";
 
@@ -5,7 +6,9 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, LayoutTemplate, Clipboard, Info } from "lucide-react";
+import { Loader2, LayoutTemplate, Clipboard, Info, BookOpen, Image as ImageIcon } from "lucide-react";
+import * as cheerio from 'cheerio';
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -17,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PexelsImage } from "@/components/pexels-image";
 
 
 const formSchema = z.object({
@@ -32,6 +36,54 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+const WireframePreview = ({ htmlContent, imageQueries }: { htmlContent: string, imageQueries: GenerateWireframeOutput['imageQueries'] }) => {
+    if (typeof window === 'undefined') {
+        return <iframe srcDoc={htmlContent} className="w-full h-full" title="Wireframe Preview" />;
+    }
+    
+    const $ = cheerio.load(htmlContent);
+    const queryMap = new Map(imageQueries.map(q => [q.id, q.query]));
+
+    $('img[data-ai-hint]').each((i, el) => {
+        const hint = $(el).attr('data-ai-hint');
+        if (hint && queryMap.has(hint)) {
+             $(el).attr('data-pexels-query', queryMap.get(hint) as string);
+        }
+    });
+
+    const modifiedHtml = $.html();
+    
+    // This is a bit of a hack to get React components into an iframe.
+    // In a real-world, more robust app, you might use a different approach
+    // like a web component or postMessage API.
+    // For this prototype, we'll mount the images after the iframe loads.
+    const iframeRef = (iframe: HTMLIFrameElement | null) => {
+        if (iframe) {
+            iframe.srcdoc = modifiedHtml;
+            iframe.onload = () => {
+                const doc = iframe.contentWindow?.document;
+                if(doc) {
+                    const react_dom_client = require('react-dom/client');
+                    doc.querySelectorAll('img[data-pexels-query]').forEach(imgEl => {
+                        const query = imgEl.getAttribute('data-pexels-query');
+                        if (query) {
+                           const container = doc.createElement('div');
+                           imgEl.parentNode?.replaceChild(container, imgEl);
+                           const root = react_dom_client.createRoot(container);
+                           const pexelsImageElement = <PexelsImage query={query} className="w-full h-full object-cover" />;
+                           root.render(pexelsImageElement);
+                        }
+                    });
+                }
+            };
+        }
+    };
+
+
+    return <iframe ref={iframeRef} className="w-full h-full" title="Wireframe Preview" />;
+};
+
 
 export default function WireframeGeneratorPage() {
   const [generatedWireframe, setGeneratedWireframe] = useState<GenerateWireframeOutput | null>(null);
@@ -57,7 +109,7 @@ export default function WireframeGeneratorPage() {
     setIsLoading(true);
     setGeneratedWireframe(null);
     try {
-      const result = await generateWireframe(data as GenerateWireframeInput);
+      const result = await generateWireframe({ ...data, pageToGenerate: 'Home' } as GenerateWireframeInput);
       setGeneratedWireframe(result);
     } catch (error) {
       console.error("Error generating wireframe:", error);
@@ -82,17 +134,17 @@ export default function WireframeGeneratorPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-headline font-bold">AI Wireframe Generator</h1>
+        <h1 className="text-3xl font-headline font-bold">AI High-Fidelity Wireframe Generator</h1>
         <p className="text-muted-foreground max-w-2xl">
-          Describe your website, and let AI generate a structural wireframe and provide UX recommendations.
+          Describe your website, and let AI generate a visually-rich homepage wireframe, complete with UX recommendations, copywriting, and dynamic images.
         </p>
       </div>
       
       <div className="grid gap-8 md:grid-cols-2 items-start">
         <Card>
           <CardHeader>
-            <CardTitle>Website Details</CardTitle>
-            <CardDescription>Fill in the details below to generate your wireframe.</CardDescription>
+            <CardTitle>Homepage Details</CardTitle>
+            <CardDescription>Fill in the details below to generate your homepage wireframe.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -135,24 +187,8 @@ export default function WireframeGeneratorPage() {
                 
                 <FormField control={form.control} name="primaryGoal" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Primary Goal</FormLabel>
+                    <FormLabel>Primary Goal of the Website</FormLabel>
                     <FormControl><Textarea placeholder="e.g., Sell products, showcase work, generate leads" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-
-                <FormField control={form.control} name="pagesRequired" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pages Required</FormLabel>
-                    <FormControl><Input placeholder="Home, About, Services, Contact" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                
-                <FormField control={form.control} name="specialSections" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Special Sections (Optional)</FormLabel>
-                    <FormControl><Input placeholder="e.g., Testimonials, pricing table" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -166,7 +202,7 @@ export default function WireframeGeneratorPage() {
                   ) : (
                     <>
                       <LayoutTemplate className="mr-2 h-4 w-4" />
-                      Generate Wireframe
+                      Generate Homepage Wireframe
                     </>
                   )}
                 </Button>
@@ -177,8 +213,8 @@ export default function WireframeGeneratorPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Generated Wireframe</CardTitle>
-            <CardDescription>Your AI-generated wireframe and UX reasoning will appear here.</CardDescription>
+            <CardTitle>Generated Homepage</CardTitle>
+            <CardDescription>Your AI-generated wireframe and assets will appear here.</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading && (
@@ -199,15 +235,16 @@ export default function WireframeGeneratorPage() {
                         <TabsList>
                             <TabsTrigger value="preview">Preview</TabsTrigger>
                             <TabsTrigger value="reasoning">UX Reasoning</TabsTrigger>
-                            <TabsTrigger value="code">HTML Code</TabsTrigger>
+                            <TabsTrigger value="copy">Copywriting</TabsTrigger>
+                            <TabsTrigger value="code">Code</TabsTrigger>
                         </TabsList>
                          <Button variant="outline" size="sm" onClick={() => copyToClipboard(generatedWireframe.wireframeHtml)}>
                             <Clipboard className="mr-2 h-4 w-4"/>
                             Copy Code
                         </Button>
                     </div>
-                    <TabsContent value="preview" className="h-[600px] border rounded-md overflow-hidden">
-                       <iframe srcDoc={generatedWireframe.wireframeHtml} className="w-full h-full" title="Wireframe Preview" />
+                    <TabsContent value="preview" className="h-[600px] border rounded-md overflow-hidden bg-white">
+                        <WireframePreview htmlContent={generatedWireframe.wireframeHtml} imageQueries={generatedWireframe.imageQueries} />
                     </TabsContent>
                     <TabsContent value="reasoning" className="h-[600px] border rounded-md p-4 overflow-y-auto">
                         <Alert>
@@ -215,6 +252,15 @@ export default function WireframeGeneratorPage() {
                             <AlertTitle>UX/UI Rationale</AlertTitle>
                             <AlertDescription className="prose prose-sm dark:prose-invert max-w-none">
                                 <div dangerouslySetInnerHTML={{ __html: generatedWireframe.explanation.replace(/\n/g, '<br />') }}/>
+                            </AlertDescription>
+                        </Alert>
+                    </TabsContent>
+                     <TabsContent value="copy" className="h-[600px] border rounded-md p-4 overflow-y-auto">
+                        <Alert>
+                            <BookOpen className="h-4 w-4" />
+                            <AlertTitle>AI Copy (Neil Patel Style)</AlertTitle>
+                            <AlertDescription className="prose prose-sm dark:prose-invert max-w-none">
+                                <div dangerouslySetInnerHTML={{ __html: generatedWireframe.copywriting.replace(/\n/g, '<br />') }}/>
                             </AlertDescription>
                         </Alert>
                     </TabsContent>

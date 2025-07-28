@@ -2,9 +2,9 @@
 'use server';
 
 /**
- * @fileOverview AI Wireframe Generator.
+ * @fileOverview AI Wireframe Generator for a single page.
  *
- * - generateWireframe - A function that handles wireframe generation.
+ * - generateWireframe - A function that handles wireframe generation for a specific page.
  * - GenerateWireframeInput - The input type for the generateWireframe function.
  * - GenerateWireframeOutput - The return type for the generateWireframe function.
  */
@@ -17,18 +17,23 @@ const GenerateWireframeInputSchema = z.object({
   websiteType: z.string().describe('The type of website (e.g., Portfolio, eCommerce, SaaS, Blog).'),
   targetAudience: z.string().describe('Description of the target audience (e.g., young professionals, B2B, students).'),
   primaryGoal: z.string().describe('The primary goal of the website (e.g., sell products, showcase work, generate leads).'),
-  pagesRequired: z.string().describe('A comma-separated list of pages required (e.g., Home, About, Services, Contact, Blog).'),
-  layoutPreferences: z.string().optional().describe('User layout preferences (e.g., minimalist, image-heavy, sidebar, grid layout).'),
-  specialSections: z.string().optional().describe('Any special sections required (e.g., testimonials, pricing tables, contact form, carousel).'),
+  pageToGenerate: z.string().default('Home').describe("The specific page to generate the wireframe for (e.g., 'Home', 'About', 'Contact')."),
   brandColors: z.string().optional().describe('Brand colors (hex codes or descriptions).'),
   fonts: z.string().optional().describe('Preferred fonts.'),
 });
 export type GenerateWireframeInput = z.infer<typeof GenerateWireframeInputSchema>;
 
 
+const ImageQuerySchema = z.object({
+    id: z.string().describe("A unique identifier for the image, like 'hero-background' or 'testimonial-1'."),
+    query: z.string().describe("The specific, descriptive search query for Pexels/Unsplash."),
+});
+
 const GenerateWireframeOutputSchema = z.object({
-  explanation: z.string().describe('A brief explanation of the wireframe layout and reasoning behind UX choices.'),
-  wireframeHtml: z.string().describe('A complete HTML string with structural CSS for the wireframe. It should be a single HTML document starting with <!DOCTYPE html>.'),
+  explanation: z.string().describe('A brief explanation of the wireframe layout and reasoning behind UX choices, written in a friendly, expert tone.'),
+  copywriting: z.string().describe("Suggested copywriting for the page's key sections (headlines, CTAs, descriptions) written in the style of Neil Patel."),
+  wireframeHtml: z.string().describe('A complete HTML string with structural and aesthetic CSS for the wireframe. It should be a single HTML document starting with <!DOCTYPE html>. Use placeholder images with data-ai-hint attributes.'),
+  imageQueries: z.array(ImageQuerySchema).describe("A list of image search queries to be used in the wireframe's placeholders."),
 });
 export type GenerateWireframeOutput = z.infer<typeof GenerateWireframeOutputSchema>;
 
@@ -42,25 +47,33 @@ const prompt = ai.definePrompt({
   name: 'generateWireframePrompt',
   input: {schema: GenerateWireframeInputSchema},
   output: {schema: GenerateWireframeOutputSchema},
-  prompt: `Act as a professional UI/UX designer and web developer. Based on the following details:
+  prompt: `You are an expert UI/UX designer and conversion-focused copywriter, channeling the style of Neil Patel. Your task is to generate a complete, high-fidelity wireframe for the '{{{pageToGenerate}}}' page of a website.
 
+**Project Details:**
 - Website Name: {{{websiteName}}}
 - Website Type: {{{websiteType}}}
 - Target Audience: {{{targetAudience}}}
 - Website Goal: {{{primaryGoal}}}
-- Pages Needed: {{{pagesRequired}}}
-- Layout Preferences: {{{layoutPreferences}}}
-- Special Sections: {{{specialSections}}}
 - Brand Colors: {{{brandColors}}}
 - Preferred Fonts: {{{fonts}}}
 
-Generate a complete HTML wireframe structure with semantic layout for each page. The entire output for the wireframe must be a single HTML string.
-Include comments in the HTML to describe each section’s purpose.
-Keep the design responsive and modular.
-Use placeholder images (e.g., from https://placehold.co/600x400) and structural CSS only to demonstrate layout. The CSS should be included in a <style> tag in the <head> of the HTML.
+**Your Tasks:**
 
-Additionally, provide a short, separate explanation of the wireframe layout and the reasoning behind your UX choices based on the target audience and website goal.
-`,
+1.  **UX/UI Rationale:** First, provide a short, expert explanation of your layout choices. Explain WHY this design works for the target audience and the primary goal. Think about user flow, trust signals, and conversion optimization.
+
+2.  **Copywriting (Neil Patel Style):** Write compelling, action-oriented copy for the key sections of the page. This includes the main headline, sub-headline, call-to-action buttons, and brief descriptive text for major sections. The tone should be authoritative, clear, and persuasive.
+
+3.  **Image Search Queries:** For every image in your wireframe, create a specific, descriptive search query (3-6 words) suitable for Pexels or Unsplash. Give each image a unique ID. For example: { id: 'hero-background', query: 'minimalist workspace with laptop' }.
+
+4.  **High-Fidelity Wireframe (HTML & CSS):** Generate a SINGLE, complete HTML file.
+    *   **Structure:** Use semantic HTML5 (header, nav, main, section, footer). The page should be well-structured and visually appealing.
+    *   **Styling:** Embed a `<style>` tag in the `<head>`. Use CSS to create a professional, clean, and modern layout. Define a color palette based on the provided brand colors or, if none are provided, on the psychology of the business type. Use CSS variables for colors. Style buttons, cards, and typography.
+    *   **Placeholders:** For images, use a placeholder like \`<img src="https://placehold.co/800x400.png" data-ai-hint="hero-background" alt="A descriptive alt text">\`. The 'data-ai-hint' value MUST correspond to one of the IDs from your image query list.
+    *   **Responsiveness:** Ensure the design is responsive using media queries.
+    *   **Header & Footer:** Include a well-designed header with navigation and a comprehensive footer with links and social media icons.
+    *   **Trust Signals:** Include sections for things like client logos, testimonials, or key stats where appropriate for the website type.
+
+The final output should be a polished, near-production-ready wireframe that a developer could use as a strong starting point.`,
 });
 
 const generateWireframeFlow = ai.defineFlow(
