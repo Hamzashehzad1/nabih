@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateWireframeInputSchema = z.object({
+const GenerateWireframeInputSchema = z.object({
   websiteName: z.string().describe('The name of the website or business.'),
   websiteType: z.string().describe('The type of website (e.g., Portfolio, eCommerce, SaaS, Blog).'),
   targetAudience: z.string().describe('Description of the target audience (e.g., young professionals, B2B, students).'),
@@ -26,7 +26,7 @@ export const GenerateWireframeInputSchema = z.object({
 export type GenerateWireframeInput = z.infer<typeof GenerateWireframeInputSchema>;
 
 
-export const GenerateWireframeOutputSchema = z.object({
+const GenerateWireframeOutputSchema = z.object({
   explanation: z.string().describe('A brief explanation of the wireframe layout and reasoning behind UX choices.'),
   wireframeHtml: z.string().describe('A complete HTML string with structural CSS for the wireframe. It should be a single HTML document starting with <!DOCTYPE html>.'),
 });
