@@ -1,4 +1,3 @@
-
 // src/app/dashboard/brand-kit-generator/page.tsx
 "use client";
 
@@ -16,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { generateBrandKit, GenerateBrandKitInputSchema, GenerateBrandKitOutput } from "@/ai/flows/generate-brand-kit";
+import { generateBrandKit, type GenerateBrandKitOutput } from "@/ai/flows/generate-brand-kit";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -24,7 +23,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
-const formSchema = GenerateBrandKitInputSchema;
+const formSchema = z.object({
+  businessName: z.string().min(2, "Business name is required"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  websiteType: z.enum(['Blog', 'Portfolio', 'Online Store', 'Service-based', 'Landing Page', 'Membership/Community', 'Other']),
+  targetAudience: z.string().min(10, "Target audience must be at least 10 characters"),
+  hasLogo: z.boolean(),
+});
+
 
 type FormValues = z.infer<typeof formSchema>;
 
