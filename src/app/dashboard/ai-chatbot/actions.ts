@@ -47,7 +47,7 @@ export async function fetchAllPostsContent(
   try {
     while (true) {
         const url = new URL(baseUrl);
-        url.searchParams.append('context', 'view');
+        url.searchParams.append('context', 'edit');
         url.searchParams.append('_fields', 'id,title,content');
         url.searchParams.append('per_page', perPage.toString());
         url.searchParams.append('page', page.toString());
