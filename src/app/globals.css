@@ -92,7 +92,7 @@ body {
 
 /* Device Mockup Styles */
 .device-mockup {
-    @apply relative transition-all duration-300;
+    @apply relative scale-[.8] transition-all duration-300;
 }
 .device-mockup .device-frame {
     @apply absolute inset-0 z-10 rounded-[1.5rem] border-[14px] border-black;
