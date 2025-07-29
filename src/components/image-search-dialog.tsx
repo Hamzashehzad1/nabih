@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ImageSearchResult } from '@/app/dashboard/image-generator/actions';
 import { Skeleton } from './ui/skeleton';
 import { useInView } from 'react-intersection-observer';
+import { cn } from '@/lib/utils';
 
 
 interface ImageSearchDialogProps {
@@ -115,6 +116,15 @@ export function ImageSearchDialog({
       handleSearch();
     }
   };
+  
+  const getBadgeVariant = (source: 'Pexels' | 'Unsplash' | 'Wikimedia') => {
+      switch(source) {
+          case 'Pexels': return 'default';
+          case 'Unsplash': return 'secondary';
+          case 'Wikimedia': return 'outline';
+          default: return 'default';
+      }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,8 +132,7 @@ export function ImageSearchDialog({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Find the Perfect Image</DialogTitle>
           <DialogDescription>
-            Use the AI-generated query below or create your own to search Pexels
-            and Unsplash.
+            Use the AI-generated query below or create your own to search Pexels, Unsplash, and Wikimedia.
           </DialogDescription>
         </DialogHeader>
         <div className="flex gap-2 flex-shrink-0">
@@ -164,7 +173,7 @@ export function ImageSearchDialog({
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <p className="text-white font-bold">Select Image</p>
                     </div>
-                    <Badge className="absolute top-2 left-2" variant={image.source === 'Pexels' ? 'default' : 'secondary'}>
+                    <Badge className={cn("absolute top-2 left-2")} variant={getBadgeVariant(image.source)}>
                     {image.source}
                     </Badge>
                 </div>
