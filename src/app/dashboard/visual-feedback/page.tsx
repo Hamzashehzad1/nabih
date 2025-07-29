@@ -9,11 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, MessageSquare, X, Send, Pin, Trash2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from '@/components/ui/slider';
+import { UploadCloud, MessageSquare, X, Send, Pin, Trash2, ZoomIn, ZoomOut, Move, CheckCircle2, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
+
+type CommentStatus = 'open' | 'in-progress' | 'resolved';
 
 interface Comment {
     id: string;
@@ -22,6 +28,7 @@ interface Comment {
     text: string;
     user: { name: string; avatar?: string };
     timestamp: string;
+    status: CommentStatus;
 }
 
 interface FeedbackImage {
@@ -38,9 +45,22 @@ export default function VisualFeedbackPage() {
     
     const [pendingComment, setPendingComment] = useState<{ x: number; y: number; text: string } | null>(null);
     const [newCommentText, setNewCommentText] = useState("");
+    const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
     const imageContainerRef = useRef<HTMLDivElement>(null);
     const activeImage = images.find(img => img.id === activeImageId);
+
+    // Zoom & Pan State
+    const [zoom, setZoom] = useState(1);
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const panStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+    useEffect(() => {
+        // Reset zoom and pan when active image changes
+        setZoom(1);
+        setPosition({ x: 0, y: 0 });
+    }, [activeImageId]);
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -62,19 +82,33 @@ export default function VisualFeedbackPage() {
     };
 
     const handleImageClick = (e: MouseEvent<HTMLDivElement>) => {
-        if (!imageContainerRef.current) return;
+        if (!imageContainerRef.current || isPanning) return;
         
-        // Prevent placing a new pin if a comment is already being written
-        if (pendingComment) {
-            toast({ title: "Finish your current comment first.", variant: "default" });
+        // Prevent placing a new pin if a popover is already open
+        if (openPopoverId || pendingComment) {
             return;
         }
 
         const rect = imageContainerRef.current.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        const containerX = e.clientX - rect.left;
+        const containerY = e.clientY - rect.top;
+
+        // Adjust coordinates based on pan and zoom
+        const imageX = (containerX - position.x) / zoom;
+        const imageY = (containerY - position.y) / zoom;
         
-        setPendingComment({ x, y, text: '' });
+        const imageDimensions = imageContainerRef.current.querySelector('img');
+        if (!imageDimensions) return;
+        
+        const xPercent = (imageX / imageDimensions.offsetWidth) * 100;
+        const yPercent = (imageY / imageDimensions.offsetHeight) * 100;
+
+        if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) {
+            // Click was outside the image content itself
+            return;
+        }
+
+        setPendingComment({ x: xPercent, y: yPercent, text: '' });
         setNewCommentText("");
     };
 
@@ -86,8 +120,9 @@ export default function VisualFeedbackPage() {
             x: pendingComment.x,
             y: pendingComment.y,
             text: newCommentText,
-            user: { name: "Designer" }, // Mock user for now
+            user: { name: "Designer" },
             timestamp: new Date().toISOString(),
+            status: 'open',
         };
 
         const updatedImages = images.map(img => 
@@ -100,57 +135,169 @@ export default function VisualFeedbackPage() {
         setPendingComment(null);
         setNewCommentText("");
     };
-    
-    const cancelNewComment = () => {
-        setPendingComment(null);
-        setNewCommentText("");
-    }
-    
+
     const deleteImage = (id: string) => {
         setImages(prev => prev.filter(img => img.id !== id));
         if (activeImageId === id) {
             setActiveImageId(null);
         }
         toast({ title: "Project Deleted" });
-    }
+    };
 
-    const renderCommentPin = (comment: Comment | { x: number; y: number }, index: number) => {
-        const isPending = 'text' in comment && !('id' in comment);
-        
+    const deleteComment = (commentId: string) => {
+        if (!activeImageId) return;
+        const updatedImages = images.map(img =>
+            img.id === activeImageId
+                ? { ...img, comments: img.comments.filter(c => c.id !== commentId) }
+                : img
+        );
+        setImages(updatedImages);
+        toast({ title: "Comment Deleted" });
+    };
+
+    const updateCommentStatus = (commentId: string, status: CommentStatus) => {
+        if (!activeImageId) return;
+        const updatedImages = images.map(img => 
+            img.id === activeImageId
+            ? { ...img, comments: img.comments.map(c => c.id === commentId ? {...c, status} : c) }
+            : img
+        );
+        setImages(updatedImages);
+        setOpenPopoverId(null);
+    };
+
+    const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+        if (e.button !== 0) return; // Only pan on left-click
+        e.preventDefault();
+        setIsPanning(true);
+        panStart.current = { 
+            x: e.clientX, 
+            y: e.clientY,
+            posX: position.x,
+            posY: position.y
+        };
+    };
+    
+    const handleMouseUp = (e: MouseEvent<HTMLDivElement>) => {
+        setTimeout(() => setIsPanning(false), 50);
+    };
+    
+    const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+        if (!isPanning) return;
+        const dx = e.clientX - panStart.current.x;
+        const dy = e.clientY - panStart.current.y;
+        setPosition({
+          x: panStart.current.posX + dx,
+          y: panStart.current.posY + dy,
+        });
+    };
+    
+    const renderCommentPin = (comment: Omit<Comment, 'text'|'user'|'timestamp'|'status'> | {x: number; y: number}, index: number, isPending = false) => {
+        const statusColor = !isPending ? {
+            open: 'bg-red-500',
+            'in-progress': 'bg-yellow-500',
+            resolved: 'bg-green-500',
+        }[ (comment as Comment).status] : 'bg-primary';
+
         return (
             <div
-                key={isPending ? 'pending' : (comment as Comment).id}
                 className="absolute"
-                style={{ left: `${comment.x}%`, top: `${comment.y}%`, transform: 'translate(-50%, -50%)' }}
-                onClick={(e) => e.stopPropagation()}
+                style={{ left: `${comment.x}%`, top: `${comment.y}%` }}
+                onClick={(e) => {e.stopPropagation()}}
             >
-                <div className={cn(
-                    "w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm ring-4 ring-background cursor-pointer transition-transform hover:scale-110",
-                    isPending && "animate-pulse"
-                )}>
-                    {isPending ? <Pin className="h-4 w-4"/> : index + 1}
-                </div>
+                <Popover open={isPending || openPopoverId === (comment as Comment).id} onOpenChange={(isOpen) => {
+                    if (!isOpen) {
+                        setOpenPopoverId(null);
+                        if (isPending) setPendingComment(null);
+                    }
+                }}>
+                    <PopoverTrigger asChild>
+                        <div
+                            className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm ring-4 ring-background cursor-pointer transition-transform hover:scale-110 -translate-x-1/2 -translate-y-1/2",
+                                statusColor
+                            )}
+                            onClick={() => !isPending && setOpenPopoverId((comment as Comment).id)}
+                        >
+                            {isPending ? <Pin className="h-4 w-4"/> : index + 1}
+                        </div>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80" align="start" side="right" onOpenAutoFocus={(e) => e.preventDefault()}>
+                        {isPending ? (
+                            <div className="space-y-4">
+                                <h4 className="font-medium leading-none">New Comment</h4>
+                                <Textarea 
+                                    placeholder="Leave your feedback..."
+                                    value={newCommentText}
+                                    onChange={(e) => setNewCommentText(e.target.value)}
+                                    rows={4}
+                                    autoFocus
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button variant="ghost" size="sm" onClick={() => setPendingComment(null)}>Cancel</Button>
+                                    <Button size="sm" onClick={handlePostComment} disabled={!newCommentText.trim()}>
+                                        <Send className="h-4 w-4 mr-2"/> Post
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3">
+                                     <Avatar className="h-8 w-8">
+                                        <AvatarFallback>{(comment as Comment).user.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold text-sm">{(comment as Comment).user.name}</p>
+                                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date((comment as Comment).timestamp), { addSuffix: true })}</p>
+                                    </div>
+                                </div>
+                                <p className="text-sm">{(comment as Comment).text}</p>
+                                 <div className="flex items-center gap-2 pt-2 border-t">
+                                    <Select value={(comment as Comment).status} onValueChange={(status) => updateCommentStatus((comment as Comment).id, status as CommentStatus)}>
+                                        <SelectTrigger className="flex-grow h-8 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="open">Open</SelectItem>
+                                            <SelectItem value="in-progress">In Progress</SelectItem>
+                                            <SelectItem value="resolved">Resolved</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => deleteComment((comment as Comment).id)}>
+                                        <Trash2 className="h-4 w-4"/>
+                                    </Button>
+                                 </div>
+                            </div>
+                        )}
+                    </PopoverContent>
+                </Popover>
             </div>
         );
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 h-[calc(100vh-8rem)]">
-            {/* Left Panel: Image list */}
+        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-8 h-[calc(100vh-8rem)]">
             <Card className="lg:col-span-1 flex flex-col">
                 <CardHeader>
                     <CardTitle>Feedback Projects</CardTitle>
                     <CardDescription>Upload or select a project to review.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex-grow">
+                <CardContent className="flex-grow overflow-hidden">
                     <ScrollArea className="h-full">
                         <div className="space-y-2 pr-4">
+                             {images.length === 0 && (
+                                <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                    <UploadCloud className="mx-auto h-12 w-12" />
+                                    <h3 className="mt-4 font-semibold">No Projects Yet</h3>
+                                    <p className="text-sm">Upload an image to start leaving feedback.</p>
+                                </div>
+                            )}
                             {images.map(img => (
                                 <div 
                                     key={img.id}
                                     onClick={() => { setActiveImageId(img.id); setPendingComment(null); }}
                                     className={cn(
-                                        "p-2 rounded-lg cursor-pointer border-2 group flex justify-between items-center",
+                                        "p-3 rounded-lg cursor-pointer border-2 group flex justify-between items-center",
                                         activeImageId === img.id ? "border-primary bg-primary/10" : "border-transparent hover:bg-muted"
                                     )}
                                 >
@@ -176,92 +323,55 @@ export default function VisualFeedbackPage() {
                 </CardFooter>
             </Card>
 
-            {/* Middle Panel: Image Viewer */}
-            <div className="lg:col-span-2 bg-muted/50 rounded-lg flex items-center justify-center relative overflow-hidden">
-                {activeImage ? (
-                    <div 
-                        ref={imageContainerRef}
-                        className="relative w-full h-full cursor-crosshair"
-                        onClick={handleImageClick}
-                    >
-                        <Image src={activeImage.url} alt={activeImage.name} layout="fill" objectFit="contain" />
-                        {activeImage.comments.map((comment, index) => renderCommentPin(comment, index))}
-                        {pendingComment && renderCommentPin(pendingComment, activeImage.comments.length)}
+            <Card className="lg:col-span-1 flex flex-col relative overflow-hidden">
+                <CardHeader className="flex-row items-center justify-between">
+                     <div>
+                        <CardTitle>Feedback Canvas</CardTitle>
+                        <CardDescription>{activeImage ? activeImage.name : "Select a project"}</CardDescription>
                     </div>
-                ) : (
-                    <div className="text-center text-muted-foreground p-4">
-                        <MessageSquare className="h-16 w-16 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold">No project selected</h3>
-                        <p>Upload or select a project from the left panel to start leaving feedback.</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Right Panel: Comments List */}
-            <Card className="lg:col-span-1 flex flex-col">
-                <CardHeader>
-                    <CardTitle>Comments</CardTitle>
-                    <CardDescription>{activeImage ? activeImage.name : "No active project"}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                     <ScrollArea className="h-full">
-                        <div className="space-y-4 pr-4">
-                            {!activeImage && (
-                                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                                    <p>Select a project to see comments.</p>
-                                 </div>
-                            )}
-                            {activeImage && activeImage.comments.length === 0 && !pendingComment && (
-                                <div className="flex items-center justify-center h-full text-muted-foreground p-4 text-center">
-                                    <p>No comments yet. Click the image to add one.</p>
-                                </div>
-                            )}
-                            {activeImage?.comments.map((comment, index) => (
-                                <div key={comment.id} className="flex gap-3">
-                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm mt-1">
-                                        {index + 1}
-                                    </div>
-                                    <div className="flex-grow">
-                                        <div className="flex items-center justify-between">
-                                            <p className="font-semibold text-sm">{comment.user.name}</p>
-                                        </div>
-                                        <div className="p-2 bg-muted rounded-lg mt-1 text-sm">
-                                            {comment.text}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                            {pendingComment && (
-                                <div className="p-4 bg-primary/10 rounded-lg">
-                                    <div className="flex gap-3">
-                                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm mt-1">
-                                            <Pin className="h-4 w-4"/>
-                                        </div>
-                                        <div className="flex-grow">
-                                             <p className="font-semibold text-sm">New Comment</p>
-                                             <Textarea 
-                                                placeholder="Leave your feedback..."
-                                                value={newCommentText}
-                                                onChange={(e) => setNewCommentText(e.target.value)}
-                                                rows={3}
-                                                className="mt-1"
-                                                autoFocus
-                                            />
-                                            <div className="flex justify-end gap-2 mt-2">
-                                                <Button variant="ghost" size="sm" onClick={cancelNewComment}>
-                                                    Cancel
-                                                </Button>
-                                                <Button size="sm" onClick={handlePostComment} disabled={!newCommentText.trim()}>
-                                                    <Send className="h-4 w-4 mr-2"/> Post
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                    {activeImage && (
+                        <div className="flex items-center gap-2">
+                             <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.max(0.2, z-0.2))}><ZoomOut /></Button>
+                             <Slider value={[zoom]} onValueChange={([val]) => setZoom(val)} min={0.2} max={3} step={0.1} className="w-32" />
+                             <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.min(3, z+0.2))}><ZoomIn/></Button>
                         </div>
-                     </ScrollArea>
+                    )}
+                </CardHeader>
+                <CardContent className="flex-grow bg-muted/50 flex items-center justify-center p-0 relative overflow-hidden">
+                    {activeImage ? (
+                        <div 
+                            ref={imageContainerRef}
+                            className={cn("relative w-full h-full", isPanning ? 'cursor-grabbing' : 'cursor-grab')}
+                            onClick={handleImageClick}
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                        >
+                            <div 
+                                className="relative transition-transform"
+                                style={{
+                                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                                    width: '100%',
+                                    height: '100%'
+                                }}
+                            >
+                                <Image src={activeImage.url} alt={activeImage.name} layout="fill" objectFit="contain" />
+                                {activeImage.comments.map((comment, index) => renderCommentPin(comment, index))}
+                                {pendingComment && renderCommentPin(pendingComment, activeImage.comments.length, true)}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center text-muted-foreground p-4">
+                            <MessageSquare className="h-16 w-16 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold">No project selected</h3>
+                            <p>Select a project from the left panel to start leaving feedback.</p>
+                        </div>
+                    )}
                 </CardContent>
+                 <CardFooter className="justify-center">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2"><Move className="h-4 w-4" /> Click and drag to pan the image.</p>
+                </CardFooter>
             </Card>
         </div>
     );
