@@ -54,6 +54,7 @@ import {
 } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 interface ImageState {
@@ -252,8 +253,49 @@ function parseContent(post: WpPost): {
 }
 
 const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: string]: any }) => {
-    const proxiedSrc = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
-    return <Image src={proxiedSrc} alt={alt} {...props} />;
+    const [imgSrc, setImgSrc] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        let isCancelled = false;
+        async function loadImage() {
+            setIsLoading(true);
+            if (src.startsWith('data:')) {
+                setImgSrc(src);
+            } else if (src.startsWith('http')) {
+                try {
+                    const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch image proxy: ${response.statusText}`);
+                    }
+                    const { base64 } = await response.json();
+                    if (!isCancelled) {
+                        setImgSrc(base64);
+                    }
+                } catch (error) {
+                    console.error("Failed to load proxied image:", error);
+                     if (!isCancelled) {
+                        setImgSrc(null); // Set to null on error
+                    }
+                }
+            } else {
+                setImgSrc(src);
+            }
+            setIsLoading(false);
+        }
+
+        loadImage();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [src]);
+
+    if (isLoading || !imgSrc) {
+        return <Skeleton className="w-full h-full" {...props} />;
+    }
+
+    return <Image src={imgSrc} alt={alt} {...props} />;
 };
 
 
