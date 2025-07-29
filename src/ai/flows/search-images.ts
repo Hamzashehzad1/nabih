@@ -10,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { JSDOM } from 'jsdom';
 
 const SearchImagesInputSchema = z.object({
   query: z.string().describe('The search query for images.'),
@@ -82,73 +83,64 @@ async function searchWikimedia(query: string, page: number): Promise<SearchImage
     try {
         const perPage = 15;
         const offset = (page - 1) * perPage;
-        // Step 1: Search for images by keyword
-        const searchUrl = new URL('https://commons.wikimedia.org/w/api.php');
-        const searchParams = {
-            action: 'query',
-            list: 'search',
-            srsearch: query,
-            srnamespace: '6', // File namespace
-            srlimit: perPage.toString(),
-            sroffset: offset.toString(),
-            format: 'json',
-            origin: '*',
-        };
-        Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, (searchParams as any)[key]));
-
-        const searchResponse = await fetch(searchUrl.toString());
-        if (!searchResponse.ok) {
-            console.error('Wikimedia Search Error:', await searchResponse.text());
-            return [];
-        }
-        const searchData = await searchResponse.json();
-        if (!searchData.query?.search?.length) {
-            return [];
-        }
         
-        const titles = searchData.query.search.map((item: any) => item.title).join('|');
-
-        // Step 2: Get image info for the found titles
-        const imageInfoUrl = new URL('https://commons.wikimedia.org/w/api.php');
-         const imageInfoParams = {
+        const url = new URL('https://commons.wikimedia.org/w/api.php');
+        const params = {
             action: 'query',
-            titles: titles,
+            generator: 'search',
+            gsrsearch: `filetype:image ${query}`,
+            gsrnamespace: '6',
+            gsrlimit: perPage.toString(),
+            gsroffset: offset.toString(),
             prop: 'imageinfo',
             iiprop: 'url|user|extmetadata',
+            iiurlwidth: '500', // Request a thumbnail of a specific width
             format: 'json',
             origin: '*',
         };
-        Object.keys(imageInfoParams).forEach(key => imageInfoUrl.searchParams.append(key, (imageInfoParams as any)[key]));
 
+        Object.keys(params).forEach(key => url.searchParams.append(key, (params as any)[key]));
 
-        const imageInfoResponse = await fetch(imageInfoUrl.toString());
-        if (!imageInfoResponse.ok) {
-            console.error('Wikimedia Info Error:', await imageInfoResponse.text());
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.error('Wikimedia Search Error:', await response.text());
             return [];
         }
-        const imageInfoData = await imageInfoResponse.json();
-        const pages = imageInfoData.query?.pages;
+
+        const data = await response.json();
+        const pages = data.query?.pages;
 
         if (!pages) return [];
-
+        
         return Object.values(pages)
             .filter((page: any): page is { imageinfo: any[] } => page.imageinfo && page.imageinfo.length > 0)
             .map((page: any) => {
                 const info = page.imageinfo[0];
                 const extmeta = info.extmetadata;
-                
-                // Sanitize HTML from fields
-                const artistHtml = extmeta?.Artist?.value || '';
-                const artistText = artistHtml.replace(/<[^>]*>?/gm, '');
 
-                const alt = extmeta?.ObjectName?.value || info.descriptionurl.split('/').pop().replace(/_/g, ' ');
-                const photographer = info.user || artistText || 'Unknown';
-                const photographerUrl = info.user 
-                    ? `https://commons.wikimedia.org/wiki/User:${encodeURIComponent(info.user)}` 
-                    : (extmeta?.Credit?.value?.match(/href="([^"]+)"/)?.[1] || info.descriptionurl);
+                const cleanHtml = (html: string | undefined) => {
+                    if (!html) return '';
+                    const dom = new JSDOM(html);
+                    return dom.window.document.body.textContent || '';
+                }
+
+                const alt = cleanHtml(extmeta?.ObjectName?.value) || page.title.replace('File:', '').replace(/\.[^/.]+$/, "").replace(/_/g, ' ');
+                const artistHtml = extmeta?.Artist?.value || '';
+                const creditHtml = extmeta?.Credit?.value || '';
+
+                let photographer = info.user || 'Unknown';
+                if(artistHtml) photographer = cleanHtml(artistHtml);
+                
+                let photographerUrl = info.descriptionurl;
+                if(info.user) photographerUrl = `https://commons.wikimedia.org/wiki/User:${encodeURIComponent(info.user)}`;
+                if(creditHtml) {
+                    const dom = new JSDOM(creditHtml);
+                    const link = dom.window.document.querySelector('a');
+                    if (link) photographerUrl = link.href;
+                }
 
                 return {
-                    url: info.url,
+                    url: info.thumburl,
                     alt,
                     photographer,
                     photographerUrl,
@@ -185,4 +177,5 @@ export async function searchImages({ query, page = 1 }: SearchImagesInput): Prom
 
     return { images };
   }
+
 

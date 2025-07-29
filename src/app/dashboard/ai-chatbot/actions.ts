@@ -2,6 +2,7 @@
 'use server';
 
 import { z } from 'zod';
+import { JSDOM } from 'jsdom';
 
 const PageSchema = z.object({
   id: z.number(),
@@ -37,13 +38,8 @@ interface PageContent {
 }
 
 function stripHtml(html: string): string {
-    if (typeof document === 'undefined') {
-        // Basic stripping for server-side
-        return html.replace(/<[^>]*>?/gm, '');
-    }
-    // Browser-side stripping
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    return doc.body.textContent || "";
+    const dom = new JSDOM(html);
+    return dom.window.document.body.textContent || "";
 }
 
 
