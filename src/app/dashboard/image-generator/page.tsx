@@ -251,6 +251,12 @@ function parseContent(post: WpPost): {
   return { firstParagraph, sections, initialImages: { featuredUrl, sectionImageUrls } };
 }
 
+const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: string]: any }) => {
+    const proxiedSrc = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
+    return <Image src={proxiedSrc} alt={alt} {...props} />;
+};
+
+
 export default function ImageGeneratorPage() {
   const { toast } = useToast();
   const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
@@ -270,43 +276,52 @@ export default function ImageGeneratorPage() {
 
   const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
-  const processAndSetPostDetails = useCallback((post: WpPost) => {
-    const { firstParagraph, sections, initialImages } = parseContent(post);
-
+  const processAndSetPostDetails = useCallback((postList: WpPost[]) => {
     setImages(prevImages => {
-      const existingPostImages = prevImages[post.id] || { featured: null, sections: {} };
-      let postImages: ImageState = JSON.parse(JSON.stringify(existingPostImages)); 
-      let imagesUpdated = false;
+      let anyImageUpdated = false;
+      const newImages = {...prevImages};
 
-      if (!postImages.featured && initialImages.featuredUrl) {
-        postImages.featured = { url: initialImages.featuredUrl, alt: 'Existing featured image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
-        imagesUpdated = true;
-      }
-      sections.forEach(section => {
-        if (!postImages.sections[section.heading] && initialImages.sectionImageUrls[section.heading]) {
-          postImages.sections[section.heading] = { url: initialImages.sectionImageUrls[section.heading], alt: 'Existing section image', photographer: 'From Post', photographerUrl: '#', source: 'Unsplash' };
+      postList.forEach(post => {
+        const { firstParagraph, sections, initialImages } = parseContent(post);
+        const existingPostImages = newImages[post.id] || { featured: null, sections: {} };
+        let postImages: ImageState = JSON.parse(JSON.stringify(existingPostImages));
+        let imagesUpdated = false;
+
+        if (!postImages.featured && initialImages.featuredUrl) {
+          postImages.featured = { url: initialImages.featuredUrl, alt: 'Existing featured image', photographer: 'From Post', photographerUrl: '#', source: 'Wikimedia' };
           imagesUpdated = true;
         }
-      });
-      
-      const requiredImages = sections.length + 1;
-      const generatedCount =
-        (postImages.featured ? 1 : 0) +
-        Object.values(postImages.sections).filter(Boolean).length;
-      
-      setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {
-        firstParagraph,
-        sections,
-        requiredImages,
-        generatedCount,
-      }));
 
-      if (imagesUpdated) {
-          return {...prevImages, [post.id]: postImages};
+        sections.forEach(section => {
+          if (!postImages.sections[section.heading] && initialImages.sectionImageUrls[section.heading]) {
+            postImages.sections[section.heading] = { url: initialImages.sectionImageUrls[section.heading], alt: 'Existing section image', photographer: 'From Post', photographerUrl: '#', source: 'Wikimedia' };
+            imagesUpdated = true;
+          }
+        });
+
+        if (imagesUpdated) {
+          anyImageUpdated = true;
+          newImages[post.id] = postImages;
+        }
+
+        const requiredImages = sections.length + 1;
+        const generatedCount = (postImages.featured ? 1 : 0) + Object.values(postImages.sections).filter(Boolean).length;
+        
+        setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {
+          firstParagraph,
+          sections,
+          requiredImages,
+          generatedCount,
+        }));
+      });
+
+      if (anyImageUpdated) {
+        return newImages;
       }
       return prevImages;
     });
   }, [setImages]);
+
 
   const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
     if (!selectedSite) return;
@@ -331,8 +346,10 @@ export default function ImageGeneratorPage() {
         if(result.data.length === 0){
             setHasMorePosts(false);
         } else {
-            setPosts(prevPosts => refresh ? result.data : [...prevPosts, ...result.data]);
+            const newPosts = refresh ? result.data : [...posts, ...result.data];
+            setPosts(newPosts);
             setCurrentPage(page);
+            processAndSetPostDetails(result.data);
         }
     } else {
       setFetchError(result.error);
@@ -343,7 +360,7 @@ export default function ImageGeneratorPage() {
       })
     }
     setIsFetchingPosts(false);
-  }, [selectedSite, toast, filter]);
+  }, [selectedSite, toast, filter, posts, processAndSetPostDetails]);
 
 
   useEffect(() => {
@@ -353,15 +370,6 @@ export default function ImageGeneratorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId, filter]);
 
-  useEffect(() => {
-    if (posts.length > 0) {
-      posts.forEach(post => {
-        if (!postDetailsMap.has(post.id)) {
-          processAndSetPostDetails(post);
-        }
-      });
-    }
-  }, [posts, postDetailsMap, processAndSetPostDetails]);
 
   const handleOpenSearchDialog = useCallback(async (postId: string, type: 'featured' | 'section', heading?: string) => {
     const post = posts.find(p => p.id === postId);
@@ -416,13 +424,17 @@ export default function ImageGeneratorPage() {
           } else {
             newImages = currentImages;
           }
+           const post = posts.find(p => p.id === postId);
+           if (post) {
+                const details = postDetailsMap.get(post.id);
+                if (details) {
+                    const generatedCount = (newImages.featured ? 1 : 0) + Object.values(newImages.sections).filter(Boolean).length;
+                    setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {...details, generatedCount}));
+                }
+           }
           return { ...prev, [postId]: newImages };
         });
 
-        const post = posts.find(p => p.id === postId);
-        if (post) {
-            setTimeout(() => processAndSetPostDetails(post), 0);
-        }
         toast({ title: 'Image Added!', description: `Image from ${newImage.source} by ${newImage.photographer}` });
         setCropDialogState({ open: false, image: null, onCropComplete: null });
     };
@@ -449,14 +461,18 @@ export default function ImageGeneratorPage() {
         } else {
           newImages = currentImages;
         }
+         const post = posts.find(p => p.id === postId);
+         if (post) {
+            const details = postDetailsMap.get(post.id);
+            if (details) {
+                const generatedCount = (newImages.featured ? 1 : 0) + Object.values(newImages.sections).filter(Boolean).length;
+                setPostDetailsMap(prevMap => new Map(prevMap).set(post.id, {...details, generatedCount}));
+            }
+         }
         return { ...prev, [postId]: newImages };
       });
-      const post = posts.find(p => p.id === postId);
-      if (post) {
-         setTimeout(() => processAndSetPostDetails(post), 0);
-      }
     },
-    [setImages, posts, processAndSetPostDetails]
+    [setImages, posts, postDetailsMap]
   );
   
   const handleUpdatePost = async (postId: string, status: 'publish' | 'draft') => {
@@ -579,10 +595,6 @@ export default function ImageGeneratorPage() {
       );
     }
     
-    const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: string]: any }) => {
-        const proxiedSrc = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
-        return <Image src={proxiedSrc} alt={alt} {...props} />;
-    };
 
     return (
       <>
