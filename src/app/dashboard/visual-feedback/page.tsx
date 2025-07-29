@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, MessageSquare, X, Send, Pin, Trash2, ZoomIn, ZoomOut, Move, Pencil, Undo, Palette, Eraser, Paperclip, UserPlus, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, MessageSquare, X, Send, Pin, Trash2, ZoomIn, ZoomOut, Move, Pencil, Undo, Palette, Eraser, Paperclip, UserPlus, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
