@@ -155,27 +155,35 @@ export function ImageSearchDialog({
             <ScrollArea className="h-full">
             <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {(isLoading && images.length === 0) && Array.from({ length: 12 }).map((_, i) => (
-                    <Skeleton key={i} className="aspect-[16/10] bg-muted rounded-md" />
+                    <div key={i} className="space-y-2">
+                        <Skeleton className="aspect-[16/10] bg-muted rounded-md" />
+                        <Skeleton className="h-4 w-3/4 bg-muted" />
+                    </div>
                 ))}
                 {images.map((image) => (
                 <div
                     key={image.url + Math.random()}
-                    className="group relative cursor-pointer"
+                    className="group cursor-pointer"
                     onClick={() => onSelectImage(image)}
                 >
-                    <Image
-                    src={image.url}
-                    alt={image.alt || 'Search result image'}
-                    width={400}
-                    height={250}
-                    className="rounded-md object-cover aspect-[16/10] transition-transform group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <p className="text-white font-bold">Select Image</p>
+                    <div className="relative overflow-hidden rounded-md">
+                        <Image
+                        src={image.url}
+                        alt={image.alt || 'Search result image'}
+                        width={400}
+                        height={250}
+                        className="object-cover aspect-[16/10] transition-transform group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <p className="text-white font-bold">Select Image</p>
+                        </div>
+                        <Badge className={cn("absolute top-2 left-2")} variant={getBadgeVariant(image.source)}>
+                            {image.source}
+                        </Badge>
                     </div>
-                    <Badge className={cn("absolute top-2 left-2")} variant={getBadgeVariant(image.source)}>
-                    {image.source}
-                    </Badge>
+                    <p className="mt-2 text-sm text-muted-foreground truncate" title={image.alt || 'Untitled'}>
+                        {image.alt || 'Untitled'}
+                    </p>
                 </div>
                 ))}
             </div>
