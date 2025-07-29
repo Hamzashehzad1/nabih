@@ -89,7 +89,7 @@ export default function SignupPage() {
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-headline">Create Your Account</CardTitle>
-            <CardDescription>Join ApexFlow and 10x your content workflow today.</CardDescription>
+            <CardDescription>Join Nabih and 10x your content workflow today.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignUp} className="space-y-4">

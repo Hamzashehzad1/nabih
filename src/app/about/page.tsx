@@ -19,7 +19,7 @@ export default function AboutPage() {
       name: 'Maria Garcia',
       title: 'Head of Product',
       avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026708d',
-      bio: 'Maria is obsessed with user experience and making ApexFlow intuitive.',
+      bio: 'Maria is obsessed with user experience and making Nabih intuitive.',
     },
     {
       name: 'Chen Wei',
@@ -40,7 +40,7 @@ export default function AboutPage() {
               <span className="text-primary">Content Bottlenecks</span>.
             </h1>
             <p className="max-w-3xl mx-auto text-lg text-muted-foreground">
-              We get it. You need to create more content to grow. But who has the time? ApexFlow was born from this exact frustration. We're a team of marketers, engineers, and AI enthusiasts dedicated to building tools that automate the grind, so you can focus on strategy.
+              We get it. You need to create more content to grow. But who has the time? Nabih was born from this exact frustration. We're a team of marketers, engineers, and AI enthusiasts dedicated to building tools that automate the grind, so you can focus on strategy.
             </p>
           </div>
         </section>
@@ -59,7 +59,7 @@ export default function AboutPage() {
                   What if we could leverage the power of AI not just to write, but to build an entire content workflow? From the initial idea to the final, illustrated, and published blog post on WordPress.
                 </p>
                 <p className="text-muted-foreground">
-                  That "what if" became our obsession. After months of development, ApexFlow was born. It's the tool we always wished we had, and now we're sharing it with the world.
+                  That "what if" became our obsession. After months of development, Nabih was born. It's the tool we always wished we had, and now we're sharing it with the world.
                 </p>
               </div>
               <div>
@@ -103,7 +103,7 @@ export default function AboutPage() {
               Join Us on Our Journey
             </h2>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground mb-8">
-              Ready to see how ApexFlow can transform your workflow? Start creating smarter, not harder.
+              Ready to see how Nabih can transform your workflow? Start creating smarter, not harder.
             </p>
             <Button asChild size="lg">
               <Link href="/signup">

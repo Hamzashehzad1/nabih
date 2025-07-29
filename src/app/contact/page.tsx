@@ -62,8 +62,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Email Us</h3>
-                    <a href="mailto:hello@apexflow.ai" className="text-primary hover:underline">
-                      hello@apexflow.ai
+                    <a href="mailto:hello@nabih.ai" className="text-primary hover:underline">
+                      hello@nabih.ai
                     </a>
                   </div>
                 </div>
