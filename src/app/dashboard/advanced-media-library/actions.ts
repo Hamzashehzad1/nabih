@@ -15,7 +15,7 @@ const MediaDetailsSchema = z.object({
     height: z.number(),
     mime_type: z.string(),
     source_url: z.string(),
-  })),
+  })).optional(),
 });
 
 const MediaItemSchema = z.object({
@@ -117,12 +117,12 @@ export async function fetchWpMedia(
         filesize: item.media_details.filesize || 0,
         width: item.media_details.width,
         height: item.media_details.height,
-        thumbnailUrl: item.media_details.sizes.thumbnail?.source_url || item.source_url,
+        thumbnailUrl: item.media_details.sizes?.thumbnail?.source_url || item.source_url,
         fullUrl: item.source_url,
         alt: item.alt_text,
         caption: stripHtml(item.caption.rendered),
         description: stripHtml(item.description.rendered),
-        mime_type: item.media_details.sizes.full?.mime_type || 'image/jpeg',
+        mime_type: item.media_details.sizes?.full?.mime_type || 'image/jpeg',
     }));
     
     return { success: true, data: mediaForPage, totalPages };
