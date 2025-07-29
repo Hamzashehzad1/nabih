@@ -13,10 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import type { Point, Area } from 'react-easy-crop/types';
 import type { ImageSearchResult } from '@/app/dashboard/image-generator/actions';
+import { Skeleton } from './ui/skeleton';
 
 interface ImageCropDialogProps {
   open: boolean;
@@ -36,22 +37,11 @@ const CROP_ASPECT = 1200 / 650;
 async function getCroppedImg(url: string, pixelCrop: Area): Promise<string> {
     const image = new Image();
     image.crossOrigin = 'anonymous'; 
-
-    // Use proxy for external images
-    if (url.startsWith('http')) {
-      const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(url)}`);
-      if (!response.ok) {
-        throw new Error('Failed to proxy image for cropping.');
-      }
-      const { base64 } = await response.json();
-      image.src = base64;
-    } else {
-      image.src = url; // for data URIs
-    }
+    image.src = url;
     
     await new Promise((resolve, reject) => {
         image.onload = resolve;
-        image.onerror = (error) => reject(new Error('Image failed to load. Check browser console for CORS issues.'));
+        image.onerror = (error) => reject(new Error('Image failed to load for cropping. Check browser console for CORS issues.'));
     });
 
     const canvas = document.createElement('canvas');
@@ -99,19 +89,46 @@ export function ImageCropDialog({
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isCropping, setIsCropping] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (image && open) {
+        let isCancelled = false;
+        async function loadImage() {
+            setImageSrc(null);
+            try {
+                if (image.url.startsWith('http')) {
+                    const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(image.url)}`);
+                    if (!response.ok) throw new Error('Failed to proxy image');
+                    const { base64 } = await response.json();
+                    if (!isCancelled) setImageSrc(base64);
+                } else {
+                    if (!isCancelled) setImageSrc(image.url);
+                }
+            } catch (error) {
+                console.error("Failed to load image for cropping:", error);
+                // Optionally show a toast error
+            }
+        }
+        loadImage();
+        return () => { isCancelled = true; };
+    } else if (!open) {
+        setImageSrc(null);
+    }
+  }, [image, open]);
 
   const onCropPixels = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
   const handleCrop = async () => {
-    if (!croppedAreaPixels || !image || !onCropComplete) {
+    if (!croppedAreaPixels || !imageSrc || !image || !onCropComplete) {
       return;
     }
 
     setIsCropping(true);
     try {
-      const croppedImageUrl = await getCroppedImg(image.url, croppedAreaPixels);
+      const croppedImageUrl = await getCroppedImg(imageSrc, croppedAreaPixels);
       onCropComplete(croppedImageUrl, image);
     } catch (e) {
       console.error(e);
@@ -140,9 +157,9 @@ export function ImageCropDialog({
         </DialogHeader>
 
         <div className="flex-grow relative bg-muted/50 rounded-md">
-          {image && (
+          {imageSrc ? (
             <Cropper
-              image={image.url.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(image.url)}` : image.url}
+              image={imageSrc}
               crop={crop}
               zoom={zoom}
               aspect={CROP_ASPECT}
@@ -150,6 +167,10 @@ export function ImageCropDialog({
               onZoomChange={setZoom}
               onCropComplete={onCropPixels}
             />
+          ) : (
+             <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+             </div>
           )}
         </div>
 
@@ -162,6 +183,7 @@ export function ImageCropDialog({
                 step={0.1}
                 value={[zoom]}
                 onValueChange={(val) => setZoom(val[0])}
+                disabled={!imageSrc}
             />
         </div>
 
@@ -169,7 +191,7 @@ export function ImageCropDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isCropping}>
             Cancel
           </Button>
-          <Button onClick={handleCrop} disabled={isCropping}>
+          <Button onClick={handleCrop} disabled={isCropping || !imageSrc}>
             {isCropping && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Crop & Save Image
           </Button>
