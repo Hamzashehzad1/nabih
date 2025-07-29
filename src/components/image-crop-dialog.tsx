@@ -36,7 +36,19 @@ const CROP_ASPECT = 1200 / 650;
 async function getCroppedImg(url: string, pixelCrop: Area): Promise<string> {
     const image = new Image();
     image.crossOrigin = 'anonymous'; 
-    image.src = url;
+
+    // Use proxy for external images
+    if (url.startsWith('http')) {
+      const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(url)}`);
+      if (!response.ok) {
+        throw new Error('Failed to proxy image for cropping.');
+      }
+      const { base64 } = await response.json();
+      image.src = base64;
+    } else {
+      image.src = url; // for data URIs
+    }
+    
     await new Promise((resolve, reject) => {
         image.onload = resolve;
         image.onerror = (error) => reject(new Error('Image failed to load. Check browser console for CORS issues.'));
@@ -130,7 +142,7 @@ export function ImageCropDialog({
         <div className="flex-grow relative bg-muted/50 rounded-md">
           {image && (
             <Cropper
-              image={image.url}
+              image={image.url.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(image.url)}` : image.url}
               crop={crop}
               zoom={zoom}
               aspect={CROP_ASPECT}

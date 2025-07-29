@@ -70,6 +70,11 @@ function formatBytes(bytes: number, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
+const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: string]: any }) => {
+    const proxiedSrc = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
+    return <Image src={proxiedSrc} alt={alt} {...props} />;
+};
+
 
 export default function AdvancedMediaLibraryPage() {
     const { toast, dismiss } = useToast();
@@ -444,7 +449,7 @@ export default function AdvancedMediaLibraryPage() {
         return (
             <div className="space-y-4">
                 <div className="relative">
-                    <Image src={selectedMedia.fullUrl} alt={selectedMedia.filename} width={400} height={300} className="rounded-md object-contain w-full" />
+                    <ProxiedImage src={selectedMedia.fullUrl} alt={selectedMedia.filename} width={400} height={300} className="rounded-md object-contain w-full" />
                     <Button asChild size="icon" variant="secondary" className="absolute top-2 right-2">
                         <a href={selectedMedia.fullUrl} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="h-4 w-4" />
@@ -615,7 +620,7 @@ export default function AdvancedMediaLibraryPage() {
                                                         />
                                                     </div>
                                                 )}
-                                                <Image 
+                                                <ProxiedImage 
                                                     src={item.thumbnailUrl} 
                                                     alt={item.filename} 
                                                     width={300} 

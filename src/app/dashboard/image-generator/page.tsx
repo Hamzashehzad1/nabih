@@ -578,6 +578,11 @@ export default function ImageGeneratorPage() {
         </div>
       );
     }
+    
+    const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: string]: any }) => {
+        const proxiedSrc = src.startsWith('http') ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src;
+        return <Image src={proxiedSrc} alt={alt} {...props} />;
+    };
 
     return (
       <>
@@ -645,7 +650,7 @@ export default function ImageGeneratorPage() {
   
                                   {postImages.featured ? (
                                       <div className="relative">
-                                          <Image src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt || 'Featured Image'} className="rounded-md aspect-[2/1] object-cover" />
+                                          <ProxiedImage src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt || 'Featured Image'} className="rounded-md aspect-[2/1] object-cover" />
                                           <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                                               <Button variant="outline" size="sm" onClick={() => handleOpenSearchDialog(post.id, 'featured')} disabled={loadingStates[loadingKeyFeatured]}>
                                               {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />} Replace
@@ -693,7 +698,7 @@ export default function ImageGeneratorPage() {
                                               {image ? (
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex flex-col items-end text-xs text-muted-foreground">
-                                                        <Image src={image.url} width={80} height={45} alt={image.alt || 'Section image'} className="rounded-md aspect-video object-cover" />
+                                                        <ProxiedImage src={image.url} width={80} height={45} alt={image.alt || 'Section image'} className="rounded-md aspect-video object-cover" />
                                                         {image.size && <Badge variant="outline" className="mt-1">{image.size} KB</Badge>}
                                                     </div>
                                                      <div className="flex flex-col gap-1">
