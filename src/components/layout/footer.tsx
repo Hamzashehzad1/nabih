@@ -36,7 +36,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-card">
+    <footer className="bg-background/50 border-t border-white/10">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-8">
           <div className="md:col-span-1 lg:col-span-2">
@@ -67,7 +67,7 @@ export default function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 pt-8 border-t flex flex-col md:flex-row justify-between items-center">
+        <div className="mt-12 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} Nabih. All rights reserved.
           </p>

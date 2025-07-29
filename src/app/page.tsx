@@ -117,7 +117,7 @@ export default function Home() {
         '1 Connected WordPress Site',
       ],
       cta: 'Start for Free',
-      variant: 'outline' as const,
+      variant: 'secondary' as const,
     },
     {
       name: 'Pro',
@@ -145,7 +145,7 @@ export default function Home() {
         'API Access',
       ],
       cta: 'Contact Us',
-      variant: 'outline' as const,
+      variant: 'secondary' as const,
     },
   ];
 
@@ -153,11 +153,11 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow">
-        <section id="hero" className="py-20 text-center">
+        <section id="hero" className="py-24 text-center">
           <div className="container mx-auto px-4">
-            <h1 className="text-4xl md:text-6xl font-headline font-bold mb-4 tracking-tight">
+            <h1 className="text-4xl md:text-6xl font-headline font-bold mb-6 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
               Your All-In-One Toolkit for{' '}
-              <span className="text-primary">Web Agencies & Creators.</span>
+              <span className="text-primary brightness-125">Web Agencies & Creators.</span>
             </h1>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground mb-8">
               Stop juggling dozens of apps. Nabih is the ultimate AI-powered platform to write content, manage websites, and streamline client workflows.
@@ -165,32 +165,38 @@ export default function Home() {
             <div className="flex justify-center gap-4">
               <Button asChild size="lg">
                 <Link href="/signup">
-                  Start For Free <ArrowRight className="ml-2 h-5 w-5" />
+                  Launch Command Center <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="#features">Learn More</Link>
+              <Button asChild size="lg" variant="secondary">
+                <Link href="#features">Explore Modules</Link>
               </Button>
             </div>
           </div>
         </section>
 
-        <section id="features" className="py-20 bg-card">
+        <section id="features" className="py-20">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-headline font-bold text-center mb-12">
               The Last Content Tool You'll Ever Need
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               {features.map((feature, index) => (
-                <div key={index} className="text-center">
-                  <div className="flex justify-center mb-4">{feature.icon}</div>
-                  <h3 className="text-xl font-headline font-semibold mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {feature.description}
-                  </p>
-                </div>
+                <Card key={index} className="glass-card text-center transition-all duration-300 hover:border-primary/50 hover:-translate-y-2">
+                  <CardHeader>
+                    <div className="mx-auto bg-primary/10 p-3 rounded-lg w-fit">
+                        {feature.icon}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="text-xl font-headline font-semibold mb-2">
+                      {feature.title}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -203,10 +209,10 @@ export default function Home() {
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               {testimonials.map((testimonial, index) => (
-                <Card key={index} className="flex flex-col">
+                <Card key={index} className="glass-card flex flex-col">
                   <CardContent className="pt-6 flex-grow">
                     <div className="flex items-center mb-4">
-                      <Avatar className="h-12 w-12 mr-4">
+                      <Avatar className="h-12 w-12 mr-4 border-2 border-primary/50">
                         <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
                         <AvatarFallback>{testimonial.name.charAt(0)}</AvatarFallback>
                       </Avatar>
@@ -228,7 +234,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="pricing" className="py-20 bg-card">
+        <section id="pricing" className="py-20">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-headline font-bold text-center mb-4">
               Simple, Transparent Pricing
@@ -238,7 +244,7 @@ export default function Home() {
             </p>
             <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
               {pricingTiers.map((tier) => (
-                <Card key={tier.name} className={`flex flex-col ${tier.name === 'Pro' ? 'border-primary shadow-lg shadow-primary/20' : ''}`}>
+                <Card key={tier.name} className={`glass-card flex flex-col transition-all duration-300 ${tier.name === 'Pro' ? 'border-primary shadow-lg shadow-primary/20 scale-105' : 'hover:border-primary/30'}`}>
                   <CardHeader>
                     <CardTitle className="font-headline text-2xl">{tier.name}</CardTitle>
                     <div className="flex items-baseline">

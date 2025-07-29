@@ -9,74 +9,72 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 261 90% 71%;
-    --primary-foreground: 261 90% 15%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 210 40% 9.8%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 190 100% 69%;
-    --accent-foreground: 190 100% 15%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 228 4% 18%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 261 90% 71%;
-    --sidebar-primary-foreground: 261 90% 15%;
-    --sidebar-accent: 228 4% 25%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 228 4% 30%;
-    --sidebar-ring: 190 100% 69%;
+    --background: 228 6% 8%; /* Deep space blue/black */
+    --foreground: 210 20% 98%; /* Almost white */
+    
+    --card: 228 6% 12%; /* Darker card background */
+    --card-foreground: 210 20% 98%;
+    
+    --popover: 228 6% 10%;
+    --popover-foreground: 210 20% 98%;
+    
+    --primary: 190 100% 50%; /* Bright Neon Cyan/Turquoise */
+    --primary-foreground: 228 6% 8%;
+    
+    --secondary: 228 6% 20%; /* Slightly lighter dark shade */
+    --secondary-foreground: 210 20% 98%;
+    
+    --muted: 228 6% 20%;
+    --muted-foreground: 210 20% 70%;
+    
+    --accent: 260 80% 60%; /* Neon purple for secondary accents */
+    --accent-foreground: 210 20% 98%;
+    
+    --destructive: 0 72% 51%; /* Red for errors */
+    --destructive-foreground: 210 20% 98%;
+    
+    --border: 228 6% 25%;
+    --input: 228 6% 16%;
+    --ring: 190 100% 50%; /* Ring matches primary neon */
+    
+    --radius: 0.75rem;
+
+    --chart-1: hsl(190, 100%, 50%);
+    --chart-2: hsl(260, 80%, 60%);
+    --chart-3: hsl(330, 80%, 60%);
+    --chart-4: hsl(45, 100%, 50%);
+    --chart-5: hsl(120, 70%, 50%);
+
+    --sidebar-background: 228 6% 12%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 190 100% 50%;
+    --sidebar-primary-foreground: 228 6% 8%;
+    --sidebar-accent: 228 6% 18%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 228 6% 20%;
+    --sidebar-ring: 190 100% 50%;
   }
 
   .dark {
-    --background: 228 4% 18%;
-    --foreground: 0 0% 98%;
-    --card: 228 4% 22%;
-    --card-foreground: 0 0% 98%;
-    --popover: 228 4% 22%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 261 90% 71%;
-    --primary-foreground: 261 90% 15%;
-    --secondary: 228 4% 25%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 228 4% 25%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 190 100% 69%;
-    --accent-foreground: 190 100% 15%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 228 4% 30%;
-    --input: 228 4% 30%;
-    --ring: 190 100% 69%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 228 4% 18%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 261 90% 71%;
-    --sidebar-primary-foreground: 261 90% 15%;
-    --sidebar-accent: 228 4% 25%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 228 4% 30%;
-    --sidebar-ring: 190 100% 69%;
+    --background: 228 6% 8%;
+    --foreground: 210 20% 98%;
+    --card: 228 6% 12%;
+    --card-foreground: 210 20% 98%;
+    --popover: 228 6% 10%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 190 100% 50%;
+    --primary-foreground: 228 6% 8%;
+    --secondary: 228 6% 20%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 228 6% 20%;
+    --muted-foreground: 210 20% 70%;
+    --accent: 260 80% 60%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 228 6% 25%;
+    --input: 228 6% 16%;
+    --ring: 190 100% 50%;
   }
 }
 
@@ -87,6 +85,35 @@ body {
   body {
     @apply bg-background text-foreground;
     scroll-behavior: smooth;
+    min-height: 100vh;
+    background-color: hsl(var(--background));
+    position: relative;
+    overflow-x: hidden;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at 10% 20%, hsl(var(--primary) / 0.1), transparent 30%), 
+                radial-gradient(circle at 90% 80%, hsl(var(--accent) / 0.1), transparent 35%);
+    z-index: -1;
+    pointer-events: none;
+    animation: pulse-glow 15s infinite alternate;
+  }
+
+  @keyframes pulse-glow {
+    from {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1.1);
+    }
   }
   
   /* Custom Scrollbar Styles */
@@ -106,6 +133,16 @@ body {
   ::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--primary));
     box-shadow: 0 0 10px hsl(var(--primary) / 0.7);
+  }
+}
+
+/* Glassmorphism for specific components */
+@layer components {
+  .glass-card {
+    @apply bg-card/50 backdrop-blur-xl border border-white/10 shadow-lg shadow-black/20;
+  }
+  .glass-sidebar {
+    @apply bg-sidebar/70 backdrop-blur-xl border-r border-white/10;
   }
 }
 

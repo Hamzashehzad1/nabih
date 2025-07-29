@@ -42,19 +42,17 @@ import {
   Smartphone,
   MessageSquareQuote,
   Receipt,
-  Database,
-  Puzzle,
-  Search,
-  Network,
-  Unlink,
-  Layers3,
   HelpCircle,
   Type,
   Code2,
+  Unlink,
+  Layers3,
+  Network,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
 import { app } from "@/lib/firebase"; // Make sure firebase config is in this file
+import { cn } from "@/lib/utils";
 
 const contentSuiteNav = [
     { href: "/dashboard/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
@@ -137,7 +135,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex min-h-screen">
-        <Sidebar>
+        <Sidebar className="glass-sidebar !border-r !border-white/10">
           <SidebarHeader>
             <Logo />
             <SidebarTrigger className="group-data-[collapsible=icon]:ml-auto" />
@@ -254,7 +252,7 @@ export default function DashboardLayout({
 
           </SidebarContent>
           <SidebarFooter>
-            <div className="flex items-center gap-3 p-2 rounded-md transition-colors hover:bg-sidebar-accent">
+            <div className={cn("flex items-center gap-3 p-2 rounded-md transition-colors hover:bg-sidebar-accent", "group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center")}>
                 <Avatar className="h-10 w-10">
                     <AvatarImage src={user?.photoURL || undefined} />
                     <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
@@ -270,7 +268,7 @@ export default function DashboardLayout({
           </SidebarFooter>
         </Sidebar>
         <SidebarInset>
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-background">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
             {children}
           </main>
         </SidebarInset>
