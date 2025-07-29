@@ -43,6 +43,13 @@ import {
   Receipt,
   Database,
   Puzzle,
+  Search,
+  Sitemap,
+  Unlink,
+  Layers3,
+  HelpCircle,
+  Type,
+  Code2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -64,6 +71,15 @@ const siteManagementNav = [
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
     { href: "/dashboard/legal-generator", icon: <Shield />, label: "Legal Generator", tooltip: { children: "Legal Generator", side: "right" } },
+];
+
+const seoSuiteNav = [
+    { href: "/dashboard/keyword-clustering", icon: <Layers3 />, label: "Keyword Clustering", tooltip: { children: "Keyword Clustering", side: "right" } },
+    { href: "/dashboard/keyword-density-checker", icon: <Type />, label: "Keyword Density", tooltip: { children: "Keyword Density", side: "right" } },
+    { href: "/dashboard/people-also-ask", icon: <HelpCircle />, label: "People Also Ask", tooltip: { children: "People Also Ask", side: "right" } },
+    { href: "/dashboard/schema-markup-generator", icon: <Code2 />, label: "Schema Generator", tooltip: { children: "Schema Generator", side: "right" } },
+    { href: "/dashboard/broken-link-checker", icon: <Unlink />, label: "Broken Link Checker", tooltip: { children: "Broken Link Checker", side: "right" } },
+    { href: "/dashboard/sitemap-generator", icon: <Sitemap />, label: "Sitemap Generator", tooltip: { children: "Sitemap Generator", side: "right" } },
 ];
 
 const agencyToolkitNav = [
@@ -143,6 +159,25 @@ export default function DashboardLayout({
                 <SidebarGroupLabel>Content Suite</SidebarGroupLabel>
                 <SidebarMenu>
                 {contentSuiteNav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <Link href={item.href}>
+                        <SidebarMenuButton
+                        isActive={pathname.startsWith(item.href)}
+                        tooltip={item.tooltip}
+                        >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                    </SidebarMenuItem>
+                ))}
+                </SidebarMenu>
+            </SidebarGroup>
+            
+            <SidebarGroup>
+                <SidebarGroupLabel>SEO Suite</SidebarGroupLabel>
+                <SidebarMenu>
+                {seoSuiteNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
