@@ -18,8 +18,12 @@ interface ProductData {
 
 // Function to send progress updates to the client
 const sendProgress = (controller: ReadableStreamDefaultController, type: string, data: any) => {
-    const message = `data: ${JSON.stringify({ type, ...data })}\n\n`;
-    controller.enqueue(new TextEncoder().encode(message));
+    try {
+        const message = `data: ${JSON.stringify({ type, ...data })}\n\n`;
+        controller.enqueue(new TextEncoder().encode(message));
+    } catch (e) {
+        console.error("Failed to send progress update:", e);
+    }
 };
 
 // Retry logic for fetching
@@ -43,12 +47,12 @@ async function scrapeProductPage(url: string, imageZip: JSZip): Promise<ProductD
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        const name = $('h1.product_title').text().trim();
+        const name = $('h1.product_title, .product_title, h1').first().text().trim();
         if (!name) return null;
 
         let regularPrice = '';
         let salePrice = '';
-        const priceElement = $('.price');
+        const priceElement = $('.price').first();
         if (priceElement.find('ins').length > 0) {
             salePrice = priceElement.find('ins .woocommerce-Price-amount.amount').first().text().replace(/[^0-9.]/g, '');
             regularPrice = priceElement.find('del .woocommerce-Price-amount.amount').first().text().replace(/[^0-9.]/g, '');
@@ -58,16 +62,21 @@ async function scrapeProductPage(url: string, imageZip: JSZip): Promise<ProductD
 
         const imagePromises: Promise<void>[] = [];
         const imageFilenames: string[] = [];
-        $('.woocommerce-product-gallery__image a').each((i, el) => {
+        $('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a').each((i, el) => {
             const imageUrl = $(el).attr('href');
             if (imageUrl) {
                 const filename = imageUrl.split('/').pop()?.split('?')[0] || `image-${Date.now()}`;
                 if (!imageZip.file(`images/${filename}`)) { // Avoid duplicate downloads
                     imageFilenames.push(filename);
                     imagePromises.push((async () => {
-                        const imageResponse = await fetchWithRetry(imageUrl);
-                        const arrayBuffer = await imageResponse.arrayBuffer();
-                        imageZip.file(`images/${filename}`, arrayBuffer);
+                        try {
+                            const imageResponse = await fetchWithRetry(imageUrl);
+                            const arrayBuffer = await imageResponse.arrayBuffer();
+                            imageZip.file(`images/${filename}`, arrayBuffer);
+                        } catch (imgError) {
+                            console.error(`Failed to download image ${imageUrl}:`, imgError);
+                            // Don't add to zip, it will be missing but won't crash the app
+                        }
                     })());
                 } else {
                     imageFilenames.push(filename);
@@ -79,15 +88,14 @@ async function scrapeProductPage(url: string, imageZip: JSZip): Promise<ProductD
         const categories = $('.posted_in a').map((i, el) => $(el).text()).get().join(' > ');
         const tags = $('.tagged_as a').map((i, el) => $(el).text()).get().join(', ');
         
-        const descriptionElement = $('#tab-description');
-        const description = descriptionElement.length > 0 ? descriptionElement.html()?.trim() || '' : $('.woocommerce-product-details__short-description').html()?.trim() || '';
+        const descriptionElement = $('#tab-description').html() || $('.woocommerce-product-details__short-description').html() || '';
         
         return {
             id: '', type: 'simple', sku: $('.sku').text().trim(), name, published: 1,
             isFeatured: 'no', visibility: 'visible',
             shortDescription: $('.woocommerce-product-details__short-description').text().trim(),
-            description, salePrice, regularPrice, taxStatus: 'taxable', taxClass: '',
-            inStock: $('.stock.in-stock').length > 0 ? 1 : 0, stock: '', backorders: 'no',
+            description: descriptionElement.trim(), salePrice, regularPrice, taxStatus: 'taxable', taxClass: '',
+            inStock: $('.stock.in-stock, .in-stock').length > 0 ? 1 : 0, stock: '', backorders: 'no',
             weight: '', length: '', width: '', height: '', allowCustomerReviews: 1,
             purchaseNote: '', shippingClass: '',
             images: imageFilenames.map(f => `images/${f}`).join(', '),
@@ -143,7 +151,7 @@ export async function GET(request: NextRequest) {
                     if (!currentUrl) continue;
                     processedQueue++;
 
-                    sendProgress(controller, 'progress', { message: `Crawling: ${currentUrl.substring(baseUrl.length)}` });
+                    sendProgress(controller, 'progress', { message: `Crawling: ${currentUrl.substring(baseUrl.length) || '/'}` });
                     
                     try {
                         const response = await fetchWithRetry(currentUrl);
@@ -160,12 +168,15 @@ export async function GET(request: NextRequest) {
 
                                 if (absoluteUrl.startsWith(baseUrl) && !visitedUrls.has(absoluteUrl)) {
                                     visitedUrls.add(absoluteUrl);
-                                    queue.push(absoluteUrl);
-                                }
-                                if ($(el).closest('.product').length > 0 || $(el).hasClass('woocommerce-LoopProduct-link')) {
-                                    if(absoluteUrl.startsWith(baseUrl)){
-                                       productUrls.add(absoluteUrl);
+                                    if (!absoluteUrl.match(/\.(jpg|jpeg|png|gif|pdf|zip)$/i)) {
+                                        queue.push(absoluteUrl);
                                     }
+                                }
+
+                                if ($(el).closest('.product, .type-product').length > 0 && href.includes('/product/')) {
+                                   if(absoluteUrl.startsWith(baseUrl)){
+                                       productUrls.add(absoluteUrl);
+                                   }
                                 }
                             }
                         });
@@ -175,7 +186,23 @@ export async function GET(request: NextRequest) {
                 }
 
                 if (productUrls.size === 0) {
-                    throw new Error('No product links found. Is this a WooCommerce site?');
+                     sendProgress(controller, 'progress', { message: 'No product links found on main pages. Trying a direct /shop page crawl.' });
+                     try {
+                        const shopUrl = `${baseUrl.replace(/\/$/, '')}/shop/`;
+                        const response = await fetchWithRetry(shopUrl);
+                        const html = await response.text();
+                        const $ = cheerio.load(html);
+                        $('.woocommerce-LoopProduct-link').each((i, el) => {
+                            const href = $(el).attr('href');
+                             if (href) productUrls.add(href);
+                        });
+                     } catch (e) {
+                        // ignore if /shop doesn't exist
+                     }
+                }
+
+                if (productUrls.size === 0) {
+                    throw new Error('No product links found. Is this a standard WooCommerce site?');
                 }
                 
                 sendProgress(controller, 'progress', { message: `Found ${productUrls.size} unique product pages.` });
@@ -191,6 +218,8 @@ export async function GET(request: NextRequest) {
                     if (product) {
                         allProducts.push(product);
                         sendProgress(controller, 'product', { product });
+                    } else {
+                        sendProgress(controller, 'progress', { message: `Warning: Could not extract product data from ${url}` });
                     }
                 }
                 
@@ -203,7 +232,7 @@ export async function GET(request: NextRequest) {
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
                 console.error("Scraping error:", error);
-                // We can't send a proper error response in a stream, client will handle onerror.
+                sendProgress(controller, 'error', { message: errorMessage });
             } finally {
                 controller.close();
             }
