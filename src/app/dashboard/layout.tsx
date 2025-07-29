@@ -7,6 +7,7 @@ import {
   SidebarProvider,
   Sidebar,
   SidebarHeader,
+  SidebarTrigger,
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
@@ -139,6 +140,7 @@ export default function DashboardLayout({
         <Sidebar>
           <SidebarHeader>
             <Logo />
+            <SidebarTrigger className="group-data-[collapsible=icon]:ml-auto" />
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
