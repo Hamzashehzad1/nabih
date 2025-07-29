@@ -88,6 +88,25 @@ body {
     @apply bg-background text-foreground;
     scroll-behavior: smooth;
   }
+  
+  /* Custom Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--primary) / 0.5);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.7);
+  }
 }
 
 /* Device Mockup Styles */
