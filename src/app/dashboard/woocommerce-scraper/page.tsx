@@ -1,3 +1,4 @@
+
 // src/app/dashboard/woocommerce-scraper/page.tsx
 "use client";
 
@@ -67,13 +68,21 @@ export default function WooCommerceScraperPage() {
                 setStatus('complete');
                 toast({ title: "Scraping Complete!", description: `Found ${scrapedProducts.length} products.`});
                 eventSource.close();
+            } else if (data.type === 'error') {
+                // This is a custom error event from the server
+                setError(data.message);
+                setStatus('error');
+                eventSource.close();
             }
         };
 
         eventSource.onerror = (err) => {
-            console.error("EventSource failed:", err);
-            setError("An error occurred while scraping. The connection was lost or the server failed. Please check the URL and try again.");
-            setStatus('error');
+            // This event fires when the connection is lost, but often lacks specific details.
+            // The custom 'error' event above is more informative.
+            if (status === 'scraping') { // Only set error if we haven't already completed or errored out
+               setError("An error occurred. The connection was lost or the server could not be reached.");
+               setStatus('error');
+            }
             eventSource.close();
         };
     };
@@ -132,7 +141,7 @@ export default function WooCommerceScraperPage() {
                 </CardContent>
             </Card>
 
-            {(status === 'scraping' || scrapedProducts.length > 0) && (
+            {(status === 'scraping' || scrapedProducts.length > 0 || status === 'complete') && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Live Scraping Results</CardTitle>
