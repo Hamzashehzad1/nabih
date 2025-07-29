@@ -44,7 +44,7 @@ import {
   Database,
   Puzzle,
   Search,
-  Sitemap,
+  Network,
   Unlink,
   Layers3,
   HelpCircle,
@@ -79,7 +79,7 @@ const seoSuiteNav = [
     { href: "/dashboard/people-also-ask", icon: <HelpCircle />, label: "People Also Ask", tooltip: { children: "People Also Ask", side: "right" } },
     { href: "/dashboard/schema-markup-generator", icon: <Code2 />, label: "Schema Generator", tooltip: { children: "Schema Generator", side: "right" } },
     { href: "/dashboard/broken-link-checker", icon: <Unlink />, label: "Broken Link Checker", tooltip: { children: "Broken Link Checker", side: "right" } },
-    { href: "/dashboard/sitemap-generator", icon: <Sitemap />, label: "Sitemap Generator", tooltip: { children: "Sitemap Generator", side: "right" } },
+    { href: "/dashboard/sitemap-generator", icon: <Network />, label: "Sitemap Generator", tooltip: { children: "Sitemap Generator", side: "right" } },
 ];
 
 const agencyToolkitNav = [

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Globe, Loader2, Sitemap, Download } from "lucide-react";
+import { Globe, Loader2, Network, Download } from "lucide-react";
 
 import { fetchAllUrls } from "./actions";
 
@@ -147,7 +147,7 @@ ${result.data.map(item => `
                 {isLoading ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching URLs...</>
                 ) : (
-                  <><Sitemap className="mr-2 h-4 w-4" /> Generate Sitemap</>
+                  <><Network className="mr-2 h-4 w-4" /> Generate Sitemap</>
                 )}
               </Button>
             </CardContent>
