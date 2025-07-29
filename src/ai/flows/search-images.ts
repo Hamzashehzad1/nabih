@@ -79,60 +79,89 @@ async function searchUnsplash(query: string, page: number): Promise<SearchImages
 }
 
 async function searchWikimedia(query: string, page: number): Promise<SearchImagesOutput['images']> {
-  try {
-    const perPage = 15;
-    const offset = (page - 1) * perPage;
-    const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=6&format=json&origin=*&srlimit=${perPage}&sroffset=${offset}`;
-    
-    const searchResponse = await fetch(searchUrl);
-    if (!searchResponse.ok) {
-        console.error('Wikimedia API Search Error:', await searchResponse.text());
-        return [];
-    }
-    const searchData = await searchResponse.json();
-
-    if (!searchData.query || !searchData.query.search || searchData.query.search.length === 0) {
-      return [];
-    }
-    
-    const titles = searchData.query.search.map((item: any) => item.title).join('|');
-    const imageInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url|user|extmetadata&format=json&origin=*`;
-    
-    const imageInfoResponse = await fetch(imageInfoUrl);
-    if (!imageInfoResponse.ok) {
-        console.error('Wikimedia API Info Error:', await imageInfoResponse.text());
-        return [];
-    }
-    const imageInfoData = await imageInfoResponse.json();
-    const pages = imageInfoData.query.pages;
-
-    return Object.values(pages).map((page: any) => {
-        if (!page.imageinfo || !page.imageinfo[0]) return null;
-
-        const info = page.imageinfo[0];
-        const extmeta = info.extmetadata;
-        const alt = extmeta?.ObjectName?.value || page.title.replace('File:', '').replace(/\.[^/.]+$/, "");
-        const photographer = info.user || extmeta?.Artist?.value?.replace(/<[^>]*>?/gm, '') || 'Unknown';
-        
-        // Create a user page URL if the user exists
-        const photographerUrl = info.user 
-          ? `https://commons.wikimedia.org/wiki/User:${encodeURIComponent(info.user)}` 
-          : `https://commons.wikimedia.org/`;
-
-        return {
-            url: info.url,
-            alt,
-            photographer,
-            photographerUrl,
-            source: 'Wikimedia',
+    try {
+        const perPage = 15;
+        const offset = (page - 1) * perPage;
+        // Step 1: Search for images by keyword
+        const searchUrl = new URL('https://commons.wikimedia.org/w/api.php');
+        const searchParams = {
+            action: 'query',
+            list: 'search',
+            srsearch: query,
+            srnamespace: '6', // File namespace
+            srlimit: perPage.toString(),
+            sroffset: offset.toString(),
+            format: 'json',
+            origin: '*',
         };
-    }).filter((image): image is NonNullable<typeof image> => image !== null);
-    
-  } catch (error) {
-    console.error('Error searching Wikimedia:', error);
-    return [];
-  }
+        Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, (searchParams as any)[key]));
+
+        const searchResponse = await fetch(searchUrl.toString());
+        if (!searchResponse.ok) {
+            console.error('Wikimedia Search Error:', await searchResponse.text());
+            return [];
+        }
+        const searchData = await searchResponse.json();
+        if (!searchData.query?.search?.length) {
+            return [];
+        }
+        
+        const titles = searchData.query.search.map((item: any) => item.title).join('|');
+
+        // Step 2: Get image info for the found titles
+        const imageInfoUrl = new URL('https://commons.wikimedia.org/w/api.php');
+         const imageInfoParams = {
+            action: 'query',
+            titles: titles,
+            prop: 'imageinfo',
+            iiprop: 'url|user|extmetadata',
+            format: 'json',
+            origin: '*',
+        };
+        Object.keys(imageInfoParams).forEach(key => imageInfoUrl.searchParams.append(key, (imageInfoParams as any)[key]));
+
+
+        const imageInfoResponse = await fetch(imageInfoUrl.toString());
+        if (!imageInfoResponse.ok) {
+            console.error('Wikimedia Info Error:', await imageInfoResponse.text());
+            return [];
+        }
+        const imageInfoData = await imageInfoResponse.json();
+        const pages = imageInfoData.query?.pages;
+
+        if (!pages) return [];
+
+        return Object.values(pages)
+            .filter((page: any): page is { imageinfo: any[] } => page.imageinfo && page.imageinfo.length > 0)
+            .map((page: any) => {
+                const info = page.imageinfo[0];
+                const extmeta = info.extmetadata;
+                
+                // Sanitize HTML from fields
+                const artistHtml = extmeta?.Artist?.value || '';
+                const artistText = artistHtml.replace(/<[^>]*>?/gm, '');
+
+                const alt = extmeta?.ObjectName?.value || info.descriptionurl.split('/').pop().replace(/_/g, ' ');
+                const photographer = info.user || artistText || 'Unknown';
+                const photographerUrl = info.user 
+                    ? `https://commons.wikimedia.org/wiki/User:${encodeURIComponent(info.user)}` 
+                    : (extmeta?.Credit?.value?.match(/href="([^"]+)"/)?.[1] || info.descriptionurl);
+
+                return {
+                    url: info.url,
+                    alt,
+                    photographer,
+                    photographerUrl,
+                    source: 'Wikimedia',
+                };
+            });
+
+    } catch (error) {
+        console.error('Error searching Wikimedia:', error);
+        return [];
+    }
 }
+
 
 export async function searchImages({ query, page = 1 }: SearchImagesInput): Promise<SearchImagesOutput> {
     const [pexelsImages, unsplashImages, wikimediaImages] = await Promise.all([
@@ -156,3 +185,4 @@ export async function searchImages({ query, page = 1 }: SearchImagesInput): Prom
 
     return { images };
   }
+
