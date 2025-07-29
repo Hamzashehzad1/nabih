@@ -10,6 +10,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space
 export const metadata: Metadata = {
   title: 'Nabih',
   description: 'Generate blog posts and images with AI',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
