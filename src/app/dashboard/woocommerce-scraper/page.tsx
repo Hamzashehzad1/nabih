@@ -15,16 +15,10 @@ import type { ProductData } from './actions';
 
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
-interface ProgressState {
-    message: string;
-    percentage: number;
-}
-
 export default function WooCommerceScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
     const [status, setStatus] = useState<ScrapeStatus>('idle');
-    const [progress, setProgress] = useState<ProgressState>({ message: '', percentage: 0 });
     const [results, setResults] = useState<{ products: ProductData[], csv: string, zip: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -37,12 +31,9 @@ export default function WooCommerceScraperPage() {
         setStatus('scraping');
         setResults(null);
         setError(null);
-        setProgress({ message: 'Starting scrape...', percentage: 0 });
 
         try {
-            const result = await scrapeWooCommerceSite(url, (update) => {
-                setProgress(update);
-            });
+            const result = await scrapeWooCommerceSite(url);
 
             if (!result.success) {
                 throw new Error(result.error);
@@ -63,15 +54,8 @@ export default function WooCommerceScraperPage() {
         }
     };
     
-    const downloadFile = (base64Data: string, fileName: string, mimeType: string) => {
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], {type: mimeType});
-
+    const downloadFile = (content: string, fileName: string, mimeType: string) => {
+        const blob = new Blob([content], { type: mimeType });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = fileName;
@@ -79,6 +63,14 @@ export default function WooCommerceScraperPage() {
         link.click();
         document.body.removeChild(link);
     };
+
+    const downloadZip = (base64Data: string, fileName: string) => {
+        const linkSource = `data:application/zip;base64,${base64Data}`;
+        const downloadLink = document.createElement("a");
+        downloadLink.href = linkSource;
+        downloadLink.download = fileName;
+        downloadLink.click();
+    }
 
     return (
         <div className="space-y-8">
@@ -121,9 +113,9 @@ export default function WooCommerceScraperPage() {
                     <CardHeader>
                         <CardTitle>Scraping in Progress...</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Progress value={progress.percentage} />
-                        <p className="text-center text-muted-foreground">{progress.message}</p>
+                    <CardContent className="space-y-4 text-center">
+                         <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+                        <p className="text-muted-foreground">Please wait while we crawl the site. This may take a few minutes.</p>
                     </CardContent>
                 </Card>
             )}
@@ -151,7 +143,7 @@ export default function WooCommerceScraperPage() {
                         <Button onClick={() => downloadFile(results.csv, 'woocommerce-products.csv', 'text/csv')}>
                             <DownloadCloud className="mr-2"/> Download Products CSV
                         </Button>
-                         <Button onClick={() => downloadFile(results.zip, 'product-images.zip', 'application/zip')} variant="secondary">
+                         <Button onClick={() => downloadZip(results.zip, 'product-images.zip')} variant="secondary">
                             <DownloadCloud className="mr-2"/> Download Images (.zip)
                         </Button>
                     </CardContent>

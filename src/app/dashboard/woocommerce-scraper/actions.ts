@@ -39,8 +39,6 @@ export interface ProductData {
     attribute1Global?: number;
 }
 
-type ProgressCallback = (update: { message: string; percentage: number }) => void;
-
 const fetchWithRetry = async (url: string, retries = 3, delay = 1000): Promise<Response> => {
     for (let i = 0; i < retries; i++) {
         try {
@@ -156,8 +154,7 @@ function convertToCsv(products: ProductData[]): string {
 }
 
 export async function scrapeWooCommerceSite(
-    baseUrl: string,
-    progressCallback: ProgressCallback
+    baseUrl: string
 ): Promise<{ success: true; data: { products: ProductData[], csv: string, zip: string } } | { success: false; error: string }> {
     try {
         const productUrls = new Set<string>();
@@ -165,16 +162,12 @@ export async function scrapeWooCommerceSite(
         const queue: string[] = [baseUrl];
         visitedUrls.add(baseUrl);
 
-        progressCallback({ message: 'Finding product links on site...', percentage: 5 });
-
         let processedQueue = 0;
         while(queue.length > 0 && processedQueue < 100) { // Limit pages to crawl to prevent infinite loops
              const currentUrl = queue.shift();
              if (!currentUrl) continue;
              
              processedQueue++;
-             progressCallback({ message: `Crawling ${currentUrl}`, percentage: 5 + (processedQueue / 2) });
-
 
             try {
                 const response = await fetchWithRetry(currentUrl);
@@ -208,25 +201,16 @@ export async function scrapeWooCommerceSite(
 
         const allProducts: ProductData[] = [];
         const imageZip = new JSZip();
-        let scrapedCount = 0;
-        const totalProducts = productUrls.size;
 
         for (const url of Array.from(productUrls)) {
-            scrapedCount++;
-            progressCallback({ message: `Scraping product ${scrapedCount} of ${totalProducts}`, percentage: 50 + (scrapedCount / totalProducts * 45) });
-
             const product = await scrapeProductPage(url, imageZip);
             if (product) {
                 allProducts.push(product);
             }
         }
         
-        progressCallback({ message: 'Generating CSV and Zip file...', percentage: 98 });
-
         const csv = convertToCsv(allProducts);
         const zip = await imageZip.generateAsync({ type: 'base64' });
-
-        progressCallback({ message: 'Done!', percentage: 100 });
 
         return { success: true, data: { products: allProducts, csv, zip }};
 
