@@ -1,16 +1,16 @@
 // src/app/dashboard/woocommerce-scraper/page.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { DownloadCloud, Loader2, Sparkles, ServerCrash, CheckCircle2 } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { DownloadCloud, Loader2, Sparkles, ServerCrash, CheckCircle2, List, FileDown, Image as ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { scrapeWooCommerceSite } from './actions';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ProductData } from './actions';
 
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
@@ -19,8 +19,20 @@ export default function WooCommerceScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
     const [status, setStatus] = useState<ScrapeStatus>('idle');
-    const [results, setResults] = useState<{ products: ProductData[], csv: string, zip: string } | null>(null);
+    const [progressLog, setProgressLog] = useState<string[]>([]);
+    const [scrapedProducts, setScrapedProducts] = useState<ProductData[]>([]);
+    const [finalFiles, setFinalFiles] = useState<{ csv: string, zip: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const eventSourceRef = useRef<EventSource | null>(null);
+
+    useEffect(() => {
+        // Clean up the event source when the component unmounts
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+            }
+        };
+    }, []);
 
     const handleScrape = async () => {
         if (!url) {
@@ -28,30 +40,42 @@ export default function WooCommerceScraperPage() {
             return;
         }
 
+        // Reset state for a new scrape
         setStatus('scraping');
-        setResults(null);
+        setProgressLog([]);
+        setScrapedProducts([]);
+        setFinalFiles(null);
         setError(null);
-
-        try {
-            const result = await scrapeWooCommerceSite(url);
-
-            if (!result.success) {
-                throw new Error(result.error);
-            }
-            
-            setResults({
-                products: result.data.products,
-                csv: result.data.csv,
-                zip: result.data.zip
-            });
-            setStatus('complete');
-            toast({ title: "Scraping Complete!", description: `Found ${result.data.products.length} products.`});
-
-        } catch (e: any) {
-            setError(e.message || 'An unknown error occurred.');
-            setStatus('error');
-            toast({ title: "Scraping Failed", description: e.message, variant: 'destructive' });
+        
+        // Close any existing connection
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
         }
+
+        const eventSource = new EventSource(`/api/scrape-woocommerce?url=${encodeURIComponent(url)}`);
+        eventSourceRef.current = eventSource;
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'progress') {
+                setProgressLog(prev => [...prev, data.message]);
+            } else if (data.type === 'product') {
+                setScrapedProducts(prev => [...prev, data.product]);
+            } else if (data.type === 'complete') {
+                setFinalFiles({ csv: data.csv, zip: data.zip });
+                setStatus('complete');
+                toast({ title: "Scraping Complete!", description: `Found ${scrapedProducts.length} products.`});
+                eventSource.close();
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            console.error("EventSource failed:", err);
+            setError("An error occurred while scraping. The connection was lost or the server failed. Please check the URL and try again.");
+            setStatus('error');
+            eventSource.close();
+        };
     };
     
     const downloadFile = (content: string, fileName: string, mimeType: string) => {
@@ -108,15 +132,65 @@ export default function WooCommerceScraperPage() {
                 </CardContent>
             </Card>
 
-            {status === 'scraping' && (
+            {(status === 'scraping' || scrapedProducts.length > 0) && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Scraping in Progress...</CardTitle>
+                        <CardTitle>Live Scraping Results</CardTitle>
+                        <CardDescription>
+                            {status === 'scraping' ? 'The tool is actively crawling the site. See progress below.' : 'Scraping has completed.'}
+                        </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-center">
-                         <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
-                        <p className="text-muted-foreground">Please wait while we crawl the site. This may take a few minutes.</p>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 className="font-semibold mb-2 flex items-center gap-2"><List/> Progress Log</h3>
+                            <ScrollArea className="h-72 w-full rounded-md border bg-muted/50 p-4">
+                               <div className="flex flex-col gap-1 text-sm font-mono">
+                                {progressLog.map((log, i) => <p key={i}>{log}</p>)}
+                                {status === 'scraping' && <div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> <span>Working...</span></div>}
+                               </div>
+                            </ScrollArea>
+                        </div>
+                         <div>
+                            <h3 className="font-semibold mb-2">Found Products ({scrapedProducts.length})</h3>
+                            <ScrollArea className="h-72 w-full rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Price</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {scrapedProducts.map(p => (
+                                            <TableRow key={p.sku || p.name}>
+                                                <TableCell className="font-medium">{p.name}</TableCell>
+                                                <TableCell>{p.regularPrice}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </ScrollArea>
+                        </div>
                     </CardContent>
+                     {status === 'complete' && finalFiles && (
+                         <CardFooter className="flex-col items-start gap-4">
+                            <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary">
+                                <CheckCircle2 className="h-4 w-4 text-primary" />
+                                <AlertTitle className="font-bold">Scraping Complete!</AlertTitle>
+                                <AlertDescription className="text-primary/90">
+                                    Successfully extracted {scrapedProducts.length} products. You can now download the data.
+                                </AlertDescription>
+                            </Alert>
+                             <div className="flex gap-4">
+                                <Button onClick={() => downloadFile(finalFiles.csv, 'woocommerce-products.csv', 'text/csv')}>
+                                    <FileDown className="mr-2"/> Download Products CSV
+                                </Button>
+                                <Button onClick={() => downloadZip(finalFiles.zip, 'product-images.zip')} variant="secondary">
+                                    <ImageIcon className="mr-2"/> Download Images (.zip)
+                                </Button>
+                            </div>
+                        </CardFooter>
+                    )}
                 </Card>
             )}
 
@@ -126,28 +200,6 @@ export default function WooCommerceScraperPage() {
                     <AlertTitle>Scraping Error</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
-            )}
-
-            {status === 'complete' && results && (
-                <Card>
-                    <CardHeader>
-                         <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary">
-                            <CheckCircle2 className="h-4 w-4 text-primary" />
-                            <AlertTitle className="font-bold">Scraping Complete!</AlertTitle>
-                            <AlertDescription className="text-primary/90">
-                                Successfully extracted {results.products.length} products. You can now download the data.
-                            </AlertDescription>
-                        </Alert>
-                    </CardHeader>
-                    <CardContent className="flex gap-4">
-                        <Button onClick={() => downloadFile(results.csv, 'woocommerce-products.csv', 'text/csv')}>
-                            <DownloadCloud className="mr-2"/> Download Products CSV
-                        </Button>
-                         <Button onClick={() => downloadZip(results.zip, 'product-images.zip')} variant="secondary">
-                            <DownloadCloud className="mr-2"/> Download Images (.zip)
-                        </Button>
-                    </CardContent>
-                </Card>
             )}
 
         </div>
