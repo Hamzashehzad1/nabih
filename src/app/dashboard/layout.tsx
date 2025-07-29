@@ -48,6 +48,7 @@ import {
   Unlink,
   Layers3,
   Network,
+  DownloadCloud,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -86,6 +87,7 @@ const agencyToolkitNav = [
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
+    { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "WooCommerce Scraper", tooltip: { children: "WooCommerce Scraper", side: "right" } },
 ];
 
 const generalNav = [
