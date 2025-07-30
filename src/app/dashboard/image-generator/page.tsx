@@ -56,6 +56,7 @@ import {
 import { cn } from '@/lib/utils';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useInView } from 'react-intersection-observer';
 
 
 interface ImageState {
@@ -80,6 +81,8 @@ interface SearchDialogState {
   type: 'featured' | 'section' | null;
   postId: string | null;
   heading?: string;
+  initialQuery?: string;
+  initialImages?: ImageSearchResult[];
   onQueryGenerated?: (query: string, images: ImageSearchResult[]) => void;
 }
 
@@ -316,6 +319,7 @@ export default function ImageGeneratorPage() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ isUpdating: false, postId: null, type: null });
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
 
+  const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
   const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
   const processAndSetPostDetails = useCallback((postList: WpPost[]) => {
@@ -404,6 +408,11 @@ export default function ImageGeneratorPage() {
     setIsFetchingPosts(false);
   }, [selectedSite, toast, filter, posts, processAndSetPostDetails]);
 
+  useEffect(() => {
+    if (inView && !isFetchingPosts && hasMorePosts) {
+      handleFetchPosts(currentPage + 1);
+    }
+  }, [inView, isFetchingPosts, hasMorePosts, currentPage, handleFetchPosts]);
 
   useEffect(() => {
     if (selectedSiteId) {
@@ -715,13 +724,7 @@ export default function ImageGeneratorPage() {
                                           <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                                               <Button variant="outline" size="sm" onClick={() => {
                                                   handleOpenSearchDialog(post.id, 'featured', undefined, (query, images) => {
-                                                      const dialog = document.querySelector('[data-radix-dialog-content]');
-                                                      if(dialog) {
-                                                          const input = dialog.querySelector('input[type="search"]') as HTMLInputElement;
-                                                          const imageContainer = dialog.querySelector('[data-testid="image-container"]');
-                                                          if (input) input.value = query;
-                                                          // This part is tricky, you may need a more robust way to update the dialog state.
-                                                      }
+                                                        setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
                                                   })
                                               }}>
                                                 <Replace className="mr-2 h-4 w-4" /> Replace
@@ -829,15 +832,11 @@ export default function ImageGeneratorPage() {
                     </AccordionItem>
                 );
             })}
-             {hasMorePosts && !isFetchingPosts && (
-                <Button
-                    variant="outline"
-                    className="w-full mt-4"
-                    onClick={() => handleFetchPosts(currentPage + 1)}
-                    disabled={isFetchingPosts}
-                >
-                    Load More
-                </Button>
+             {hasMorePosts && (
+                <div ref={infiniteScrollRef} className="flex justify-center items-center p-4 mt-4">
+                    {isFetchingPosts && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    <span>{isFetchingPosts ? 'Loading more posts...' : 'Scroll to load more'}</span>
+                </div>
             )}
             {isFetchingPosts && posts.length > 0 && (
                  <div className="flex justify-center items-center p-4">
@@ -904,6 +903,8 @@ export default function ImageGeneratorPage() {
             const result = await searchImages({ query, page });
             return result.images;
         }}
+        initialQuery={searchDialogState.initialQuery}
+        initialImages={searchDialogState.initialImages}
     />
     <ImageCropDialog 
         open={cropDialogState.open}

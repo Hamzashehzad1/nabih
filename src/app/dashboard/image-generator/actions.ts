@@ -65,7 +65,7 @@ export async function fetchPostsFromWp(
     url.searchParams.append('context', 'edit');
     url.searchParams.append('_embed', 'wp:featuredmedia');
     url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
-    url.searchParams.append('per_page', '50'); // Fetch 50 posts per page
+    url.searchParams.append('per_page', '20'); // Fetch 20 posts per page for incremental loading
     url.searchParams.append('page', page.toString());
     statuses.forEach(s => url.searchParams.append('status[]', s));
 
@@ -82,6 +82,10 @@ export async function fetchPostsFromWp(
             let errorDetails = `HTTP error! status: ${response.status}`;
             try {
                 const errorData = await response.json();
+                 if (errorData.code === 'rest_post_invalid_page_number') {
+                    // This is not a fatal error, it just means we're past the last page.
+                    return { success: true, data: [] };
+                }
                 errorDetails += ` - ${errorData.message || 'Unknown error'}`;
             } catch (e) {
                 // Could not parse error JSON

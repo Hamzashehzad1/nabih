@@ -27,6 +27,8 @@ interface ImageSearchDialogProps {
   onQueryGenerated?: (query: string, images: ImageSearchResult[]) => void;
   onSelectImage: (image: ImageSearchResult) => void;
   onSearch: (query: string, page: number) => Promise<ImageSearchResult[]>;
+  initialQuery?: string;
+  initialImages?: ImageSearchResult[];
 }
 
 export function ImageSearchDialog({
@@ -35,6 +37,8 @@ export function ImageSearchDialog({
   onQueryGenerated,
   onSelectImage,
   onSearch,
+  initialQuery,
+  initialImages,
 }: ImageSearchDialogProps) {
   const [query, setQuery] = useState('');
   const [images, setImages] = useState<ImageSearchResult[]>([]);
@@ -47,6 +51,15 @@ export function ImageSearchDialog({
     threshold: 0,
     triggerOnce: false,
   });
+
+  useEffect(() => {
+      if (initialQuery) setQuery(initialQuery);
+      if (initialImages) {
+          setImages(initialImages);
+          setIsLoading(false);
+      }
+  }, [initialQuery, initialImages]);
+  
 
   const loadMoreImages = useCallback(async () => {
     if (isLoadingMore || !hasMore || !query) return;
@@ -87,19 +100,19 @@ export function ImageSearchDialog({
 
   useEffect(() => {
     if (open) {
-      // Reset state when dialog opens
-      setQuery('');
-      setImages([]);
+      // Reset state when dialog opens, unless initial values are provided
+      if(!initialQuery) setQuery('');
+      if(!initialImages) setImages([]);
+      
       setPage(1);
       setHasMore(true);
       setIsLoading(false);
       
-      // If there's a callback for query generation, it means we should show loading
-      if(onQueryGenerated) {
+      if(onQueryGenerated && !initialQuery) {
           setIsLoading(true);
       }
     }
-  }, [open, onQueryGenerated]);
+  }, [open, onQueryGenerated, initialQuery, initialImages]);
 
   useEffect(() => {
     if (onQueryGenerated) {
@@ -137,6 +150,7 @@ export function ImageSearchDialog({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="AI query will appear here... or type your own"
+            data-testid="image-search-input"
           />
           <Button onClick={() => handleSearch()} disabled={isLoading}>
             {isLoading ? (
@@ -149,7 +163,7 @@ export function ImageSearchDialog({
         </div>
         <div className="flex-grow mt-4 border rounded-md overflow-hidden">
             <ScrollArea className="h-full">
-            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div data-testid="image-container" className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {(isLoading && images.length === 0) && Array.from({ length: 12 }).map((_, i) => (
                     <div key={i} className="space-y-2">
                         <Skeleton className="aspect-[16/10] bg-muted rounded-md" />
