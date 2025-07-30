@@ -8,64 +8,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { DownloadCloud, Loader2, Sparkles, ServerCrash, CheckCircle2, List, FileDown, Image as ImageIcon, Settings2, ChevronsUpDown } from 'lucide-react';
+import { DownloadCloud, Loader2, Sparkles, ServerCrash, CheckCircle2, List, FileDown, Image as ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { InfoTooltip } from '@/components/ui/info-tooltip';
 import type { ProductData } from './actions';
 
 
-type Platform = 'woocommerce' | 'shopify' | 'other';
+type Platform = 'woocommerce' | 'shopify';
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
-interface SelectorConfig {
-    productLink: string;
-    title: string;
-    price: string;
-    salePrice: string;
-    description: string;
-    images: string;
-    sku: string;
-}
-
-const platformSelectors: Record<Platform, SelectorConfig> = {
-    woocommerce: {
-        productLink: '.woocommerce-LoopProduct-link',
-        title: 'h1.product_title',
-        price: '.price',
-        salePrice: '.price ins',
-        description: '#tab-description, .product-description, .woocommerce-product-details__short-description',
-        images: '.woocommerce-product-gallery__image a',
-        sku: '.sku',
-    },
-    shopify: {
-        productLink: 'a[href*="/products/"]',
-        title: 'h1.product__title',
-        price: '.price__container .price-item',
-        salePrice: '.price__container .price-item--sale',
-        description: '.product__description',
-        images: '.product__media-gallery img',
-        sku: '[data-sku], .sku',
-    },
-    other: {
-        productLink: 'a[href*="/product"], a.product-card',
-        title: 'h1, h2, .product-title, .product_title, .product-name',
-        price: '.price, .product-price, .price-container',
-        salePrice: '.sale-price, .price--sale, .price-sales',
-        description: '.description, .product-description, #description',
-        images: '.product-image img, .product-gallery img, .product-main-image img',
-        sku: '.sku, .product-sku',
-    }
-}
 
 export default function ProductScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
     const [platform, setPlatform] = useState<Platform>('woocommerce');
-    const [selectors, setSelectors] = useState<SelectorConfig>(platformSelectors.woocommerce);
     const [status, setStatus] = useState<ScrapeStatus>('idle');
     const [progressLog, setProgressLog] = useState<string[]>([]);
     const [scrapedProducts, setScrapedProducts] = useState<ProductData[]>([]);
@@ -80,11 +38,6 @@ export default function ProductScraperPage() {
             }
         };
     }, []);
-
-    const handlePlatformChange = (value: Platform) => {
-        setPlatform(value);
-        setSelectors(platformSelectors[value]);
-    }
 
     const handleScrape = async () => {
         if (!url) {
@@ -104,7 +57,7 @@ export default function ProductScraperPage() {
 
         const params = new URLSearchParams({
             url: url,
-            ...selectors
+            platform: platform,
         });
         
         const eventSource = new EventSource(`/api/scrape-products?${params.toString()}`);
@@ -192,14 +145,13 @@ export default function ProductScraperPage() {
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="platform-select">Platform</Label>
-                             <Select value={platform} onValueChange={(v) => handlePlatformChange(v as Platform)} disabled={status === 'scraping'}>
+                             <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)} disabled={status === 'scraping'}>
                                 <SelectTrigger className="w-full sm:w-[180px]" id="platform-select">
                                     <SelectValue placeholder="Select platform" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="woocommerce">WooCommerce</SelectItem>
                                     <SelectItem value="shopify">Shopify</SelectItem>
-                                    <SelectItem value="other">Other/Custom</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -213,34 +165,6 @@ export default function ProductScraperPage() {
                             </Button>
                         </div>
                     </div>
-                     <Collapsible>
-                        <CollapsibleTrigger asChild>
-                            <Button variant="link" className="p-0 h-auto text-sm">
-                                <Settings2 className="mr-2 h-4 w-4"/>
-                                Advanced: Custom Selectors
-                                <ChevronsUpDown className="ml-1 h-4 w-4"/>
-                            </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="mt-4 space-y-4 p-4 border rounded-lg">
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {Object.keys(selectors).map((key) => (
-                                    <div key={key} className="space-y-1.5">
-                                        <Label htmlFor={`selector-${key}`} className="text-xs capitalize flex items-center gap-1">
-                                            {key.replace(/([A-Z])/g, ' $1')}
-                                            <InfoTooltip info={`CSS selector for the ${key.replace(/([A-Z])/g, ' $1').toLowerCase()}.`} />
-                                        </Label>
-                                        <Input
-                                            id={`selector-${key}`}
-                                            value={selectors[key as keyof SelectorConfig]}
-                                            onChange={(e) => setSelectors(prev => ({...prev, [key]: e.target.value}))}
-                                            className="text-xs h-8"
-                                            disabled={status === 'scraping'}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </CollapsibleContent>
-                    </Collapsible>
                 </CardContent>
             </Card>
 
@@ -317,5 +241,3 @@ export default function ProductScraperPage() {
         </div>
     );
 }
-
-    

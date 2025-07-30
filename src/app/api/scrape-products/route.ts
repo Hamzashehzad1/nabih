@@ -17,17 +17,38 @@ interface ProductData {
     attribute1Visible?: number; attribute1Global?: number;
 }
 
-// Define the schema for custom selectors
 const SelectorSchema = z.object({
-    productLink: z.string().default('.product a, .type-product a, .woocommerce-LoopProduct-link, a[href*="/product/"], a[href*="/products/"]'),
-    title: z.string().default('h1.product_title, .product_title, h1, [itemprop="name"]'),
-    price: z.string().default('.price, .product-price, [itemprop="price"]'),
-    salePrice: z.string().default('.price ins, .sale-price'),
-    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"]'),
-    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, .main-image img'),
-    sku: z.string().default('.sku, [itemprop="sku"]'),
+    productLink: z.string(),
+    title: z.string(),
+    price: z.string(),
+    salePrice: z.string(),
+    description: z.string(),
+    images: z.string(),
+    sku: z.string(),
 });
 type Selectors = z.infer<typeof SelectorSchema>;
+
+const platformSelectors: Record<string, Selectors> = {
+    woocommerce: {
+        productLink: '.woocommerce-LoopProduct-link, .product-item-link, a.product-image-link',
+        title: 'h1.product_title, .product-title',
+        price: '.price, .product-price',
+        salePrice: '.price ins, .sale-price',
+        description: '#tab-description, .product-description, .woocommerce-product-details__short-description',
+        images: '.woocommerce-product-gallery__image a, .product-image a',
+        sku: '.sku, [itemprop="sku"]',
+    },
+    shopify: {
+        productLink: 'a[href*="/products/"]',
+        title: 'h1.product__title, h1[itemprop="name"]',
+        price: '.price__container .price-item, [itemprop="price"]',
+        salePrice: '.price__container .price-item--sale',
+        description: '.product__description, [itemprop="description"]',
+        images: '.product__media-gallery img, .product-gallery__image img',
+        sku: '[data-sku], .sku',
+    }
+}
+
 
 // Function to send progress updates to the client
 const sendProgress = (controller: ReadableStreamDefaultController, type: string, data: any) => {
@@ -122,7 +143,7 @@ async function scrapeProductPage(url: string, imageZip: JSZip, selectors: Select
             id: '', type: 'simple', sku: extractText($, selectors.sku), name, published: 1,
             isFeatured: 'no', visibility: 'visible',
             shortDescription: $(selectors.description).first().text().trim().substring(0, 200),
-            description: $(selectors.description).html() || '',
+            description: $(selectors.description).first().html() || '',
             salePrice, regularPrice, taxStatus: 'taxable', taxClass: '',
             inStock: 1, stock: '', backorders: 'no',
             weight: '', length: '', width: '', height: '', allowCustomerReviews: 1,
@@ -160,11 +181,14 @@ function convertToCsv(products: ProductData[]): string {
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const baseUrl = searchParams.get('url');
-    // Parse selectors from search params
-    let selectors = SelectorSchema.parse(Object.fromEntries(searchParams));
+    const platform = searchParams.get('platform') || 'woocommerce';
+    const selectors = platformSelectors[platform];
 
     if (!baseUrl) {
         return new Response('URL is required', { status: 400 });
+    }
+     if (!selectors) {
+        return new Response('Invalid platform specified', { status: 400 });
     }
 
     const stream = new ReadableStream({
@@ -286,5 +310,3 @@ export async function GET(request: NextRequest) {
         },
     });
 }
-
-    
