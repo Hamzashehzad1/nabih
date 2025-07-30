@@ -28,10 +28,9 @@ import {
   Power
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   generateAndSearch,
-  fetchPostsFromWp,
   updatePostOnWp,
   uploadImageToWp,
   type WpPost,
@@ -56,7 +55,6 @@ import {
 import { cn } from '@/lib/utils';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useInView } from 'react-intersection-observer';
 
 
 interface ImageState {
@@ -104,7 +102,6 @@ interface UpdateStatus {
     type: 'draft' | 'publish' | null;
 }
 
-const POSTS_PER_PAGE = 20;
 
 function getBase64Size(base64: string): number {
     if (!base64) return 0;
@@ -312,15 +309,13 @@ export default function ImageGeneratorPage() {
   const [filter, setFilter] = useState<'all' | 'publish' | 'draft'>('all');
   const [isFetchingPosts, setIsFetchingPosts] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMorePosts, setHasMorePosts] = useState(true);
   const [searchDialogState, setSearchDialogState] = useState<SearchDialogState>({ open: false, type: null, postId: null });
   const [cropDialogState, setCropDialogState] = useState<CropDialogState>({ open: false, image: null, onCropComplete: null });
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ isUpdating: false, postId: null, type: null });
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
 
-  const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
+  const eventSourceRef = useRef<EventSource | null>(null);
   const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
   const processAndSetPostDetails = useCallback((postList: WpPost[]) => {
@@ -370,56 +365,77 @@ export default function ImageGeneratorPage() {
   }, [setImages]);
 
 
-  const handleFetchPosts = useCallback(async (pageToFetch: number, refresh = false) => {
+  const handleFetchPosts = useCallback(() => {
     if (!selectedSite?.appPassword) {
       setFetchError("Application password not found for this site. Please add it in Settings.");
-      setIsFetchingPosts(false);
       return;
+    }
+
+    if (eventSourceRef.current) {
+        eventSourceRef.current.close();
     }
     
     setIsFetchingPosts(true);
+    setPosts([]);
+    setFetchError(null);
+    setPostDetailsMap(new Map());
 
-    if (refresh) {
-      setPosts([]);
-      setFetchError(null);
-      setHasMorePosts(true);
-      setCurrentPage(0);
-      setPostDetailsMap(new Map());
-    }
+    const params = new URLSearchParams({
+        siteUrl: selectedSite.url,
+        username: selectedSite.user,
+        password: selectedSite.appPassword,
+        status: filter,
+    });
 
-    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, pageToFetch, filter);
+    const es = new EventSource(`/api/wp-posts?${params.toString()}`);
+    eventSourceRef.current = es;
 
-    if (result.success) {
-        if(result.data.length < POSTS_PER_PAGE){
-            setHasMorePosts(false);
+    es.onmessage = (event) => {
+        try {
+            const post = JSON.parse(event.data);
+            if (post.type === 'post') {
+                setPosts(prev => [...prev, post.data]);
+                processAndSetPostDetails([post.data]);
+            } else if (post.type === 'error') {
+                setFetchError(post.message);
+                es.close();
+            } else if (post.type === 'done') {
+                setIsFetchingPosts(false);
+                es.close();
+            }
+        } catch(e) {
+            console.error("Error parsing stream data:", e);
         }
-        const newPosts = refresh ? result.data : [...posts, ...result.data];
-        setPosts(newPosts);
-        setCurrentPage(pageToFetch);
-        processAndSetPostDetails(result.data);
-    } else {
-      setFetchError(result.error);
-      toast({
-        title: "Failed to Fetch Posts",
-        description: result.error,
-        variant: "destructive"
-      })
-    }
-    setIsFetchingPosts(false);
-  }, [selectedSite, toast, filter, posts, processAndSetPostDetails]);
+    };
 
-  useEffect(() => {
-    if (inView && !isFetchingPosts && hasMorePosts) {
-      handleFetchPosts(currentPage + 1);
-    }
-  }, [inView, isFetchingPosts, hasMorePosts, currentPage, handleFetchPosts]);
+    es.onerror = () => {
+        setFetchError("An error occurred while fetching posts. The connection was lost or the server failed.");
+        setIsFetchingPosts(false);
+        es.close();
+    };
+
+  }, [selectedSite, filter, processAndSetPostDetails]);
+
 
   useEffect(() => {
     if (selectedSiteId) {
-      handleFetchPosts(1, true);
+      handleFetchPosts();
+    } else {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId, filter]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+      return () => {
+          if(eventSourceRef.current) {
+              eventSourceRef.current.close();
+          }
+      }
+  }, []);
 
 
   const handleOpenSearchDialog = useCallback((postId: string, type: 'featured' | 'section', heading: string | undefined) => {
@@ -609,7 +625,7 @@ export default function ImageGeneratorPage() {
         if (result.success) {
             toast({ title: "Success!", description: `Post has been successfully ${status === 'publish' ? 'published' : 'saved as a draft'}.` });
              // Optionally refresh posts
-            handleFetchPosts(1, true);
+            handleFetchPosts();
         } else {
             toast({ title: "Update Failed", description: result.error, variant: "destructive" });
         }
@@ -666,7 +682,7 @@ export default function ImageGeneratorPage() {
                 <TabsTrigger value="draft">Draft</TabsTrigger>
               </TabsList>
             </Tabs>
-            <Button onClick={() => handleFetchPosts(1, true)} size="icon" variant="outline" disabled={isFetchingPosts}>
+            <Button onClick={() => handleFetchPosts()} size="icon" variant="outline" disabled={isFetchingPosts}>
                 <RefreshCw className="h-4 w-4" />
             </Button>
         </div>
@@ -828,13 +844,7 @@ export default function ImageGeneratorPage() {
                     </AccordionItem>
                 );
             })}
-             {hasMorePosts && (
-                <div ref={infiniteScrollRef} className="flex justify-center items-center p-4 mt-4">
-                    {isFetchingPosts && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    <span>{isFetchingPosts ? 'Loading more posts...' : 'Scroll to load more'}</span>
-                </div>
-            )}
-            {isFetchingPosts && posts.length > 0 && (
+             {isFetchingPosts && posts.length > 0 && (
                  <div className="flex justify-center items-center p-4">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin"/> Loading more posts...
                  </div>

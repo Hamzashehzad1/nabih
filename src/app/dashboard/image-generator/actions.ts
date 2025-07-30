@@ -4,9 +4,8 @@
 import { generateImagePrompt, GenerateImagePromptInput } from '@/ai/flows/generate-image-prompt';
 import { searchImages, SearchImagesOutput } from '@/ai/flows/search-images';
 import { z } from 'zod';
-import { Readable } from 'stream';
 
-// Define the schema for a single WordPress post
+// This schema remains for type safety on the client
 const PostSchema = z.object({
   id: z.number(),
   date: z.string(),
@@ -24,9 +23,6 @@ const PostSchema = z.object({
     }))),
   })),
 });
-
-// Define the schema for an array of posts
-const PostsSchema = z.array(PostSchema);
 
 export interface WpPost {
     id: string;
@@ -52,70 +48,7 @@ export async function generateAndSearch(input: GenerateImagePromptInput): Promis
     }
 }
 
-
-export async function fetchPostsFromWp(
-    siteUrl: string,
-    username: string,
-    appPassword: string,
-    page: number = 1,
-    status: 'all' | 'publish' | 'draft' = 'all'
-): Promise<{ success: true; data: WpPost[] } | { success: false; error: string }> {
-    const statuses = status === 'all' ? ['publish', 'draft'] : [status];
-    const baseUrl = siteUrl.replace(/\/$/, '');
-
-    try {
-        const url = new URL(`${baseUrl}/wp-json/wp/v2/posts`);
-        url.searchParams.append('context', 'edit');
-        url.searchParams.append('_embed', 'wp:featuredmedia');
-        url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
-        url.searchParams.append('per_page', '20'); // Fetch a reasonable number per page
-        url.searchParams.append('page', page.toString());
-        statuses.forEach(s => url.searchParams.append('status[]', s));
-
-        const response = await fetch(url.toString(), {
-            headers: {
-                'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
-                'Content-Type': 'application/json',
-            },
-            cache: 'no-store',
-        });
-
-        if (!response.ok) {
-            if (response.status === 400 && (await response.json()).code === 'rest_post_invalid_page_number') {
-                return { success: true, data: [] }; // This is not an error, just the end of the list.
-            }
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Page ${page}: HTTP error! status: ${response.status} - ${errorData.message || 'Unknown error'}`);
-        }
-        
-        const postsData = await response.json();
-        const parsedData = PostsSchema.safeParse(postsData);
-
-        if (!parsedData.success) {
-            console.error('WP Parse Error:', parsedData.error);
-            return { success: false, error: 'Failed to parse posts from WordPress.' };
-        }
-        
-        const formattedPosts: WpPost[] = parsedData.data.map(post => ({
-            id: post.id.toString(),
-            title: post.title.rendered,
-            content: post.content.rendered,
-            date: new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-            status: post.status,
-            siteUrl: post.link,
-            featuredImageUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url
-        }));
-        
-        return { success: true, data: formattedPosts };
-
-    } catch (error) {
-        console.error('Error fetching from WP:', error);
-        if (error instanceof Error) {
-            return { success: false, error: error.message };
-        }
-        return { success: false, error: 'An unknown error occurred while fetching posts.' };
-    }
-}
+// NOTE: fetchPostsFromWp has been removed from this file and its logic is now in the new API route `/api/wp-posts/route.ts`
 
 export async function uploadImageToWp(
   siteUrl: string,
