@@ -65,7 +65,7 @@ const extractContent = ($: cheerio.CheerioAPI, selector: string) => {
         } else if (el.tagName === 'link') {
             content = element.attr('href') || '';
         } else if (el.tagName === 'img') {
-             content = element.attr('src') || '';
+             content = element.attr('src') || element.attr('data-src') || '';
         } else {
             content = element.html() || element.text();
         }
@@ -89,15 +89,14 @@ async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Sel
         let salePrice = '';
         const priceElement = $(selectors.price).first();
         
-        // Handle meta tag price
         if (priceElement.is('meta')) {
              regularPrice = priceElement.attr('content') || '';
-        } else { // Handle visible price elements
-            if ($(selectors.salePrice).length > 0) {
-                salePrice = $(selectors.salePrice).first().text().replace(/[^0-9.]/g, '');
-                regularPrice = priceElement.find('del').first().text().replace(/[^0-9.]/g, '') || priceElement.text().replace(/[^0-9.]/g, '');
+        } else {
+            if ($(selectors.salePrice).length > 0 && $(selectors.salePrice).text().trim() !== "") {
+                salePrice = $(selectors.salePrice).first().text().replace(/[^0-9.,]/g, '');
+                regularPrice = priceElement.find('del').first().text().replace(/[^0-9.,]/g, '') || priceElement.text().replace(/[^0-9.,]/g, '');
             } else {
-                regularPrice = priceElement.text().replace(/[^0-9.]/g, '');
+                regularPrice = priceElement.text().replace(/[^0-9.,]/g, '');
             }
         }
         
@@ -109,7 +108,7 @@ async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Sel
             if (el.tagName === 'meta') {
                 imageUrl = element.attr('content');
             } else if (el.tagName === 'img') {
-                imageUrl = element.attr('src');
+                imageUrl = element.attr('src') || element.attr('data-src');
             } else { // Assume it's an 'a' tag
                 imageUrl = element.attr('href');
             }
@@ -284,101 +283,112 @@ export async function GET(request: NextRequest) {
                 }
 
                 const productUrls = new Set<string>();
-                const visitedUrls = new Set<string>();
-                const queue: string[] = [baseUrl];
-                visitedUrls.add(baseUrl);
                 
-                sendProgress(controller, 'progress', { message: `Starting ${platform} crawl at ${baseUrl}` });
-
-                let processedQueue = 0;
-                while (queue.length > 0 && processedQueue < 50) { 
-                    const currentUrl = queue.shift();
-                    if (!currentUrl) continue;
-                    processedQueue++;
-
-                    sendProgress(controller, 'progress', { message: `Crawling: ${currentUrl.substring(baseUrl.length) || '/'}` });
+                // First, check if the base URL itself is a product page
+                sendProgress(controller, 'progress', { message: 'Checking if initial URL is a product...' });
+                const imageZipInitial = new JSZip();
+                const initialProduct = await scrapeGenericProduct(baseUrl, imageZipInitial, selectors);
+                
+                if (initialProduct && initialProduct.name) {
+                    productUrls.add(baseUrl);
+                    sendProgress(controller, 'progress', { message: 'Initial URL is a product page. Scraping it directly.' });
+                } else {
+                    sendProgress(controller, 'progress', { message: 'Initial URL is not a product page. Starting crawl...' });
+                    const visitedUrls = new Set<string>();
+                    const queue: string[] = [baseUrl];
+                    visitedUrls.add(baseUrl);
                     
-                    try {
-                        const response = await fetchWithRetry(currentUrl);
-                        const html = await response.text();
-                        const $ = cheerio.load(html);
+                    sendProgress(controller, 'progress', { message: `Starting ${platform} crawl at ${baseUrl}` });
 
-                        $('a').each((i, el) => {
-                            const href = $(el).attr('href');
-                            if (href) {
-                                let absoluteUrl;
-                                try {
-                                    absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
-                                } catch(e) { return; }
+                    let processedQueue = 0;
+                    while (queue.length > 0 && processedQueue < 50) { 
+                        const currentUrl = queue.shift();
+                        if (!currentUrl) continue;
+                        processedQueue++;
 
-                                if (absoluteUrl.startsWith(baseUrl) && !visitedUrls.has(absoluteUrl)) {
-                                    visitedUrls.add(absoluteUrl);
-                                    if (!absoluteUrl.match(/\.(jpg|jpeg|png|gif|pdf|zip|css|js)$/i)) {
-                                        queue.push(absoluteUrl);
+                        sendProgress(controller, 'progress', { message: `Crawling: ${currentUrl.substring(baseUrl.length) || '/'}` });
+                        
+                        try {
+                            const response = await fetchWithRetry(currentUrl);
+                            const html = await response.text();
+                            const $ = cheerio.load(html);
+
+                            $('a').each((i, el) => {
+                                const href = $(el).attr('href');
+                                if (href) {
+                                    let absoluteUrl;
+                                    try {
+                                        absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
+                                    } catch(e) { return; }
+
+                                    if (absoluteUrl.startsWith(baseUrl) && !visitedUrls.has(absoluteUrl)) {
+                                        visitedUrls.add(absoluteUrl);
+                                        if (!absoluteUrl.match(/\.(jpg|jpeg|png|gif|pdf|zip|css|js)$/i)) {
+                                            queue.push(absoluteUrl);
+                                        }
                                     }
                                 }
-                            }
-                        });
+                            });
 
-                         $(selectors.productLink).each((i, el) => {
-                             const href = $(el).attr('href');
-                             if (href) {
-                                let absoluteUrl;
-                                try {
-                                    absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
-                                    if(absoluteUrl.startsWith(baseUrl)) {
-                                       productUrls.add(absoluteUrl);
-                                    }
-                                } catch (e) { /* ignore invalid urls */ }
-                             }
-                        });
+                             $(selectors.productLink).each((i, el) => {
+                                 const href = $(el).attr('href');
+                                 if (href) {
+                                    let absoluteUrl;
+                                    try {
+                                        absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
+                                        if(absoluteUrl.startsWith(baseUrl)) {
+                                           productUrls.add(absoluteUrl);
+                                        }
+                                    } catch (e) { /* ignore invalid urls */ }
+                                 }
+                            });
 
+                        } catch (e) {
+                             sendProgress(controller, 'progress', { message: `Warning: Could not crawl ${currentUrl}` });
+                        }
+                    }
 
-                    } catch (e) {
-                         sendProgress(controller, 'progress', { message: `Warning: Could not crawl ${currentUrl}` });
+                    if (productUrls.size === 0 && (platform === 'woocommerce' || platform === 'shopify')) {
+                         sendProgress(controller, 'progress', { message: 'No product links found on main pages. Trying a direct collection/shop page crawl.' });
+                         try {
+                            const shopUrl = platform === 'woocommerce' ? `${baseUrl.replace(/\/$/, '')}/shop/` : `${baseUrl.replace(/\/$/, '')}/collections/all`;
+                            const response = await fetchWithRetry(shopUrl);
+                            const html = await response.text();
+                            const $ = cheerio.load(html);
+                            const linkSelector = platform === 'woocommerce' ? selectors.productLink : 'a[href*="/products/"]';
+                            $(linkSelector).each((i, el) => {
+                                const href = $(el).attr('href');
+                                 if (href) {
+                                    let absoluteUrl;
+                                    try {
+                                        absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
+                                        productUrls.add(absoluteUrl);
+                                    } catch (e) { /* ignore invalid urls */ }
+                                 }
+                            });
+                         } catch (e) {
+                            // ignore if shop page doesn't exist
+                         }
+                    }
+
+                    if (productUrls.size === 0 && platform !== 'shopify' && platform !== 'woocommerce') {
+                         sendProgress(controller, 'progress', { message: 'No product links found. Attempting discovery with provided selectors.' });
+                         const response = await fetchWithRetry(baseUrl);
+                         const html = await response.text();
+                         const $ = cheerio.load(html);
+                          $(selectors.productLink).each((i, el) => {
+                                const href = $(el).attr('href');
+                                 if (href) {
+                                    let absoluteUrl;
+                                    try {
+                                        absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
+                                        productUrls.add(absoluteUrl);
+                                    } catch (e) { /* ignore invalid urls */ }
+                                 }
+                            });
                     }
                 }
 
-                if (productUrls.size === 0 && (platform === 'woocommerce' || platform === 'shopify')) {
-                     sendProgress(controller, 'progress', { message: 'No product links found on main pages. Trying a direct collection/shop page crawl.' });
-                     try {
-                        const shopUrl = platform === 'woocommerce' ? `${baseUrl.replace(/\/$/, '')}/shop/` : `${baseUrl.replace(/\/$/, '')}/collections/all`;
-                        const response = await fetchWithRetry(shopUrl);
-                        const html = await response.text();
-                        const $ = cheerio.load(html);
-                        const linkSelector = platform === 'woocommerce' ? selectors.productLink : 'a[href*="/products/"]';
-                        $(linkSelector).each((i, el) => {
-                            const href = $(el).attr('href');
-                             if (href) {
-                                let absoluteUrl;
-                                try {
-                                    absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
-                                    productUrls.add(absoluteUrl);
-                                } catch (e) { /* ignore invalid urls */ }
-                             }
-                        });
-                     } catch (e) {
-                        // ignore if shop page doesn't exist
-                     }
-                }
-
-                if (productUrls.size === 0 && platform !== 'shopify' && platform !== 'woocommerce') {
-                     sendProgress(controller, 'progress', { message: 'No product links found. Attempting discovery with provided selectors.' });
-                     const response = await fetchWithRetry(baseUrl);
-                     const html = await response.text();
-                     const $ = cheerio.load(html);
-                      $(selectors.productLink).each((i, el) => {
-                            const href = $(el).attr('href');
-                             if (href) {
-                                let absoluteUrl;
-                                try {
-                                    absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
-                                    productUrls.add(absoluteUrl);
-                                } catch (e) { /* ignore invalid urls */ }
-                             }
-                        });
-                }
-                
                 if (productUrls.size === 0) {
                     throw new Error(`No product links found. Is this a standard e-commerce site? Try adjusting custom selectors.`);
                 }
@@ -432,3 +442,5 @@ export async function GET(request: NextRequest) {
         },
     });
 }
+
+    
