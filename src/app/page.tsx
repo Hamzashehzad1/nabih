@@ -1,12 +1,14 @@
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Bot, CheckCircle2, Star } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
+import { Input } from '@/components/ui/input';
 
 export default function Home() {
   const features = [
@@ -198,6 +200,47 @@ export default function Home() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="lead-magnet" className="py-20 bg-card/80">
+          <div className="container mx-auto px-4">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <Image
+                  src="https://placehold.co/600x500.png"
+                  alt="Checklist preview"
+                  width={600}
+                  height={500}
+                  className="rounded-lg shadow-lg"
+                  data-ai-hint="checklist document"
+                />
+              </div>
+              <div className="max-w-lg">
+                <h2 className="text-3xl md:text-4xl font-headline font-bold mb-4">
+                  Don't Know Where to Start? We've Got You.
+                </h2>
+                <p className="text-muted-foreground mb-6 text-lg">
+                  Building a WordPress site that actually gets results can be overwhelming. SEO, design, performance, security... where do you even begin? We've distilled the entire process into one ultimate checklist.
+                </p>
+                <Card className="glass-card">
+                  <CardContent className="pt-6">
+                    <p className="font-semibold mb-4">Get your FREE copy of the Ultimate WordPress Website Checklist:</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-grow">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                          <Input type="email" placeholder="you@agency.com" className="pl-10" />
+                        </div>
+                        <Button asChild>
+                          <Link href="/checklist">
+                            Download Now <Download className="ml-2 h-4 w-4" />
+                          </Link>
+                        </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </section>
