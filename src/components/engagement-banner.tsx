@@ -32,7 +32,7 @@ export function EngagementBanner() {
                 <div className="flex-grow">
                     <h4 className="font-semibold font-headline text-lg text-white">Still using 17 tabs for one project?</h4>
                     <p className="text-sm text-muted-foreground max-w-sm">
-                       I've been there. That's why I built Nabih. It's the AI toolkit for web pros who'd rather build empires than manage chaos. It does everything except make your coffee. (Working on that.)
+                       I got tired of juggling 17 apps per project, so I built this. It's the all-in-one AI toolkit for web pros who prefer building empires to managing chaos.
                     </p>
                 </div>
                  <Button asChild variant="default" size="sm">
