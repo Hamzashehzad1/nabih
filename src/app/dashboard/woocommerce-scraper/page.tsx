@@ -32,13 +32,13 @@ interface SelectorConfig {
 }
 
 const defaultSelectors: SelectorConfig = {
-    productLink: '.product a, .type-product a, .woocommerce-LoopProduct-link',
-    title: 'h1.product_title, .product_title, h1',
-    price: '.price .amount, .price',
-    salePrice: '.price ins .amount',
-    description: '#tab-description, .product-description, .woocommerce-product-details__short-description',
-    images: '.woocommerce-product-gallery__image a, .product-images a, .product-gallery a',
-    sku: '.sku',
+    productLink: '.product a, .type-product a, .woocommerce-LoopProduct-link, a[href*="/product/"], a[href*="/products/"]',
+    title: 'h1.product_title, .product_title, h1, [itemprop="name"], meta[property="og:title"]',
+    price: '.price, .product-price, [itemprop="price"], meta[property="product:price:amount"]',
+    salePrice: '.price ins, .sale-price',
+    description: '#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"], meta[name="description"], meta[property="og:description"]',
+    images: '.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, meta[property^="og:image"]',
+    sku: '.sku, [itemprop="sku"]',
 }
 
 export default function ProductScraperPage() {

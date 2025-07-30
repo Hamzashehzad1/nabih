@@ -20,11 +20,11 @@ interface ProductData {
 // Define the schema for custom selectors
 const SelectorSchema = z.object({
     productLink: z.string().default('.product a, .type-product a, .woocommerce-LoopProduct-link, a[href*="/product/"], a[href*="/products/"]'),
-    title: z.string().default('h1.product_title, .product_title, h1, [itemprop="name"]'),
-    price: z.string().default('.price, .product-price, [itemprop="price"]'),
+    title: z.string().default('h1.product_title, .product_title, h1, [itemprop="name"], meta[property="og:title"]'),
+    price: z.string().default('.price, .product-price, [itemprop="price"], meta[property="product:price:amount"]'),
     salePrice: z.string().default('.price ins, .sale-price'),
-    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"]'),
-    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img'),
+    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"], meta[name="description"], meta[property="og:description"]'),
+    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, meta[property^="og:image"]'),
     sku: z.string().default('.sku, [itemprop="sku"]'),
 });
 type Selectors = z.infer<typeof SelectorSchema>;
@@ -53,6 +53,27 @@ const fetchWithRetry = async (url: string, retries = 3, delay = 1000): Promise<R
     throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
 };
 
+// Helper to intelligently extract content from a Cheerio element
+const extractContent = (element: cheerio.Cheerio): string => {
+    if (element.is('meta')) {
+        return element.attr('content') || '';
+    }
+    if (element.is('link')) {
+        return element.attr('href') || '';
+    }
+     if (element.is('img')) {
+        return element.attr('src') || '';
+    }
+    return element.html()?.trim() || element.text().trim();
+};
+
+const extractText = (element: cheerio.Cheerio): string => {
+     if (element.is('meta')) {
+        return element.attr('content') || '';
+    }
+    return element.text().trim();
+}
+
 
 // Generic product scraper
 async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Selectors): Promise<ProductData | null> {
@@ -61,23 +82,23 @@ async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Sel
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        const name = $(selectors.title).first().text().trim();
+        const name = extractText($(selectors.title).first());
         if (!name) return null;
 
         let regularPrice = '';
         let salePrice = '';
         const priceElement = $(selectors.price).first();
         if ($(selectors.salePrice).length > 0) {
-            salePrice = $(selectors.salePrice).first().text().replace(/[^0-9.]/g, '');
-            regularPrice = priceElement.find('del').first().text().replace(/[^0-9.]/g, '') || priceElement.text().replace(/[^0-9.]/g, '');
+            salePrice = extractText($(selectors.salePrice).first()).replace(/[^0-9.]/g, '');
+            regularPrice = priceElement.find('del').first().text().replace(/[^0-9.]/g, '') || extractText(priceElement).replace(/[^0-9.]/g, '');
         } else {
-            regularPrice = priceElement.text().replace(/[^0-9.]/g, '');
+            regularPrice = extractText(priceElement).replace(/[^0-9.]/g, '');
         }
         
         const imagePromises: Promise<void>[] = [];
         const imageFilenames: string[] = [];
         $(selectors.images).each((i, el) => {
-            const imageUrl = $(el).attr('href') || $(el).attr('src');
+            const imageUrl = $(el).attr('href') || $(el).attr('src') || $(el).attr('content');
             if (imageUrl) {
                 const absoluteImageUrl = new URL(imageUrl, url).toString();
                 const filename = absoluteImageUrl.split('/').pop()?.split('?')[0] || `image-${Date.now()}`;
@@ -98,12 +119,15 @@ async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Sel
             }
         });
         await Promise.all(imagePromises);
+        
+        const description = extractContent($(selectors.description).first());
+        const shortDescription = cheerio.load(description).text().trim().substring(0, 200);
 
         return {
-            id: '', type: 'simple', sku: $(selectors.sku).text().trim(), name, published: 1,
+            id: '', type: 'simple', sku: extractText($(selectors.sku).first()), name, published: 1,
             isFeatured: 'no', visibility: 'visible',
-            shortDescription: $(selectors.description).first().text().trim().substring(0, 200),
-            description: $(selectors.description).html()?.trim() || '',
+            shortDescription: shortDescription,
+            description: description,
             salePrice, regularPrice, taxStatus: 'taxable', taxClass: '',
             inStock: 1, stock: '', backorders: 'no',
             weight: '', length: '', width: '', height: '', allowCustomerReviews: 1,
@@ -143,11 +167,11 @@ async function scrapeShopifyProduct(url: string, imageZip: JSZip): Promise<Produ
             // Fallback to generic scraping for Shopify if JSON-LD not found
             return await scrapeGenericProduct(url, imageZip, {
                 productLink: 'a[href*="/products/"]',
-                title: 'h1',
-                price: '.price',
+                title: 'h1, meta[property="og:title"]',
+                price: '.price, meta[property="product:price:amount"]',
                 salePrice: '.price--on-sale',
-                description: '.product__description',
-                images: '.product__media-gallery img',
+                description: '.product__description, meta[name="description"]',
+                images: '.product__media-gallery img, meta[property^="og:image"]',
                 sku: '.sku__value',
             });
         }
