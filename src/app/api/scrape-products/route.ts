@@ -259,8 +259,8 @@ export async function GET(request: NextRequest) {
     if (!baseUrl) {
         return new Response('URL is required', { status: 400 });
     }
-     if (platform !== 'woocommerce' && platform !== 'shopify' && platform !== 'auto') {
-        return new Response('Platform must be "auto", "woocommerce" or "shopify"', { status: 400 });
+     if (platform !== 'woocommerce' && platform !== 'shopify' && platform !== 'auto' && platform !== 'other') {
+        return new Response('Platform must be "auto", "woocommerce", "shopify" or "other"', { status: 400 });
     }
 
     const stream = new ReadableStream({
@@ -386,7 +386,7 @@ export async function GET(request: NextRequest) {
                     let product;
                     if (platform === 'shopify') {
                         product = await scrapeShopifyProduct(url, imageZip);
-                    } else { // woocommerce or generic
+                    } else { // woocommerce, other, or generic
                          product = await scrapeGenericProduct(url, imageZip, selectors);
                     }
 
@@ -421,5 +421,4 @@ export async function GET(request: NextRequest) {
             'Connection': 'keep-alive',
         },
     });
-
-    
+}

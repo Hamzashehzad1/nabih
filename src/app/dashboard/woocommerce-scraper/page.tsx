@@ -18,7 +18,7 @@ import { InfoTooltip } from '@/components/ui/info-tooltip';
 import type { ProductData } from './actions';
 
 
-type Platform = 'auto' | 'woocommerce' | 'shopify';
+type Platform = 'auto' | 'woocommerce' | 'shopify' | 'other';
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
 interface SelectorConfig {
@@ -37,8 +37,18 @@ const defaultSelectors: SelectorConfig = {
     price: '.price, .product-price, [itemprop="price"], meta[property="product:price:amount"]',
     salePrice: '.price ins, .sale-price',
     description: '#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"], meta[name="description"], meta[property="og:description"]',
-    images: '.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, meta[property^="og:image"]',
+    images: '.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, .main-image img, meta[property^="og:image"]',
     sku: '.sku, [itemprop="sku"]',
+}
+
+const otherSelectors: SelectorConfig = {
+    productLink: 'div.product-container a.product-image',
+    title: 'h1.product_title, .product-title',
+    price: 'span.Price, span.product-price',
+    salePrice: 'span.Price.salesprice',
+    description: '.product-short-description, .product_description',
+    images: '.main-image .MagicZoom a, #product-slider .slick-slide a',
+    sku: '.product-sku .product-sku-value',
 }
 
 export default function ProductScraperPage() {
@@ -60,6 +70,14 @@ export default function ProductScraperPage() {
             }
         };
     }, []);
+
+    useEffect(() => {
+        if (platform === 'other') {
+            setSelectors(otherSelectors);
+        } else {
+            setSelectors(defaultSelectors);
+        }
+    }, [platform]);
 
     const handleScrape = async () => {
         if (!url) {
@@ -176,6 +194,7 @@ export default function ProductScraperPage() {
                                     <SelectItem value="auto">Auto-Detect</SelectItem>
                                     <SelectItem value="woocommerce">WooCommerce</SelectItem>
                                     <SelectItem value="shopify">Shopify</SelectItem>
+                                    <SelectItem value="other">Other/Custom</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
