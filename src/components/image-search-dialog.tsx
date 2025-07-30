@@ -24,8 +24,7 @@ import { cn } from '@/lib/utils';
 interface ImageSearchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialQuery?: string;
-  initialImages?: ImageSearchResult[];
+  onQueryGenerated?: (query: string, images: ImageSearchResult[]) => void;
   onSelectImage: (image: ImageSearchResult) => void;
   onSearch: (query: string, page: number) => Promise<ImageSearchResult[]>;
 }
@@ -33,13 +32,12 @@ interface ImageSearchDialogProps {
 export function ImageSearchDialog({
   open,
   onOpenChange,
-  initialQuery = '',
-  initialImages = [],
+  onQueryGenerated,
   onSelectImage,
   onSearch,
 }: ImageSearchDialogProps) {
-  const [query, setQuery] = useState(initialQuery);
-  const [images, setImages] = useState(initialImages);
+  const [query, setQuery] = useState('');
+  const [images, setImages] = useState<ImageSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -72,45 +70,43 @@ export function ImageSearchDialog({
     }
   }, [inView, loadMoreImages]);
 
-
-  useEffect(() => {
-    if (open) {
-      setQuery(initialQuery);
-      setImages(initialImages);
-      setPage(1);
-      setHasMore(true);
-      if (initialImages.length === 0 && initialQuery) {
-          setIsLoading(true);
-          onSearch(initialQuery, 1).then(results => {
-              setImages(results);
-              setIsLoading(false);
-              if (results.length === 0) {
-                  setHasMore(false);
-              }
-          });
-      }
-    }
-  }, [open, initialQuery, initialImages, onSearch]);
-
   const handleSearch = useCallback(async () => {
     if (!query) return;
-
     setPage(1);
     setImages([]);
     setHasMore(true);
     setIsLoading(true);
     
     const results = await onSearch(query, 1);
-
     if (results.length === 0) {
-        setHasMore(false);
+      setHasMore(false);
     }
-    
     setImages(results);
     setIsLoading(false);
   }, [query, onSearch]);
 
+  useEffect(() => {
+    if (open) {
+      // Reset state when dialog opens
+      setQuery('');
+      setImages([]);
+      setPage(1);
+      setHasMore(true);
+      setIsLoading(false);
+      
+      // If there's a callback for query generation, it means we should show loading
+      if(onQueryGenerated) {
+          setIsLoading(true);
+      }
+    }
+  }, [open, onQueryGenerated]);
 
+  useEffect(() => {
+    if (onQueryGenerated) {
+        onQueryGenerated(query, images);
+    }
+  }, [query, images, onQueryGenerated]);
+  
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
@@ -140,7 +136,7 @@ export function ImageSearchDialog({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="e.g., 'futuristic city skyline at night'"
+            placeholder="AI query will appear here... or type your own"
           />
           <Button onClick={() => handleSearch()} disabled={isLoading}>
             {isLoading ? (
@@ -194,7 +190,7 @@ export function ImageSearchDialog({
             )}
             {!isLoading && images.length === 0 && (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <p>No images found for this query.</p>
+                    <p>{query ? 'No images found for this query.' : 'Search for an image to begin.'}</p>
                 </div>
             )}
             </ScrollArea>
