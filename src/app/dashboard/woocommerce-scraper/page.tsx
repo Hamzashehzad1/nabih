@@ -1,4 +1,3 @@
-
 // src/app/dashboard/woocommerce-scraper/page.tsx
 "use client";
 
@@ -8,26 +7,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { DownloadCloud, Loader2, Sparkles, ServerCrash, CheckCircle2, List, FileDown, Image as ImageIcon } from 'lucide-react';
+import { DownloadCloud, Loader2, Sparkles, ServerCrash, CheckCircle2, List, FileDown, Image as ImageIcon, Settings2, ChevronsUpDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import type { ProductData } from './actions';
 
+
+type Platform = 'woocommerce' | 'shopify';
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
-export default function WooCommerceScraperPage() {
+interface SelectorConfig {
+    productLink: string;
+    title: string;
+    price: string;
+    salePrice: string;
+    description: string;
+    images: string;
+    sku: string;
+}
+
+const defaultSelectors: SelectorConfig = {
+    productLink: '.product a, .type-product a, .woocommerce-LoopProduct-link',
+    title: 'h1.product_title, .product_title, h1',
+    price: '.price .amount, .price',
+    salePrice: '.price ins .amount',
+    description: '#tab-description, .product-description, .woocommerce-product-details__short-description',
+    images: '.woocommerce-product-gallery__image a, .product-images a, .product-gallery a',
+    sku: '.sku',
+}
+
+export default function ProductScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
+    const [platform, setPlatform] = useState<Platform>('woocommerce');
+    const [selectors, setSelectors] = useState<SelectorConfig>(defaultSelectors);
     const [status, setStatus] = useState<ScrapeStatus>('idle');
     const [progressLog, setProgressLog] = useState<string[]>([]);
     const [scrapedProducts, setScrapedProducts] = useState<ProductData[]>([]);
     const [finalFiles, setFinalFiles] = useState<{ csv: string, zip: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const eventSourceRef = useRef<EventSource | null>(null);
-
+    
     useEffect(() => {
-        // Clean up the event source when the component unmounts
         return () => {
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
@@ -41,56 +66,59 @@ export default function WooCommerceScraperPage() {
             return;
         }
 
-        // Reset state for a new scrape
         setStatus('scraping');
         setProgressLog([]);
         setScrapedProducts([]);
         setFinalFiles(null);
         setError(null);
         
-        // Close any existing connection
         if (eventSourceRef.current) {
             eventSourceRef.current.close();
         }
 
-        const eventSource = new EventSource(`/api/scrape-woocommerce?url=${encodeURIComponent(url)}`);
+        const params = new URLSearchParams({
+            url: url,
+            platform: platform,
+            ...selectors
+        });
+        
+        const eventSource = new EventSource(`/api/scrape-products?${params.toString()}`);
         eventSourceRef.current = eventSource;
 
         eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            try {
+                const data = JSON.parse(event.data);
 
-            if (data.type === 'progress') {
-                setProgressLog(prev => [...prev, data.message]);
-            } else if (data.type === 'product') {
-                setScrapedProducts(prev => [...prev, data.product]);
-            } else if (data.type === 'complete') {
-                setFinalFiles({ csv: data.csv, zip: data.zip });
-                setStatus('complete');
-                
-                // Use a functional update to get the latest state
-                setScrapedProducts(currentProducts => {
-                    const productLinksFound = progressLog.some(log => log.includes("Found") && log.includes("product pages"));
-                    let description = `Successfully extracted ${currentProducts.length} products.`;
-                    if (currentProducts.length === 0 && productLinksFound) {
-                        description = "Found product pages but could not extract product data. The site may use a custom theme structure."
-                    }
-                    toast({ title: "Scraping Complete!", description });
-                    return currentProducts;
-                });
-                
-                eventSource.close();
-            } else if (data.type === 'error') {
-                setError(data.message);
-                setStatus('error');
-                eventSource.close();
+                if (data.type === 'progress') {
+                    setProgressLog(prev => [...prev, data.message]);
+                } else if (data.type === 'product') {
+                    setScrapedProducts(prev => [...prev, data.product]);
+                } else if (data.type === 'complete') {
+                    setFinalFiles({ csv: data.csv, zip: data.zip });
+                    setStatus('complete');
+                    
+                    setScrapedProducts(currentProducts => {
+                        toast({ title: "Scraping Complete!", description: `Successfully extracted ${currentProducts.length} products.` });
+                        return currentProducts;
+                    });
+                    
+                    eventSource.close();
+                } else if (data.type === 'error') {
+                    setError(data.message);
+                    setStatus('error');
+                    eventSource.close();
+                }
+            } catch (e) {
+                 console.error("Failed to parse event data:", event.data);
             }
         };
 
         eventSource.onerror = (err) => {
-            if (status !== 'scraping') return;
-            setError("An error occurred while scraping. The connection was lost or the server failed. Please check the URL and try again.");
-            setStatus('error');
-            eventSource.close();
+            if (status === 'scraping') {
+                 setError("An error occurred while scraping. The connection was lost or the server failed. Please check the URL and try again.");
+                 setStatus('error');
+                 eventSource.close();
+            }
         };
     };
     
@@ -115,9 +143,9 @@ export default function WooCommerceScraperPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-headline font-bold">WooCommerce Product Scraper</h1>
+                <h1 className="text-3xl font-headline font-bold">Product Scraper</h1>
                 <p className="text-muted-foreground max-w-2xl">
-                    Enter a WooCommerce store URL to extract all product data into a compatible CSV and a zip file of images.
+                    Enter a store URL to extract all product data into a compatible CSV and a zip file of images.
                 </p>
             </div>
             
@@ -125,26 +153,69 @@ export default function WooCommerceScraperPage() {
                 <CardHeader>
                     <CardTitle>Scraper Input</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-grow space-y-2">
-                        <Label htmlFor="url-input">WooCommerce Store URL</Label>
-                        <Input 
-                            id="url-input"
-                            placeholder="https://www.example.com"
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                            disabled={status === 'scraping'}
-                        />
+                <CardContent className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-grow space-y-2">
+                            <Label htmlFor="url-input">Store URL</Label>
+                            <Input 
+                                id="url-input"
+                                placeholder="https://www.example.com"
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                disabled={status === 'scraping'}
+                            />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="platform-select">Platform</Label>
+                             <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)} disabled={status === 'scraping'}>
+                                <SelectTrigger className="w-full sm:w-[180px]" id="platform-select">
+                                    <SelectValue placeholder="Select platform" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="woocommerce">WooCommerce</SelectItem>
+                                    <SelectItem value="shopify">Shopify</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex-shrink-0 self-end">
+                            <Button onClick={handleScrape} disabled={status === 'scraping'}>
+                                {status === 'scraping' ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Scraping...</>
+                                ) : (
+                                    <><Sparkles className="mr-2 h-4 w-4"/> Start Scraping</>
+                                )}
+                            </Button>
+                        </div>
                     </div>
-                    <div className="flex-shrink-0 self-end">
-                        <Button onClick={handleScrape} disabled={status === 'scraping'}>
-                            {status === 'scraping' ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Scraping...</>
-                            ) : (
-                                <><Sparkles className="mr-2 h-4 w-4"/> Start Scraping</>
-                            )}
-                        </Button>
-                    </div>
+                     <Collapsible>
+                        <CollapsibleTrigger asChild>
+                            <Button variant="link" className="p-0 h-auto text-sm">
+                                <Settings2 className="mr-2 h-4 w-4"/>
+                                Advanced: Custom Selectors
+                                <ChevronsUpDown className="ml-1 h-4 w-4"/>
+                            </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-4 space-y-4 p-4 border rounded-lg">
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {Object.keys(selectors).map((key) => (
+                                    <div key={key} className="space-y-1.5">
+                                        <Label htmlFor={`selector-${key}`} className="text-xs capitalize flex items-center gap-1">
+                                            {key.replace(/([A-Z])/g, ' $1')}
+                                            <InfoTooltip info={`CSS selector for the ${key.replace(/([A-Z])/g, ' $1').toLowerCase()}.`} />
+                                        </Label>
+                                        <Input
+                                            id={`selector-${key}`}
+                                            value={selectors[key as keyof SelectorConfig]}
+                                            onChange={(e) => setSelectors(prev => ({...prev, [key]: e.target.value}))}
+                                            className="text-xs h-8"
+                                            disabled={status === 'scraping'}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => setSelectors(defaultSelectors)}>Reset to Defaults</Button>
+                        </CollapsibleContent>
+                    </Collapsible>
                 </CardContent>
             </Card>
 
@@ -198,7 +269,7 @@ export default function WooCommerceScraperPage() {
                                 </AlertDescription>
                             </Alert>
                              <div className="flex gap-4">
-                                <Button onClick={() => downloadFile(finalFiles.csv, 'woocommerce-products.csv', 'text/csv')}>
+                                <Button onClick={() => downloadFile(finalFiles.csv, 'products.csv', 'text/csv')}>
                                     <FileDown className="mr-2"/> Download Products CSV
                                 </Button>
                                 <Button onClick={() => downloadZip(finalFiles.zip, 'product-images.zip')} variant="secondary">

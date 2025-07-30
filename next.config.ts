@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
         source: '/chatbot-embed.js',
         destination: '/api/chatbot-embed',
       },
+       {
+        source: '/api/scrape-woocommerce',
+        destination: '/api/scrape-products',
+      },
     ]
   },
 };
