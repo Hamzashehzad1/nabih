@@ -18,7 +18,7 @@ import { InfoTooltip } from '@/components/ui/info-tooltip';
 import type { ProductData } from './actions';
 
 
-type Platform = 'auto' | 'woocommerce' | 'shopify';
+type Platform = 'woocommerce' | 'shopify' | 'other';
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
 interface SelectorConfig {
@@ -31,21 +31,41 @@ interface SelectorConfig {
     sku: string;
 }
 
-const defaultSelectors: SelectorConfig = {
-    productLink: '.product a, .type-product a, .woocommerce-LoopProduct-link, a[href*="/product/"], a[href*="/products/"]',
-    title: 'h1.product_title, .product_title, h1, [itemprop="name"], meta[property="og:title"]',
-    price: '.price, .product-price, [itemprop="price"], meta[property="product:price:amount"]',
-    salePrice: '.price ins, .sale-price',
-    description: '#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"], meta[name="description"], meta[property="og:description"]',
-    images: '.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, .main-image img, meta[property^="og:image"]',
-    sku: '.sku, [itemprop="sku"]',
+const platformSelectors: Record<Platform, SelectorConfig> = {
+    woocommerce: {
+        productLink: '.woocommerce-LoopProduct-link',
+        title: 'h1.product_title',
+        price: '.price',
+        salePrice: '.price ins',
+        description: '#tab-description',
+        images: '.woocommerce-product-gallery__image a',
+        sku: '.sku',
+    },
+    shopify: {
+        productLink: 'a[href*="/products/"]',
+        title: 'h1.product__title',
+        price: '.price__container .price-item',
+        salePrice: '.price__container .price-item--sale',
+        description: '.product__description',
+        images: '.product__media-gallery img',
+        sku: '[data-sku]',
+    },
+    other: {
+        productLink: 'a[href*="/product/"], a[href*="/products/"]',
+        title: 'h1, h2, .product-title, .product_title',
+        price: '.price, .product-price',
+        salePrice: '.sale-price, .price--sale',
+        description: '.description, .product-description',
+        images: '.product-image img, .product-gallery img',
+        sku: '.sku',
+    }
 }
 
 export default function ProductScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
-    const [platform, setPlatform] = useState<Platform>('auto');
-    const [selectors, setSelectors] = useState<SelectorConfig>(defaultSelectors);
+    const [platform, setPlatform] = useState<Platform>('woocommerce');
+    const [selectors, setSelectors] = useState<SelectorConfig>(platformSelectors.woocommerce);
     const [status, setStatus] = useState<ScrapeStatus>('idle');
     const [progressLog, setProgressLog] = useState<string[]>([]);
     const [scrapedProducts, setScrapedProducts] = useState<ProductData[]>([]);
@@ -60,6 +80,11 @@ export default function ProductScraperPage() {
             }
         };
     }, []);
+
+    const handlePlatformChange = (value: Platform) => {
+        setPlatform(value);
+        setSelectors(platformSelectors[value]);
+    }
 
     const handleScrape = async () => {
         if (!url) {
@@ -168,14 +193,14 @@ export default function ProductScraperPage() {
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="platform-select">Platform</Label>
-                             <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)} disabled={status === 'scraping'}>
+                             <Select value={platform} onValueChange={(v) => handlePlatformChange(v as Platform)} disabled={status === 'scraping'}>
                                 <SelectTrigger className="w-full sm:w-[180px]" id="platform-select">
                                     <SelectValue placeholder="Select platform" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="auto">Auto-Detect</SelectItem>
                                     <SelectItem value="woocommerce">WooCommerce</SelectItem>
                                     <SelectItem value="shopify">Shopify</SelectItem>
+                                    <SelectItem value="other">Other/Custom</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -215,7 +240,6 @@ export default function ProductScraperPage() {
                                     </div>
                                 ))}
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => setSelectors(defaultSelectors)}>Reset to Defaults</Button>
                         </CollapsibleContent>
                     </Collapsible>
                 </CardContent>
