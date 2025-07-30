@@ -30,7 +30,9 @@ export default function ProductScraperPage() {
     const [finalFiles, setFinalFiles] = useState<{ csv: string, zip: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const eventSourceRef = useRef<EventSource | null>(null);
-    
+
+    const productsCountForToast = useRef(0);
+
     useEffect(() => {
         return () => {
             if (eventSourceRef.current) {
@@ -38,6 +40,12 @@ export default function ProductScraperPage() {
             }
         };
     }, []);
+
+    useEffect(() => {
+        if (status === 'complete') {
+            toast({ title: "Scraping Complete!", description: `Successfully extracted ${productsCountForToast.current} products.` });
+        }
+    }, [status, toast]);
 
     const handleScrape = async () => {
         if (!url) {
@@ -50,6 +58,7 @@ export default function ProductScraperPage() {
         setScrapedProducts([]);
         setFinalFiles(null);
         setError(null);
+        productsCountForToast.current = 0;
         
         if (eventSourceRef.current) {
             eventSourceRef.current.close();
@@ -70,16 +79,14 @@ export default function ProductScraperPage() {
                 if (data.type === 'progress') {
                     setProgressLog(prev => [...prev, data.message]);
                 } else if (data.type === 'product') {
-                    setScrapedProducts(prev => [...prev, data.product]);
+                    setScrapedProducts(prev => {
+                        const newProducts = [...prev, data.product];
+                        productsCountForToast.current = newProducts.length;
+                        return newProducts;
+                    });
                 } else if (data.type === 'complete') {
                     setFinalFiles({ csv: data.csv, zip: data.zip });
                     setStatus('complete');
-                    
-                    setScrapedProducts(currentProducts => {
-                        toast({ title: "Scraping Complete!", description: `Successfully extracted ${currentProducts.length} products.` });
-                        return currentProducts;
-                    });
-                    
                     eventSource.close();
                 } else if (data.type === 'error') {
                     setError(data.message);
