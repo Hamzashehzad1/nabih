@@ -18,7 +18,7 @@ import { InfoTooltip } from '@/components/ui/info-tooltip';
 import type { ProductData } from './actions';
 
 
-type Platform = 'auto' | 'woocommerce' | 'shopify' | 'other';
+type Platform = 'auto' | 'woocommerce' | 'shopify';
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
 interface SelectorConfig {
@@ -41,16 +41,6 @@ const defaultSelectors: SelectorConfig = {
     sku: '.sku, [itemprop="sku"]',
 }
 
-const otherSelectors: SelectorConfig = {
-    productLink: 'div.product-container a.product-image',
-    title: 'h1.product_title',
-    price: 'span.Price',
-    salePrice: 'span.Price.salesprice',
-    description: '.product-short-description',
-    images: '.main-image .MagicZoom, #product-slider .slick-slide a',
-    sku: '.product-sku-value',
-}
-
 export default function ProductScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
@@ -70,14 +60,6 @@ export default function ProductScraperPage() {
             }
         };
     }, []);
-
-    useEffect(() => {
-        if (platform === 'other') {
-            setSelectors(otherSelectors);
-        } else {
-            setSelectors(defaultSelectors);
-        }
-    }, [platform]);
 
     const handleScrape = async () => {
         if (!url) {
@@ -194,7 +176,6 @@ export default function ProductScraperPage() {
                                     <SelectItem value="auto">Auto-Detect</SelectItem>
                                     <SelectItem value="woocommerce">WooCommerce</SelectItem>
                                     <SelectItem value="shopify">Shopify</SelectItem>
-                                    <SelectItem value="other">Other/Custom</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

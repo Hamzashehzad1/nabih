@@ -258,8 +258,8 @@ export async function GET(request: NextRequest) {
     if (!baseUrl) {
         return new Response('URL is required', { status: 400 });
     }
-     if (platform !== 'woocommerce' && platform !== 'shopify' && platform !== 'auto' && platform !== 'other') {
-        return new Response('Platform must be "auto", "woocommerce", "shopify" or "other"', { status: 400 });
+     if (platform !== 'woocommerce' && platform !== 'shopify' && platform !== 'auto') {
+        return new Response('Platform must be "auto", "woocommerce", or "shopify"', { status: 400 });
     }
 
     const stream = new ReadableStream({
@@ -370,23 +370,6 @@ export async function GET(request: NextRequest) {
                             // ignore if shop page doesn't exist
                          }
                     }
-
-                    if (productUrls.size === 0 && platform !== 'shopify' && platform !== 'woocommerce') {
-                         sendProgress(controller, 'progress', { message: 'No product links found. Attempting discovery with provided selectors.' });
-                         const response = await fetchWithRetry(baseUrl);
-                         const html = await response.text();
-                         const $ = cheerio.load(html);
-                          $(selectors.productLink).each((i, el) => {
-                                const href = $(el).attr('href');
-                                 if (href) {
-                                    let absoluteUrl;
-                                    try {
-                                        absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
-                                        productUrls.add(absoluteUrl);
-                                    } catch (e) { /* ignore invalid urls */ }
-                                 }
-                            });
-                    }
                 }
 
                 if (productUrls.size === 0) {
@@ -406,7 +389,7 @@ export async function GET(request: NextRequest) {
                     let product;
                     if (platform === 'shopify') {
                         product = await scrapeShopifyProduct(url, imageZip);
-                    } else { // woocommerce, other, or generic
+                    } else { // woocommerce or generic
                          product = await scrapeGenericProduct(url, imageZip, selectors);
                     }
 
@@ -442,5 +425,3 @@ export async function GET(request: NextRequest) {
         },
     });
 }
-
-    
