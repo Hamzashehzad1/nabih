@@ -1,4 +1,3 @@
-
 // src/app/dashboard/woocommerce-scraper/page.tsx
 "use client";
 
@@ -144,7 +143,7 @@ export default function ProductScraperPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-headline font-bold">Product Scraper</h1>
+                <h1 className="text-3xl font-headline font-bold">Products Scraper</h1>
                 <p className="text-muted-foreground max-w-2xl">
                     Enter a store URL to extract all product data into a compatible CSV and a zip file of images.
                 </p>

@@ -87,7 +87,7 @@ const agencyToolkitNav = [
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
-    { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "WooCommerce Scraper", tooltip: { children: "WooCommerce Scraper", side: "right" } },
+    { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper", tooltip: { children: "Products Scraper", side: "right" } },
 ];
 
 const generalNav = [
