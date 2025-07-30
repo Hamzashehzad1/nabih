@@ -66,10 +66,20 @@ export default function WooCommerceScraperPage() {
             } else if (data.type === 'complete') {
                 setFinalFiles({ csv: data.csv, zip: data.zip });
                 setStatus('complete');
-                toast({ title: "Scraping Complete!", description: `Found ${scrapedProducts.length} products.`});
+                
+                // Use a functional update to get the latest state
+                setScrapedProducts(currentProducts => {
+                    const productLinksFound = progressLog.some(log => log.includes("Found") && log.includes("product pages"));
+                    let description = `Successfully extracted ${currentProducts.length} products.`;
+                    if (currentProducts.length === 0 && productLinksFound) {
+                        description = "Found product pages but could not extract product data. The site may use a custom theme structure."
+                    }
+                    toast({ title: "Scraping Complete!", description });
+                    return currentProducts;
+                });
+                
                 eventSource.close();
             } else if (data.type === 'error') {
-                // This is a custom error event from the server
                 setError(data.message);
                 setStatus('error');
                 eventSource.close();
@@ -77,12 +87,9 @@ export default function WooCommerceScraperPage() {
         };
 
         eventSource.onerror = (err) => {
-            // This event fires when the connection is lost, but often lacks specific details.
-            // The custom 'error' event above is more informative.
-            if (status === 'scraping') { // Only set error if we haven't already completed or errored out
-               setError("An error occurred. The connection was lost or the server could not be reached.");
-               setStatus('error');
-            }
+            if (status !== 'scraping') return;
+            setError("An error occurred while scraping. The connection was lost or the server failed. Please check the URL and try again.");
+            setStatus('error');
             eventSource.close();
         };
     };
