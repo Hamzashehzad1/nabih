@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,12 +20,13 @@ export function EngagementBanner() {
                 "glass-card flex items-center gap-4 p-4 rounded-xl shadow-lg transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-4",
                 !isVisible && "animate-out fade-out-0 slide-out-to-bottom-4"
             )}>
-                <Image
+                <img
                     src="https://storage.googleapis.com/genkit-assets/hamza.jpeg"
                     alt="Hamza S"
                     width={64}
                     height={64}
                     className="rounded-full border-2 border-primary/50 object-cover"
+                    data-ai-hint="developer portrait"
                 />
                 <div className="flex-grow">
                     <h4 className="font-semibold font-headline text-lg text-white">A quick question from Hamza S.</h4>
