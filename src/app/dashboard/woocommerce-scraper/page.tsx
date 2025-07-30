@@ -43,12 +43,12 @@ const defaultSelectors: SelectorConfig = {
 
 const otherSelectors: SelectorConfig = {
     productLink: 'div.product-container a.product-image',
-    title: 'h1.product_title, .product-title',
-    price: 'span.Price, span.product-price',
+    title: 'h1.product_title',
+    price: 'span.Price',
     salePrice: 'span.Price.salesprice',
-    description: '.product-short-description, .product_description',
-    images: '.main-image .MagicZoom a, #product-slider .slick-slide a',
-    sku: '.product-sku .product-sku-value',
+    description: '.product-short-description',
+    images: '.main-image .MagicZoom, #product-slider .slick-slide a',
+    sku: '.product-sku-value',
 }
 
 export default function ProductScraperPage() {

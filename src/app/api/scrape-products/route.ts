@@ -317,13 +317,23 @@ export async function GET(request: NextRequest) {
                                         queue.push(absoluteUrl);
                                     }
                                 }
-                                
-                                const isProductLink = platform === 'woocommerce' ? $(el).closest(selectors.productLink).length > 0 && href.includes('/product/') : href.includes('/products/');
-                                if (isProductLink && absoluteUrl.startsWith(baseUrl)) {
-                                   productUrls.add(absoluteUrl);
-                                }
                             }
                         });
+
+                         $(selectors.productLink).each((i, el) => {
+                             const href = $(el).attr('href');
+                             if (href) {
+                                let absoluteUrl;
+                                try {
+                                    absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
+                                    if(absoluteUrl.startsWith(baseUrl)) {
+                                       productUrls.add(absoluteUrl);
+                                    }
+                                } catch (e) { /* ignore invalid urls */ }
+                             }
+                        });
+
+
                     } catch (e) {
                          sendProgress(controller, 'progress', { message: `Warning: Could not crawl ${currentUrl}` });
                     }
@@ -352,8 +362,8 @@ export async function GET(request: NextRequest) {
                      }
                 }
 
-                if (productUrls.size === 0) {
-                     sendProgress(controller, 'progress', { message: 'No product links found. Attempting generic link discovery.' });
+                if (productUrls.size === 0 && platform !== 'shopify' && platform !== 'woocommerce') {
+                     sendProgress(controller, 'progress', { message: 'No product links found. Attempting discovery with provided selectors.' });
                      const response = await fetchWithRetry(baseUrl);
                      const html = await response.text();
                      const $ = cheerio.load(html);
