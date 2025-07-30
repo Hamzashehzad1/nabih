@@ -2,11 +2,11 @@
 "use client";
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function EngagementBanner() {
     const [isVisible, setIsVisible] = useState(true);
@@ -27,16 +27,17 @@ export function EngagementBanner() {
                     width={64}
                     height={64}
                     className="rounded-full border-2 border-primary/50 object-cover"
+                    data-ai-hint="person founder"
                 />
                 <div className="flex-grow">
-                    <h4 className="font-semibold font-headline text-lg text-white">A quick question from Hamza S.</h4>
+                    <h4 className="font-semibold font-headline text-lg text-white">Still using 17 tabs for one project?</h4>
                     <p className="text-sm text-muted-foreground max-w-sm">
-                        Tired of the content grind? Let's build your automated content engine, together. See how.
+                       I've been there. That's why I built Nabih. It's the AI toolkit for web pros who'd rather build empires than manage chaos. It does everything except make your coffee. (Working on that.)
                     </p>
                 </div>
                  <Button asChild variant="default" size="sm">
-                    <Link href="/about">
-                       My Method
+                    <Link href="/#features">
+                       See the All-in-One
                        <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                 </Button>

@@ -47,6 +47,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'webbrewery.co',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
   async rewrites() {

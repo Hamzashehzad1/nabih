@@ -1,9 +1,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const imageUrl = searchParams.get('url');
+async function handleProxy(request: NextRequest) {
+  let imageUrl: string | null = null;
+
+  if (request.method === 'GET') {
+    const { searchParams } = new URL(request.url);
+    imageUrl = searchParams.get('url');
+  } else if (request.method === 'POST') {
+    try {
+      const body = await request.json();
+      imageUrl = body.url;
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+  }
 
   if (!imageUrl) {
     return NextResponse.json({ error: 'Image URL is required' }, { status: 400 });
@@ -25,6 +36,17 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Proxy image error:', error);
+    if (error instanceof Error) {
+      return NextResponse.json({ error: 'Internal server error: ' + error.message }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleProxy(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleProxy(request);
 }
