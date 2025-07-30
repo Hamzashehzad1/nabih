@@ -620,10 +620,10 @@ export default function ImageGeneratorPage() {
         }
 
         const newContent = constructPostHtml(post.content, finalImages);
-        const result = await updatePostOnWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, postId, newContent, status);
+        const result = await updatePostOnWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, postId, newContent);
 
         if (result.success) {
-            toast({ title: "Success!", description: `Post has been successfully ${status === 'publish' ? 'published' : 'saved as a draft'}.` });
+            toast({ title: "Success!", description: `Post has been successfully updated.` });
              // Optionally refresh posts
             handleFetchPosts();
         } else {

@@ -48,8 +48,6 @@ export async function generateAndSearch(input: GenerateImagePromptInput): Promis
     }
 }
 
-// NOTE: fetchPostsFromWp has been removed from this file and its logic is now in the new API route `/api/wp-posts/route.ts`
-
 export async function uploadImageToWp(
   siteUrl: string,
   username: string,
@@ -125,8 +123,7 @@ export async function updatePostOnWp(
   username: string,
   appPassword: string,
   postId: string,
-  newContent: string,
-  status: 'publish' | 'draft'
+  newContent: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts/${postId}`;
 
@@ -139,7 +136,6 @@ export async function updatePostOnWp(
       },
       body: JSON.stringify({
         content: newContent,
-        status: status,
       }),
     });
 
