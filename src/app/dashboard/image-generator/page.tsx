@@ -1,3 +1,4 @@
+
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -102,6 +103,8 @@ interface UpdateStatus {
     postId: string | null;
     type: 'draft' | 'publish' | null;
 }
+
+const PAGE_BATCH_SIZE = 5;
 
 function getBase64Size(base64: string): number {
     if (!base64) return 0;
@@ -309,7 +312,7 @@ export default function ImageGeneratorPage() {
   const [filter, setFilter] = useState<'all' | 'publish' | 'draft'>('all');
   const [isFetchingPosts, setIsFetchingPosts] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [searchDialogState, setSearchDialogState] = useState<SearchDialogState>({ open: false, type: null, postId: null });
   const [cropDialogState, setCropDialogState] = useState<CropDialogState>({ open: false, image: null, onCropComplete: null });
@@ -367,14 +370,14 @@ export default function ImageGeneratorPage() {
   }, [setImages]);
 
 
-  const handleFetchPosts = useCallback(async (page = 1, refresh = false) => {
+  const handleFetchPosts = useCallback(async (startPage = 1, refresh = false) => {
     if (!selectedSite) return;
     setIsFetchingPosts(true);
     if (refresh) {
       setPosts([]);
       setFetchError(null);
       setHasMorePosts(true);
-      setCurrentPage(1);
+      setCurrentPage(0);
       setPostDetailsMap(new Map());
     }
     
@@ -384,17 +387,18 @@ export default function ImageGeneratorPage() {
       return;
     }
     
-    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, page, filter);
+    const pagesToFetch = Array.from({ length: PAGE_BATCH_SIZE }, (_, i) => startPage + i);
+
+    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, pagesToFetch, filter);
 
     if (result.success) {
-        if(result.data.length === 0){
+        if(result.data.length < 50 * PAGE_BATCH_SIZE){ // Heuristic to detect end
             setHasMorePosts(false);
-        } else {
-            const newPosts = refresh ? result.data : [...posts, ...result.data];
-            setPosts(newPosts);
-            setCurrentPage(page);
-            processAndSetPostDetails(result.data);
         }
+        const newPosts = refresh ? result.data : [...posts, ...result.data];
+        setPosts(newPosts);
+        setCurrentPage(startPage + PAGE_BATCH_SIZE -1);
+        processAndSetPostDetails(result.data);
     } else {
       setFetchError(result.error);
       toast({
@@ -460,9 +464,9 @@ export default function ImageGeneratorPage() {
         generate();
   }, [posts, postDetailsMap, toast]);
 
-  const handleQueryGenerated = useCallback((query: string, images: ImageSearchResult[]) => {
-        setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
-    }, []);
+  const onQueryGenerated = useCallback((query: string, images: ImageSearchResult[]) => {
+      setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
+  }, []);
 
   const handleSelectImageFromSearch = (image: ImageSearchResult) => {
     const { postId, type, heading } = searchDialogState;
@@ -891,7 +895,7 @@ export default function ImageGeneratorPage() {
     <ImageSearchDialog
         open={searchDialogState.open}
         onOpenChange={(open) => setSearchDialogState({ ...searchDialogState, open })}
-        onQueryGenerated={handleQueryGenerated}
+        onQueryGenerated={onQueryGenerated}
         onSelectImage={handleSelectImageFromSearch}
         onSearch={async (query, page) => {
             const result = await searchImages({ query, page });

@@ -57,50 +57,55 @@ export async function fetchPostsFromWp(
     siteUrl: string,
     username: string,
     appPassword: string,
-    page: number = 1,
+    pages: number[] = [1],
     status: 'all' | 'publish' | 'draft' = 'all'
 ): Promise<{ success: true; data: WpPost[] } | { success: false; error: string }> {
     const statuses = status === 'all' ? ['publish', 'draft'] : [status];
-    const url = new URL(`${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`);
-    url.searchParams.append('context', 'edit');
-    url.searchParams.append('_embed', 'wp:featuredmedia');
-    url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
-    url.searchParams.append('per_page', '50'); // Fetch 50 posts per page for incremental loading
-    url.searchParams.append('page', page.toString());
-    statuses.forEach(s => url.searchParams.append('status[]', s));
+    const baseUrl = siteUrl.replace(/\/$/, '');
 
     try {
-        const response = await fetch(url.toString(), {
-            headers: {
-                'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
-                'Content-Type': 'application/json',
-            },
-            cache: 'no-store', // Ensure fresh data
+        const fetchPromises = pages.map(async (page) => {
+            const url = new URL(`${baseUrl}/wp-json/wp/v2/posts`);
+            url.searchParams.append('context', 'edit');
+            url.searchParams.append('_embed', 'wp:featuredmedia');
+            url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
+            url.searchParams.append('per_page', '50');
+            url.searchParams.append('page', page.toString());
+            statuses.forEach(s => url.searchParams.append('status[]', s));
+
+            const response = await fetch(url.toString(), {
+                headers: {
+                    'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
+                    'Content-Type': 'application/json',
+                },
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                if (response.status === 400 && (await response.json()).code === 'rest_post_invalid_page_number') {
+                    // This is expected when we ask for pages that don't exist.
+                    return [];
+                }
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Page ${page}: HTTP error! status: ${response.status} - ${errorData.message || 'Unknown error'}`);
+            }
+
+            return response.json();
         });
 
-        if (!response.ok) {
-            let errorDetails = `HTTP error! status: ${response.status}`;
-            try {
-                const errorData = await response.json();
-                 if (errorData.code === 'rest_post_invalid_page_number') {
-                    // This is not a fatal error, it just means we're past the last page.
-                    return { success: true, data: [] };
-                }
-                errorDetails += ` - ${errorData.message || 'Unknown error'}`;
-            } catch (e) {
-                // Could not parse error JSON
+        const results = await Promise.all(fetchPromises);
+        let allPostsData: any[] = [];
+        results.forEach(data => {
+            if (Array.isArray(data)) {
+                allPostsData = allPostsData.concat(data);
             }
-            return { success: false, error: errorDetails };
-        }
+        });
 
-        const data = await response.json();
-        
-        // If data is empty, it means no more posts
-        if (Array.isArray(data) && data.length === 0) {
+        if (allPostsData.length === 0 && pages.length > 0) {
             return { success: true, data: [] };
         }
         
-        const parsedData = PostsSchema.safeParse(data);
+        const parsedData = PostsSchema.safeParse(allPostsData);
 
         if (!parsedData.success) {
             console.error('WP Parse Error:', parsedData.error);
