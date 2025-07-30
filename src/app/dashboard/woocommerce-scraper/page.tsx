@@ -1,3 +1,4 @@
+
 // src/app/dashboard/woocommerce-scraper/page.tsx
 "use client";
 
@@ -249,7 +250,7 @@ export default function ProductScraperPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {scrapedProducts.map((p, index) => (
-                                            <TableRow key={`${p.name}-${index}`}>
+                                            <TableRow key={`${p.sku || p.name}-${index}`}>
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>{p.regularPrice}</TableCell>
                                             </TableRow>
