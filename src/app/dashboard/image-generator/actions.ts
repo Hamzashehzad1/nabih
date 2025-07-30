@@ -57,55 +57,39 @@ export async function fetchPostsFromWp(
     siteUrl: string,
     username: string,
     appPassword: string,
-    pages: number[] = [1],
+    page: number = 1,
     status: 'all' | 'publish' | 'draft' = 'all'
 ): Promise<{ success: true; data: WpPost[] } | { success: false; error: string }> {
     const statuses = status === 'all' ? ['publish', 'draft'] : [status];
     const baseUrl = siteUrl.replace(/\/$/, '');
 
     try {
-        const fetchPromises = pages.map(async (page) => {
-            const url = new URL(`${baseUrl}/wp-json/wp/v2/posts`);
-            url.searchParams.append('context', 'edit');
-            url.searchParams.append('_embed', 'wp:featuredmedia');
-            url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
-            url.searchParams.append('per_page', '50');
-            url.searchParams.append('page', page.toString());
-            statuses.forEach(s => url.searchParams.append('status[]', s));
+        const url = new URL(`${baseUrl}/wp-json/wp/v2/posts`);
+        url.searchParams.append('context', 'edit');
+        url.searchParams.append('_embed', 'wp:featuredmedia');
+        url.searchParams.append('_fields', 'id,date,title,content,status,link,_links,_embedded');
+        url.searchParams.append('per_page', '20'); // Fetch a reasonable number per page
+        url.searchParams.append('page', page.toString());
+        statuses.forEach(s => url.searchParams.append('status[]', s));
 
-            const response = await fetch(url.toString(), {
-                headers: {
-                    'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
-                    'Content-Type': 'application/json',
-                },
-                cache: 'no-store',
-            });
-
-            if (!response.ok) {
-                if (response.status === 400 && (await response.json()).code === 'rest_post_invalid_page_number') {
-                    // This is expected when we ask for pages that don't exist.
-                    return [];
-                }
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Page ${page}: HTTP error! status: ${response.status} - ${errorData.message || 'Unknown error'}`);
-            }
-
-            return response.json();
+        const response = await fetch(url.toString(), {
+            headers: {
+                'Authorization': 'Basic ' + btoa(`${username}:${appPassword}`),
+                'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
         });
 
-        const results = await Promise.all(fetchPromises);
-        let allPostsData: any[] = [];
-        results.forEach(data => {
-            if (Array.isArray(data)) {
-                allPostsData = allPostsData.concat(data);
+        if (!response.ok) {
+            if (response.status === 400 && (await response.json()).code === 'rest_post_invalid_page_number') {
+                return { success: true, data: [] }; // This is not an error, just the end of the list.
             }
-        });
-
-        if (allPostsData.length === 0 && pages.length > 0) {
-            return { success: true, data: [] };
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Page ${page}: HTTP error! status: ${response.status} - ${errorData.message || 'Unknown error'}`);
         }
         
-        const parsedData = PostsSchema.safeParse(allPostsData);
+        const postsData = await response.json();
+        const parsedData = PostsSchema.safeParse(postsData);
 
         if (!parsedData.success) {
             console.error('WP Parse Error:', parsedData.error);

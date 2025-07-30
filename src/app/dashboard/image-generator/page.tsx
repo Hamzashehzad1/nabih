@@ -104,7 +104,7 @@ interface UpdateStatus {
     type: 'draft' | 'publish' | null;
 }
 
-const PAGE_BATCH_SIZE = 5;
+const POSTS_PER_PAGE = 20;
 
 function getBase64Size(base64: string): number {
     if (!base64) return 0;
@@ -370,9 +370,15 @@ export default function ImageGeneratorPage() {
   }, [setImages]);
 
 
-  const handleFetchPosts = useCallback(async (startPage = 1, refresh = false) => {
-    if (!selectedSite) return;
+  const handleFetchPosts = useCallback(async (pageToFetch: number, refresh = false) => {
+    if (!selectedSite?.appPassword) {
+      setFetchError("Application password not found for this site. Please add it in Settings.");
+      setIsFetchingPosts(false);
+      return;
+    }
+    
     setIsFetchingPosts(true);
+
     if (refresh) {
       setPosts([]);
       setFetchError(null);
@@ -380,24 +386,16 @@ export default function ImageGeneratorPage() {
       setCurrentPage(0);
       setPostDetailsMap(new Map());
     }
-    
-    if (!selectedSite.appPassword) {
-      setFetchError("Application password not found for this site. Please add it in Settings.");
-      setIsFetchingPosts(false);
-      return;
-    }
-    
-    const pagesToFetch = Array.from({ length: PAGE_BATCH_SIZE }, (_, i) => startPage + i);
 
-    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, pagesToFetch, filter);
+    const result = await fetchPostsFromWp(selectedSite.url, selectedSite.user, selectedSite.appPassword, pageToFetch, filter);
 
     if (result.success) {
-        if(result.data.length < 50 * PAGE_BATCH_SIZE){ // Heuristic to detect end
+        if(result.data.length < POSTS_PER_PAGE){
             setHasMorePosts(false);
         }
         const newPosts = refresh ? result.data : [...posts, ...result.data];
         setPosts(newPosts);
-        setCurrentPage(startPage + PAGE_BATCH_SIZE -1);
+        setCurrentPage(pageToFetch);
         processAndSetPostDetails(result.data);
     } else {
       setFetchError(result.error);
