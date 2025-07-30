@@ -1,3 +1,4 @@
+
 // src/components/engagement-banner.tsx
 "use client";
 
@@ -22,7 +23,7 @@ export function EngagementBanner() {
                 !isVisible && "animate-out fade-out-0 slide-out-to-bottom-4"
             )}>
                 <Image
-                    src="/1666444915053.webp"
+                    src="https://storage.googleapis.com/genkit-assets/hamza.jpeg"
                     alt="Hamza S"
                     width={64}
                     height={64}
