@@ -1,4 +1,3 @@
-
 // src/components/engagement-banner.tsx
 "use client";
 
@@ -7,7 +6,6 @@ import { ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export function EngagementBanner() {
     const [isVisible, setIsVisible] = useState(true);
@@ -22,7 +20,7 @@ export function EngagementBanner() {
                 "glass-card flex items-center gap-4 p-4 rounded-xl shadow-lg transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-4",
                 !isVisible && "animate-out fade-out-0 slide-out-to-bottom-4"
             )}>
-                <Image
+                <img
                     src="https://storage.googleapis.com/genkit-assets/hamza.jpeg"
                     alt="Hamza S"
                     width={64}
