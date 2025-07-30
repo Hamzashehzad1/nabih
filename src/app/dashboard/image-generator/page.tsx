@@ -1,4 +1,3 @@
-
 // src/app/dashboard/image-generator/page.tsx
 'use client';
 
@@ -83,7 +82,6 @@ interface SearchDialogState {
   heading?: string;
   initialQuery?: string;
   initialImages?: ImageSearchResult[];
-  onQueryGenerated?: (query: string, images: ImageSearchResult[]) => void;
 }
 
 interface CropDialogState {
@@ -422,7 +420,7 @@ export default function ImageGeneratorPage() {
   }, [selectedSiteId, filter]);
 
 
-  const handleOpenSearchDialog = useCallback((postId: string, type: 'featured' | 'section', heading: string | undefined, onQueryGenerated: (query: string, images: ImageSearchResult[]) => void) => {
+  const handleOpenSearchDialog = useCallback((postId: string, type: 'featured' | 'section', heading: string | undefined) => {
         const post = posts.find(p => p.id === postId);
         const postDetails = postDetailsMap.get(postId);
         if (!post || !postDetails) return;
@@ -432,12 +430,10 @@ export default function ImageGeneratorPage() {
             type,
             postId,
             heading,
-            onQueryGenerated,
         });
 
         // Generate query in the background
         const generate = async () => {
-            let result: {query: string, images: ImageSearchResult[]} | null = null;
             let promptInput;
 
             if (type === 'featured') {
@@ -453,7 +449,7 @@ export default function ImageGeneratorPage() {
                  try {
                     const { query } = await generateImagePrompt(promptInput);
                     const searchResult = await searchImages({ query });
-                    onQueryGenerated(query, searchResult.images);
+                    setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: searchResult.images }));
                 } catch (error) {
                     console.error("AI query generation failed:", error);
                      toast({ title: 'AI Suggestion Failed', description: 'Could not generate an image query.', variant: 'destructive'});
@@ -463,6 +459,10 @@ export default function ImageGeneratorPage() {
 
         generate();
   }, [posts, postDetailsMap, toast]);
+
+  const handleQueryGenerated = useCallback((query: string, images: ImageSearchResult[]) => {
+        setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
+    }, []);
 
   const handleSelectImageFromSearch = (image: ImageSearchResult) => {
     const { postId, type, heading } = searchDialogState;
@@ -723,9 +723,7 @@ export default function ImageGeneratorPage() {
                                           <ProxiedImage src={postImages.featured.url} width={600} height={300} alt={postImages.featured.alt || 'Featured Image'} className="rounded-md aspect-[2/1] object-cover" />
                                           <div className="absolute top-2 right-2 flex gap-2 bg-black/50 p-1 rounded-md">
                                               <Button variant="outline" size="sm" onClick={() => {
-                                                  handleOpenSearchDialog(post.id, 'featured', undefined, (query, images) => {
-                                                        setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
-                                                  })
+                                                  handleOpenSearchDialog(post.id, 'featured', undefined)
                                               }}>
                                                 <Replace className="mr-2 h-4 w-4" /> Replace
                                               </Button>
@@ -743,10 +741,8 @@ export default function ImageGeneratorPage() {
                                   ) : (
                                       <Button onClick={() => {
                                         setLoadingStates(prev => ({...prev, [loadingKeyFeatured]: true}));
-                                        handleOpenSearchDialog(post.id, 'featured', undefined, (query, images) => {
-                                            setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
-                                            setLoadingStates(prev => ({...prev, [loadingKeyFeatured]: false}));
-                                        })
+                                        handleOpenSearchDialog(post.id, 'featured', undefined)
+                                        setLoadingStates(prev => ({...prev, [loadingKeyFeatured]: false}));
                                       }} disabled={loadingStates[loadingKeyFeatured]}>
                                       {loadingStates[loadingKeyFeatured] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Featured Image
                                       </Button>
@@ -782,7 +778,7 @@ export default function ImageGeneratorPage() {
                                                         {image.size && <Badge variant="outline" className="mt-1">{image.size} KB</Badge>}
                                                     </div>
                                                      <div className="flex flex-col gap-1">
-                                                        <Button variant="outline" size="icon" onClick={() => handleOpenSearchDialog(post.id, 'section', heading, (q, i) => setSearchDialogState(p => ({...p, initialQuery: q, initialImages: i})))}>
+                                                        <Button variant="outline" size="icon" onClick={() => handleOpenSearchDialog(post.id, 'section', heading)}>
                                                             <Replace className="h-4 w-4" />
                                                         </Button>
                                                         <Button variant="destructive" size="icon" onClick={() => deleteImage(post.id, 'section', heading)}>
@@ -793,10 +789,8 @@ export default function ImageGeneratorPage() {
                                               ) : (
                                                 <Button variant="secondary" size="sm" onClick={() => {
                                                     setLoadingStates(prev => ({...prev, [loadingKeySection]: true}));
-                                                    handleOpenSearchDialog(post.id, 'section', heading, (query, images) => {
-                                                        setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
-                                                         setLoadingStates(prev => ({...prev, [loadingKeySection]: false}));
-                                                    });
+                                                    handleOpenSearchDialog(post.id, 'section', heading);
+                                                    setLoadingStates(prev => ({...prev, [loadingKeySection]: false}));
                                                 }} disabled={loadingStates[loadingKeySection]}>
                                                     {loadingStates[loadingKeySection] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Image
                                                 </Button>
@@ -897,7 +891,7 @@ export default function ImageGeneratorPage() {
     <ImageSearchDialog
         open={searchDialogState.open}
         onOpenChange={(open) => setSearchDialogState({ ...searchDialogState, open })}
-        onQueryGenerated={(query, images) => setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }))}
+        onQueryGenerated={handleQueryGenerated}
         onSelectImage={handleSelectImageFromSearch}
         onSearch={async (query, page) => {
             const result = await searchImages({ query, page });
