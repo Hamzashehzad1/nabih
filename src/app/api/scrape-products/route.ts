@@ -55,8 +55,23 @@ const fetchWithRetry = async (url: string, retries = 3, delay = 1000): Promise<R
 
 // Helper to extract content from a page
 const extractText = ($: cheerio.CheerioAPI, selector: string) => {
-    return $(selector).first().text().trim();
+    let content = '';
+    // Handle meta and link tags
+    if (selector.startsWith('meta') || selector.startsWith('link')) {
+        const elements = $(selector);
+        elements.each((i, el) => {
+            const value = $(el).attr('content') || $(el).attr('href');
+            if(value) {
+                content = value;
+                return false; // break the loop
+            }
+        });
+    } else {
+        content = $(selector).first().text().trim();
+    }
+    return content;
 };
+
 
 // Generic product scraper
 async function scrapeProductPage(url: string, imageZip: JSZip, selectors: Selectors): Promise<ProductData | null> {
@@ -175,7 +190,7 @@ export async function GET(request: NextRequest) {
                         const html = await response.text();
                         const $ = cheerio.load(html);
 
-                        // Find all links on the page
+                        // Find all links on the page for further crawling
                         $('a').each((i, el) => {
                             const href = $(el).attr('href');
                             if (href) {
@@ -197,7 +212,7 @@ export async function GET(request: NextRequest) {
                             }
                         });
 
-                        // From the links on the current page, identify potential product pages
+                        // From the links on the current page, identify potential product pages based on the product link selector
                          $(selectors.productLink).each((i, el) => {
                              const href = $(el).attr('href');
                              if (href) {
@@ -217,10 +232,19 @@ export async function GET(request: NextRequest) {
                 }
 
                 if (productUrls.size === 0) {
-                    throw new Error("No product links found. Is this a standard e-commerce site? Try adjusting custom selectors.");
+                     // Check if the base URL itself is a product page
+                    const baseResponse = await fetchWithRetry(baseUrl);
+                    const baseHtml = await baseResponse.text();
+                    const $ = cheerio.load(baseHtml);
+                    if (extractText($, selectors.title)) {
+                         productUrls.add(baseUrl);
+                         sendProgress(controller, 'progress', { message: 'Base URL detected as a product page.' });
+                    } else {
+                       throw new Error("No product links found. Is this a standard e-commerce site? Try adjusting custom selectors.");
+                    }
                 }
                 
-                sendProgress(controller, 'progress', { message: `Found ${productUrls.size} unique product pages.` });
+                sendProgress(controller, 'progress', { message: `Found ${productUrls.size} unique product pages. Starting scrape...` });
 
                 const allProducts: ProductData[] = [];
                 const imageZip = new JSZip();
@@ -262,3 +286,5 @@ export async function GET(request: NextRequest) {
         },
     });
 }
+
+    

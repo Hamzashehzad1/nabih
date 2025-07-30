@@ -37,7 +37,7 @@ const platformSelectors: Record<Platform, SelectorConfig> = {
         title: 'h1.product_title',
         price: '.price',
         salePrice: '.price ins',
-        description: '#tab-description',
+        description: '#tab-description, .product-description, .woocommerce-product-details__short-description',
         images: '.woocommerce-product-gallery__image a',
         sku: '.sku',
     },
@@ -48,16 +48,16 @@ const platformSelectors: Record<Platform, SelectorConfig> = {
         salePrice: '.price__container .price-item--sale',
         description: '.product__description',
         images: '.product__media-gallery img',
-        sku: '[data-sku]',
+        sku: '[data-sku], .sku',
     },
     other: {
-        productLink: 'a[href*="/product/"], a[href*="/products/"]',
-        title: 'h1, h2, .product-title, .product_title',
-        price: '.price, .product-price',
-        salePrice: '.sale-price, .price--sale',
-        description: '.description, .product-description',
-        images: '.product-image img, .product-gallery img',
-        sku: '.sku',
+        productLink: 'a[href*="/product"], a.product-card',
+        title: 'h1, h2, .product-title, .product_title, .product-name',
+        price: '.price, .product-price, .price-container',
+        salePrice: '.sale-price, .price--sale, .price-sales',
+        description: '.description, .product-description, #description',
+        images: '.product-image img, .product-gallery img, .product-main-image img',
+        sku: '.sku, .product-sku',
     }
 }
 
@@ -104,7 +104,6 @@ export default function ProductScraperPage() {
 
         const params = new URLSearchParams({
             url: url,
-            platform: platform,
             ...selectors
         });
         
@@ -245,7 +244,7 @@ export default function ProductScraperPage() {
                 </CardContent>
             </Card>
 
-            {(status === 'scraping' || scrapedProducts.length > 0 || status === 'complete') && (
+            {(status === 'scraping' || scrapedProducts.length > 0 || status === 'complete' || status === 'error') && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Live Scraping Results</CardTitle>
@@ -304,17 +303,19 @@ export default function ProductScraperPage() {
                             </div>
                         </CardFooter>
                     )}
+                     {status === 'error' && (
+                        <CardFooter>
+                             <Alert variant="destructive">
+                                <ServerCrash className="h-4 w-4" />
+                                <AlertTitle>Scraping Error</AlertTitle>
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        </CardFooter>
+                    )}
                 </Card>
             )}
-
-            {status === 'error' && (
-                 <Alert variant="destructive">
-                    <ServerCrash className="h-4 w-4" />
-                    <AlertTitle>Scraping Error</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
-
         </div>
     );
 }
+
+    
