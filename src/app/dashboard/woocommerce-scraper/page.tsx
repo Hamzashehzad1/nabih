@@ -170,8 +170,8 @@ export default function WooCommerceScraperPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {scrapedProducts.map(p => (
-                                            <TableRow key={p.sku || p.name}>
+                                        {scrapedProducts.map((p, index) => (
+                                            <TableRow key={`${p.name}-${index}`}>
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>{p.regularPrice}</TableCell>
                                             </TableRow>
