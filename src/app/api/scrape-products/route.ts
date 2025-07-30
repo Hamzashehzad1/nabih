@@ -19,13 +19,13 @@ interface ProductData {
 
 // Define the schema for custom selectors
 const SelectorSchema = z.object({
-    productLink: z.string().default('.product a, .type-product a, .woocommerce-LoopProduct-link, a[href*="/product/"]'),
-    title: z.string().default('h1.product_title, .product_title, h1'),
-    price: z.string().default('.price, .product-price'),
+    productLink: z.string().default('a[href*="/product/"], a[href*="/products/"]'),
+    title: z.string().default('h1.product_title, .product_title, h1, meta[property="og:title"]'),
+    price: z.string().default('.price, .product-price, [itemprop="price"], meta[property="product:price:amount"]'),
     salePrice: z.string().default('.price ins, .sale-price'),
-    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description'),
-    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img'),
-    sku: z.string().default('.sku'),
+    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description, meta[name="description"], meta[property="og:description"]'),
+    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img, meta[property^="og:image"]'),
+    sku: z.string().default('.sku, [itemprop="sku"]'),
 });
 type Selectors = z.infer<typeof SelectorSchema>;
 
@@ -53,6 +53,28 @@ const fetchWithRetry = async (url: string, retries = 3, delay = 1000): Promise<R
     throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
 };
 
+// Helper to extract content intelligently based on selector
+const extractContent = ($: cheerio.CheerioAPI, selector: string) => {
+    let content = '';
+    $(selector).each((i, el) => {
+        const element = $(el);
+        if (content) return; // Stop after finding the first match
+
+        if (el.tagName === 'meta') {
+            content = element.attr('content') || '';
+        } else if (el.tagName === 'link') {
+            content = element.attr('href') || '';
+        } else if (el.tagName === 'img') {
+             content = element.attr('src') || '';
+        } else {
+            content = element.html() || element.text();
+        }
+        content = content.trim();
+    });
+    return content;
+};
+
+
 // Generic product scraper
 async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Selectors): Promise<ProductData | null> {
     try {
@@ -60,23 +82,38 @@ async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Sel
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        const name = $(selectors.title).first().text().trim();
+        const name = extractContent($, selectors.title);
         if (!name) return null;
 
         let regularPrice = '';
         let salePrice = '';
         const priceElement = $(selectors.price).first();
-        if ($(selectors.salePrice).length > 0) {
-            salePrice = $(selectors.salePrice).first().text().replace(/[^0-9.]/g, '');
-            regularPrice = priceElement.find('del').first().text().replace(/[^0-9.]/g, '') || priceElement.text().replace(/[^0-9.]/g, '');
-        } else {
-            regularPrice = priceElement.text().replace(/[^0-9.]/g, '');
+        
+        // Handle meta tag price
+        if (priceElement.is('meta')) {
+             regularPrice = priceElement.attr('content') || '';
+        } else { // Handle visible price elements
+            if ($(selectors.salePrice).length > 0) {
+                salePrice = $(selectors.salePrice).first().text().replace(/[^0-9.]/g, '');
+                regularPrice = priceElement.find('del').first().text().replace(/[^0-9.]/g, '') || priceElement.text().replace(/[^0-9.]/g, '');
+            } else {
+                regularPrice = priceElement.text().replace(/[^0-9.]/g, '');
+            }
         }
         
         const imagePromises: Promise<void>[] = [];
         const imageFilenames: string[] = [];
         $(selectors.images).each((i, el) => {
-            const imageUrl = $(el).attr('href') || $(el).attr('src');
+            const element = $(el);
+            let imageUrl: string | undefined;
+            if (el.tagName === 'meta') {
+                imageUrl = element.attr('content');
+            } else if (el.tagName === 'img') {
+                imageUrl = element.attr('src');
+            } else { // Assume it's an 'a' tag
+                imageUrl = element.attr('href');
+            }
+            
             if (imageUrl) {
                 const absoluteImageUrl = new URL(imageUrl, url).toString();
                 const filename = absoluteImageUrl.split('/').pop()?.split('?')[0] || `image-${Date.now()}`;
@@ -98,11 +135,11 @@ async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Sel
         });
         await Promise.all(imagePromises);
         
-        const description = $(selectors.description).first().html()?.trim() || '';
+        const description = extractContent($, selectors.description);
         const shortDescription = cheerio.load(description).text().trim().substring(0, 200);
 
         return {
-            id: '', type: 'simple', sku: $(selectors.sku).first().text().trim(), name, published: 1,
+            id: '', type: 'simple', sku: extractContent($, selectors.sku), name, published: 1,
             isFeatured: 'no', visibility: 'visible',
             shortDescription: shortDescription,
             description: description,
@@ -384,4 +421,5 @@ export async function GET(request: NextRequest) {
             'Connection': 'keep-alive',
         },
     });
-}
+
+    
