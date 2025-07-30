@@ -1,3 +1,4 @@
+
 // src/app/dashboard/woocommerce-scraper/page.tsx
 "use client";
 
@@ -17,7 +18,7 @@ import { InfoTooltip } from '@/components/ui/info-tooltip';
 import type { ProductData } from './actions';
 
 
-type Platform = 'woocommerce' | 'shopify';
+type Platform = 'auto' | 'woocommerce' | 'shopify';
 type ScrapeStatus = 'idle' | 'scraping' | 'complete' | 'error';
 
 interface SelectorConfig {
@@ -43,7 +44,7 @@ const defaultSelectors: SelectorConfig = {
 export default function ProductScraperPage() {
     const { toast } = useToast();
     const [url, setUrl] = useState('');
-    const [platform, setPlatform] = useState<Platform>('woocommerce');
+    const [platform, setPlatform] = useState<Platform>('auto');
     const [selectors, setSelectors] = useState<SelectorConfig>(defaultSelectors);
     const [status, setStatus] = useState<ScrapeStatus>('idle');
     const [progressLog, setProgressLog] = useState<string[]>([]);
@@ -172,6 +173,7 @@ export default function ProductScraperPage() {
                                     <SelectValue placeholder="Select platform" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="auto">Auto-Detect</SelectItem>
                                     <SelectItem value="woocommerce">WooCommerce</SelectItem>
                                     <SelectItem value="shopify">Shopify</SelectItem>
                                 </SelectContent>

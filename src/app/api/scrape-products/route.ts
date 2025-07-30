@@ -19,13 +19,13 @@ interface ProductData {
 
 // Define the schema for custom selectors
 const SelectorSchema = z.object({
-    productLink: z.string().default('.product a, .type-product a, .woocommerce-LoopProduct-link'),
-    title: z.string().default('h1.product_title, .product_title, h1'),
-    price: z.string().default('.price .amount, .price'),
-    salePrice: z.string().default('.price ins .amount'),
-    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description'),
-    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a'),
-    sku: z.string().default('.sku'),
+    productLink: z.string().default('.product a, .type-product a, .woocommerce-LoopProduct-link, a[href*="/product/"], a[href*="/products/"]'),
+    title: z.string().default('h1.product_title, .product_title, h1, [itemprop="name"]'),
+    price: z.string().default('.price, .product-price, [itemprop="price"]'),
+    salePrice: z.string().default('.price ins, .sale-price'),
+    description: z.string().default('#tab-description, .product-description, .woocommerce-product-details__short-description, [itemprop="description"]'),
+    images: z.string().default('.woocommerce-product-gallery__image a, .product-images a, .product-gallery a, .product-image-slider img'),
+    sku: z.string().default('.sku, [itemprop="sku"]'),
 });
 type Selectors = z.infer<typeof SelectorSchema>;
 
@@ -53,8 +53,9 @@ const fetchWithRetry = async (url: string, retries = 3, delay = 1000): Promise<R
     throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
 };
 
-// Scrape a single WooCommerce product page
-async function scrapeWooCommerceProduct(url: string, imageZip: JSZip, selectors: Selectors): Promise<ProductData | null> {
+
+// Generic product scraper
+async function scrapeGenericProduct(url: string, imageZip: JSZip, selectors: Selectors): Promise<ProductData | null> {
     try {
         const response = await fetchWithRetry(url);
         const html = await response.text();
@@ -72,22 +73,23 @@ async function scrapeWooCommerceProduct(url: string, imageZip: JSZip, selectors:
         } else {
             regularPrice = priceElement.text().replace(/[^0-9.]/g, '');
         }
-
+        
         const imagePromises: Promise<void>[] = [];
         const imageFilenames: string[] = [];
         $(selectors.images).each((i, el) => {
-            const imageUrl = $(el).attr('href');
+            const imageUrl = $(el).attr('href') || $(el).attr('src');
             if (imageUrl) {
-                const filename = imageUrl.split('/').pop()?.split('?')[0] || `image-${Date.now()}`;
+                const absoluteImageUrl = new URL(imageUrl, url).toString();
+                const filename = absoluteImageUrl.split('/').pop()?.split('?')[0] || `image-${Date.now()}`;
                 if (!imageZip.file(`images/${filename}`)) {
                     imageFilenames.push(filename);
                     imagePromises.push((async () => {
                         try {
-                            const imageResponse = await fetchWithRetry(imageUrl);
+                            const imageResponse = await fetchWithRetry(absoluteImageUrl);
                             const arrayBuffer = await imageResponse.arrayBuffer();
                             imageZip.file(`images/${filename}`, arrayBuffer);
                         } catch (imgError) {
-                            console.error(`Failed to download image ${imageUrl}:`, imgError);
+                            console.error(`Failed to download image ${absoluteImageUrl}:`, imgError);
                         }
                     })());
                 } else {
@@ -100,21 +102,21 @@ async function scrapeWooCommerceProduct(url: string, imageZip: JSZip, selectors:
         return {
             id: '', type: 'simple', sku: $(selectors.sku).text().trim(), name, published: 1,
             isFeatured: 'no', visibility: 'visible',
-            shortDescription: $('.woocommerce-product-details__short-description').text().trim(),
+            shortDescription: $(selectors.description).first().text().trim().substring(0, 200),
             description: $(selectors.description).html()?.trim() || '',
             salePrice, regularPrice, taxStatus: 'taxable', taxClass: '',
-            inStock: $('.stock.in-stock, .in-stock').length > 0 ? 1 : 0, stock: '', backorders: 'no',
+            inStock: 1, stock: '', backorders: 'no',
             weight: '', length: '', width: '', height: '', allowCustomerReviews: 1,
             purchaseNote: '', shippingClass: '',
             images: imageFilenames.map(f => `images/${f}`).join(', '),
-            categories: $('.posted_in a').map((i, el) => $(el).text()).get().join(' > '),
-            tags: $('.tagged_as a').map((i, el) => $(el).text()).get().join(', '),
+            categories: '', tags: '',
         };
     } catch (error) {
-        console.error(`Failed to scrape WooCommerce page ${url}:`, error);
+        console.error(`Failed to scrape page ${url}:`, error);
         return null;
     }
 }
+
 
 // Scrape a single Shopify product page
 async function scrapeShopifyProduct(url: string, imageZip: JSZip): Promise<ProductData | null> {
@@ -138,21 +140,16 @@ async function scrapeShopifyProduct(url: string, imageZip: JSZip): Promise<Produ
         });
 
         if (!productJson) {
-            // Fallback to scraping HTML if JSON-LD not found
-            const name = $('h1').first().text().trim();
-            if (!name) return null; // No name, no product.
-            
-            const price = $('meta[property="og:price:amount"]').attr('content') || $('.price__regular .price-item').first().text().replace(/[^0-9.]/g, '');
-            const description = $('.product__description').html() || '';
-
-            return {
-                id: '', type: 'simple', sku: productJson?.sku || '', name, published: 1,
-                isFeatured: 'no', visibility: 'visible', shortDescription: '', description: description,
-                salePrice: '', regularPrice: price, taxStatus: 'taxable', taxClass: '',
-                inStock: 1, stock: '', backorders: 'no', weight: '', length: '', width: '',
-                height: '', allowCustomerReviews: 1, purchaseNote: '', shippingClass: '',
-                images: '', categories: '', tags: '',
-            };
+            // Fallback to generic scraping for Shopify if JSON-LD not found
+            return await scrapeGenericProduct(url, imageZip, {
+                productLink: 'a[href*="/products/"]',
+                title: 'h1',
+                price: '.price',
+                salePrice: '.price--on-sale',
+                description: '.product__description',
+                images: '.product__media-gallery img',
+                sku: '.sku__value',
+            });
         }
         
         const imagePromises: Promise<void>[] = [];
@@ -177,14 +174,14 @@ async function scrapeShopifyProduct(url: string, imageZip: JSZip): Promise<Produ
         await Promise.all(imagePromises);
 
         return {
-            id: '', type: 'simple', sku: productJson.sku, name: productJson.name, published: 1,
+            id: '', type: 'simple', sku: productJson.sku || '', name: productJson.name, published: 1,
             isFeatured: 'no', visibility: 'visible', shortDescription: '',
             description: productJson.description,
             salePrice: productJson.offers?.price, regularPrice: productJson.offers?.price,
-            taxStatus: 'taxable', taxClass: '', inStock: 1, stock: '', backorders: 'no',
+            taxStatus: 'taxable', taxClass: '', inStock: productJson.offers?.availability.includes("InStock") ? 1 : 0, stock: '', backorders: 'no',
             weight: '', length: '', width: '', height: '', allowCustomerReviews: 1,
             purchaseNote: '', shippingClass: '', images: imageFilenames.map(f => `images/${f}`).join(', '),
-            categories: '', tags: '',
+            categories: productJson.category || '', tags: '',
         };
     } catch (error) {
         console.error(`Failed to scrape Shopify page ${url}:`, error);
@@ -215,21 +212,38 @@ function convertToCsv(products: ProductData[]): string {
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const baseUrl = searchParams.get('url');
-    const platform = searchParams.get('platform');
+    let platform = searchParams.get('platform');
     
     // Parse selectors from search params
-    const selectors = SelectorSchema.parse(Object.fromEntries(searchParams));
+    let selectors = SelectorSchema.parse(Object.fromEntries(searchParams));
 
     if (!baseUrl) {
         return new Response('URL is required', { status: 400 });
     }
-     if (platform !== 'woocommerce' && platform !== 'shopify') {
-        return new Response('Platform must be "woocommerce" or "shopify"', { status: 400 });
+     if (platform !== 'woocommerce' && platform !== 'shopify' && platform !== 'auto') {
+        return new Response('Platform must be "auto", "woocommerce" or "shopify"', { status: 400 });
     }
 
     const stream = new ReadableStream({
         async start(controller) {
             try {
+                // Auto-detection logic
+                if (platform === 'auto') {
+                    sendProgress(controller, 'progress', { message: 'Auto-detecting platform...' });
+                    const response = await fetchWithRetry(baseUrl);
+                    const html = await response.text();
+                    if (html.includes('Shopify')) {
+                        platform = 'shopify';
+                        sendProgress(controller, 'progress', { message: 'Shopify platform detected.' });
+                    } else if (html.includes('woocommerce')) {
+                        platform = 'woocommerce';
+                        sendProgress(controller, 'progress', { message: 'WooCommerce platform detected.' });
+                    } else {
+                        platform = 'generic';
+                        sendProgress(controller, 'progress', { message: 'Unknown platform. Using generic scraper.' });
+                    }
+                }
+
                 const productUrls = new Set<string>();
                 const visitedUrls = new Set<string>();
                 const queue: string[] = [baseUrl];
@@ -276,7 +290,7 @@ export async function GET(request: NextRequest) {
                     }
                 }
 
-                if (productUrls.size === 0) {
+                if (productUrls.size === 0 && (platform === 'woocommerce' || platform === 'shopify')) {
                      sendProgress(controller, 'progress', { message: 'No product links found on main pages. Trying a direct collection/shop page crawl.' });
                      try {
                         const shopUrl = platform === 'woocommerce' ? `${baseUrl.replace(/\/$/, '')}/shop/` : `${baseUrl.replace(/\/$/, '')}/collections/all`;
@@ -300,7 +314,24 @@ export async function GET(request: NextRequest) {
                 }
 
                 if (productUrls.size === 0) {
-                    throw new Error(`No product links found. Is this a standard ${platform} site?`);
+                     sendProgress(controller, 'progress', { message: 'No product links found. Attempting generic link discovery.' });
+                     const response = await fetchWithRetry(baseUrl);
+                     const html = await response.text();
+                     const $ = cheerio.load(html);
+                      $(selectors.productLink).each((i, el) => {
+                            const href = $(el).attr('href');
+                             if (href) {
+                                let absoluteUrl;
+                                try {
+                                    absoluteUrl = new URL(href, baseUrl).toString().split('#')[0];
+                                    productUrls.add(absoluteUrl);
+                                } catch (e) { /* ignore invalid urls */ }
+                             }
+                        });
+                }
+                
+                if (productUrls.size === 0) {
+                    throw new Error(`No product links found. Is this a standard e-commerce site? Try adjusting custom selectors.`);
                 }
                 
                 sendProgress(controller, 'progress', { message: `Found ${productUrls.size} unique product pages.` });
@@ -313,9 +344,12 @@ export async function GET(request: NextRequest) {
                     productCount++;
                     sendProgress(controller, 'progress', { message: `Scraping product ${productCount}/${productUrls.size}...` });
                     
-                    const product = platform === 'woocommerce' 
-                        ? await scrapeWooCommerceProduct(url, imageZip, selectors)
-                        : await scrapeShopifyProduct(url, imageZip);
+                    let product;
+                    if (platform === 'shopify') {
+                        product = await scrapeShopifyProduct(url, imageZip);
+                    } else { // woocommerce or generic
+                         product = await scrapeGenericProduct(url, imageZip, selectors);
+                    }
 
                     if (product) {
                         allProducts.push(product);
