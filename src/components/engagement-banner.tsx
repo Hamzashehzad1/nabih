@@ -22,12 +22,11 @@ export function EngagementBanner() {
                 !isVisible && "animate-out fade-out-0 slide-out-to-bottom-4"
             )}>
                 <Image
-                    src="/hamza.jpeg"
+                    src="/1666444915053.webp"
                     alt="Hamza S"
                     width={64}
                     height={64}
                     className="rounded-full border-2 border-primary/50 object-cover"
-                    data-ai-hint="developer portrait"
                 />
                 <div className="flex-grow">
                     <h4 className="font-semibold font-headline text-lg text-white">A quick question from Hamza S.</h4>
