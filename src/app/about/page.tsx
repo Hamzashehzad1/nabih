@@ -1,3 +1,4 @@
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
@@ -6,6 +7,8 @@ import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { NabihIcon } from '@/components/nabih-icon';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function AboutPage() {
   const teamMembers = [
@@ -45,7 +48,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="py-20 bg-card">
+        <section className="py-20 bg-card/80">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
@@ -77,6 +80,32 @@ export default function AboutPage() {
         </section>
 
         <section className="py-20">
+            <div className="container mx-auto px-4">
+                <Card className="glass-card overflow-hidden">
+                    <div className="grid md:grid-cols-2 items-center">
+                        <div className="p-8 md:p-12">
+                            <h2 className="text-3xl md:text-4xl font-headline font-bold mb-4">The Genesis of <span className="text-primary">Nabih</span></h2>
+                            <div className="space-y-4 text-muted-foreground">
+                                <p>
+                                    Nabih wasn't born in a boardroom. It was forged in the trenches of freelance web development. After building over 200 websites—from achieving a 100% success score across 100 projects on Upwork to countless direct client deals—a pattern became painfully clear: content was the universal bottleneck.
+                                </p>
+                                <p>
+                                    I saw brilliant designers and developers constantly waiting, their projects stalled by the slow, arduous process of content creation. I knew there had to be an <span className="text-foreground font-semibold">intelligent</span> solution.
+                                </p>
+                                <p>
+                                    The name, Nabih, is an Arabic word meaning just that—intelligent. It's a nod to the smart, AI-powered core of our platform. But it's also something more personal. It's the nickname I've always called my wife. This project is a tribute to her inspiration and a testament to the idea that the best tools are built with heart.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="bg-primary/10 h-full flex items-center justify-center p-8 min-h-[300px] md:min-h-0">
+                           <NabihIcon className="w-48 h-48 text-primary/80" />
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        </section>
+
+        <section className="py-20 bg-card/80">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-headline font-bold text-center mb-12">
               Meet the Innovators
@@ -97,7 +126,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section id="cta" className="py-20 bg-card">
+        <section id="cta" className="py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-headline font-bold mb-4">
               Join Us on Our Journey
