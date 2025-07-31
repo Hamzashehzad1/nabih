@@ -1,16 +1,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 
 async function handleProxy(request: NextRequest) {
   let imageUrl: string | null = null;
+  let requestedWidth: number | null = null;
+
+  const { searchParams } = new URL(request.url);
 
   if (request.method === 'GET') {
-    const { searchParams } = new URL(request.url);
     imageUrl = searchParams.get('url');
+    const widthParam = searchParams.get('width');
+    if (widthParam) {
+      requestedWidth = parseInt(widthParam, 10);
+    }
   } else if (request.method === 'POST') {
     try {
       const body = await request.json();
       imageUrl = body.url;
+      if (body.width) {
+        requestedWidth = parseInt(body.width, 10);
+      }
     } catch (e) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
@@ -30,7 +40,14 @@ async function handleProxy(request: NextRequest) {
     const imageBuffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     
-    const base64 = `data:${contentType};base64,${Buffer.from(imageBuffer).toString('base64')}`;
+    // Use sharp to resize the image
+    const sharpInstance = sharp(Buffer.from(imageBuffer));
+    
+    // Resize if width is specified, otherwise use a sensible default for previews
+    const finalWidth = requestedWidth || 800; // Default to 800px width for previews
+    const resizedBuffer = await sharpInstance.resize(finalWidth).toBuffer();
+
+    const base64 = `data:${contentType};base64,${resizedBuffer.toString('base64')}`;
 
     return NextResponse.json({ base64 });
 
