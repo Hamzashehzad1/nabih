@@ -51,6 +51,6 @@ export async function getPeopleAlsoAsk(keyword: string): Promise<{ success: true
 
   } catch (error: any) {
     console.error("Error scraping Google:", error);
-    return { success: false, error: 'An error occurred while trying to scrape Google search results.' };
+    return { success: false, error: 'An error occurred while trying to scrape Google search results. This can happen if Google blocks the request.' };
   }
 }
