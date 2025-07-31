@@ -265,7 +265,7 @@ const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: 
                 setImgSrc(src);
             } else if (src.startsWith('http')) {
                 try {
-                    const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
+                    const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}&width=300`);
                     if (!response.ok) {
                         throw new Error(`Failed to fetch image proxy: ${response.statusText}`);
                     }
@@ -671,6 +671,17 @@ export default function ImageGeneratorPage() {
       );
     }
     
+    const sortedPosts = [...posts].sort((a, b) => {
+        const detailsA = postDetailsMap.get(a.id);
+        const detailsB = postDetailsMap.get(b.id);
+
+        if (!detailsA || !detailsB) return 0;
+
+        const completenessA = detailsA.generatedCount / (detailsA.requiredImages || 1);
+        const completenessB = detailsB.generatedCount / (detailsB.requiredImages || 1);
+
+        return completenessA - completenessB;
+    });
 
     return (
       <>
@@ -687,7 +698,7 @@ export default function ImageGeneratorPage() {
             </Button>
         </div>
         <Accordion type="single" collapsible className="w-full">
-            {posts.map(post => {
+            {sortedPosts.map(post => {
                 const details = postDetailsMap.get(post.id);
                 const postImages = images[post.id] || { featured: null, sections: {} };
                 const loadingKeyFeatured = `${post.id}-featured`;
