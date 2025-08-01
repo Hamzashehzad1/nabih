@@ -1,18 +1,14 @@
 // src/app/dashboard/visual-feedback/page.tsx
 "use client";
 
-import { useState, useRef, MouseEvent, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, MessageSquare, X, Send, Pin, Trash2, Globe, Code, Clipboard, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Trash2, Globe, Clipboard, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -52,28 +48,21 @@ interface WpSite {
   appPassword?: string;
 }
 
-const MOCK_TEAM: TeamMember[] = [
-    { id: '1', name: 'Alex Johnson', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026707d'},
-    { id: '2', name: 'Maria Garcia', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026708d'},
-    { id: '3', name: 'Chen Wei', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026709d'},
-]
-const CURRENT_USER = MOCK_TEAM[0];
-
+const CURRENT_USER: TeamMember = { id: '1', name: 'User' };
 
 export default function VisualFeedbackPage() {
     const { toast } = useToast();
-    const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
+    const [sites] = useLocalStorage<WpSite[]>("wp-sites", []);
     const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
     const [comments, setComments] = useLocalStorage<Comment[]>("visual-feedback-comments", []);
 
     const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
 
     const handleMessage = useCallback((event: MessageEvent) => {
-        if (event.origin !== window.location.origin) {
-            // In a real app, you would check against the connected site's origin
-            // For this demo, we can be more lenient or specific
+        if (typeof event.data !== 'object' || !event.data.type) {
+            return;
         }
-        
+
         const { type, payload } = event.data;
 
         if (type === 'new-feedback-comment' && selectedSiteId) {
@@ -102,13 +91,23 @@ export default function VisualFeedbackPage() {
 
     const filteredComments = useMemo(() => {
         if (!selectedSite) return [];
-        const siteOrigin = new URL(selectedSite.url).origin;
-        return comments.filter(c => c.url.startsWith(siteOrigin));
+        try {
+            const siteOrigin = new URL(selectedSite.url).origin;
+            return comments.filter(c => {
+                try {
+                    return new URL(c.url).origin === siteOrigin;
+                } catch (e) {
+                    return false;
+                }
+            });
+        } catch (e) {
+            return [];
+        }
     }, [comments, selectedSite]);
 
 
-    const updateComment = (commentId: string, updates: Partial<Pick<Comment, 'status' | 'assignedTo'>>) => {
-        setComments(prev => prev.map(c => c.id === commentId ? {...c, ...updates} : c));
+    const updateCommentStatus = (commentId: string, status: CommentStatus) => {
+        setComments(prev => prev.map(c => c.id === commentId ? {...c, status } : c));
     };
 
     const deleteComment = (commentId: string) => {
@@ -116,45 +115,51 @@ export default function VisualFeedbackPage() {
         toast({ title: "Comment Deleted" });
     };
 
-    const embedCode = useMemo(() => {
+    const embedScriptTag = useMemo(() => {
         if (typeof window === 'undefined') return '';
         const scriptUrl = `${window.location.origin}/visual-feedback.js`;
-        return `<script
-  id="content-forge-feedback-tool"
-  data-project-id="YOUR_PROJECT_ID"
-  src="${scriptUrl}"
-  defer
-></script>`;
+        // Note: The data-project-id is a placeholder for future multi-project functionality
+        return `<script id="content-forge-feedback-tool" data-project-id="YOUR_PROJECT_ID" src="${scriptUrl}" defer></script>`;
     }, []);
 
-    const copyToClipboard = (text: string) => {
+    const phpSnippet = useMemo(() => {
+        return `
+// Add Content Forge Visual Feedback Tool
+add_action('wp_footer', function() {
+    echo '${embedScriptTag.replace(/'/g, "\\'") }';
+});
+`.trim();
+    }, [embedScriptTag]);
+
+    const copyToClipboard = (text: string, type: string) => {
         navigator.clipboard.writeText(text);
         toast({
           title: "Copied to clipboard!",
+          description: `The ${type} has been copied.`
         });
     };
 
     const renderInstallation = () => (
         <Card>
             <CardHeader>
-                <CardTitle>Installation</CardTitle>
-                <CardDescription>Add this script to your website's footer to enable the feedback tool.</CardDescription>
+                <CardTitle>Installation Instructions</CardTitle>
+                <CardDescription>Add the following PHP snippet to your theme's `functions.php` file.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  <Alert>
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>For Developers</AlertTitle>
+                    <AlertTitle>How to Install</AlertTitle>
                     <AlertDescription>
-                        This tool works by injecting a script into the client's website. Add the following snippet before the closing `&lt;/body&gt;` tag.
+                        Copy this PHP code and paste it at the end of the `functions.php` file of your active WordPress theme. This will securely add the feedback tool script to every page of the site.
                     </AlertDescription>
                 </Alert>
                  <div className="relative bg-black text-white p-4 rounded-md font-mono text-sm">
-                    <pre><code>{embedCode}</code></pre>
+                    <pre><code>{phpSnippet}</code></pre>
                     <Button
                         variant="ghost"
                         size="icon"
                         className="absolute top-2 right-2 text-white hover:bg-gray-700"
-                        onClick={() => copyToClipboard(embedCode)}
+                        onClick={() => copyToClipboard(phpSnippet, "PHP snippet")}
                     >
                         <Clipboard className="h-4 w-4"/>
                     </Button>
@@ -166,8 +171,10 @@ export default function VisualFeedbackPage() {
     const renderFeedbackList = () => (
          <Card>
             <CardHeader>
-                <CardTitle>Feedback for {selectedSite?.url}</CardTitle>
-                <CardDescription>Comments submitted from your live website appear here.</CardDescription>
+                <CardTitle>Feedback Inbox</CardTitle>
+                <CardDescription>
+                    {selectedSite ? `Showing comments for ${new URL(selectedSite.url).hostname}` : 'Select a site to view comments.'}
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-[600px] pr-4">
@@ -175,18 +182,18 @@ export default function VisualFeedbackPage() {
                         <div className="text-center text-muted-foreground p-8">
                             <MessageSquare className="h-12 w-12 mx-auto" />
                             <p className="mt-4">No feedback yet for this site.</p>
+                            <p className="text-sm">Install the script on the website to begin receiving comments.</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {filteredComments.map(comment => (
-                                <Card key={comment.id} className="p-4">
+                                <Card key={comment.id} className="p-4 bg-muted/50">
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-10 w-10"><AvatarFallback>{comment.user.name.charAt(0)}</AvatarFallback></Avatar>
                                             <div>
                                                 <p className="font-semibold">{comment.user.name}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    On <a href={comment.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">{comment.url.substring(selectedSite!.url.length) || "/"}</a> about <code className="text-xs bg-muted p-1 rounded-sm">{comment.elementPath}</code>
+                                                    On <a href={comment.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">{comment.url.substring(new URL(selectedSite!.url).origin.length) || "/"}</a> about <code className="text-xs bg-muted p-1 rounded-sm">{comment.elementPath}</code>
                                                 </p>
                                             </div>
                                         </div>
@@ -198,7 +205,7 @@ export default function VisualFeedbackPage() {
                                     <div className="flex justify-between items-center">
                                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true })}</p>
                                         <div className="flex items-center gap-2">
-                                             <Select value={comment.status} onValueChange={(val) => updateComment(comment.id, { status: val as CommentStatus })}>
+                                             <Select value={comment.status} onValueChange={(val) => updateCommentStatus(comment.id, val as CommentStatus)}>
                                                 <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="open">Open</SelectItem>
