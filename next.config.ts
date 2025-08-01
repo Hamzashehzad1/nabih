@@ -62,6 +62,10 @@ const nextConfig: NextConfig = {
         destination: '/api/chatbot-embed',
       },
        {
+        source: '/visual-feedback.js',
+        destination: '/api/visual-feedback',
+      },
+       {
         source: '/api/scrape-woocommerce',
         destination: '/api/scrape-products',
       },
