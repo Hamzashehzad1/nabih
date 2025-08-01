@@ -118,8 +118,7 @@ export default function VisualFeedbackPage() {
     const embedScriptTag = useMemo(() => {
         if (typeof window === 'undefined') return '';
         const scriptUrl = `${window.location.origin}/visual-feedback.js`;
-        // Note: The data-project-id is a placeholder for future multi-project functionality
-        return `<script id="content-forge-feedback-tool" data-project-id="YOUR_PROJECT_ID" src="${scriptUrl}" defer></script>`;
+        return `<script id="content-forge-feedback-tool" src="${scriptUrl}" defer></script>`;
     }, []);
 
     const phpSnippet = useMemo(() => {
