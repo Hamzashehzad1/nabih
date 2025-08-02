@@ -148,7 +148,18 @@ export function ImageOptimizeDialog({
   
   useEffect(() => {
     if (open && image && originalImageBase64) {
-        handleGeneratePreview();
+        const initialPreview = async () => {
+            setIsLoading(true);
+            try {
+                const result = await generateServerPreview(originalImageBase64, 'jpeg', 85, image.width, image.height);
+                setPreview(result);
+            } catch(err) {
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        initialPreview();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalImageBase64, open, image]);
@@ -314,6 +325,30 @@ export function ImageOptimizeDialog({
               </Button>
           </CardContent>
       </Card>
+      {preview && (
+        <Card>
+            <CardHeader>
+            <CardTitle>Results</CardTitle>
+            </CardHeader>
+            <CardContent>
+            <div className="text-center">
+                <p
+                className={cn(
+                    "text-4xl font-bold",
+                    sizeReduction >= 0 ? "text-green-500" : "text-red-500"
+                )}
+                >
+                {sizeReduction >= 0
+                    ? `-${sizeReduction.toFixed(1)}%`
+                    : `+${Math.abs(sizeReduction).toFixed(1)}%`}
+                </p>
+                <p className="text-muted-foreground">
+                reduction in file size
+                </p>
+            </div>
+            </CardContent>
+        </Card>
+        )}
     </>
   );
 
@@ -420,7 +455,7 @@ export function ImageOptimizeDialog({
                     onMouseLeave={handleMouseLeave}
                     onMouseMove={handleMouseMove}
                 >
-                    {isLoading && (
+                    {isLoading && !preview && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
@@ -443,36 +478,12 @@ export function ImageOptimizeDialog({
             </div>
           </div>
           
-          <div className="md:col-span-1 flex flex-col gap-6">
-            <div className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+          <div className="md:col-span-1 flex flex-col gap-4 overflow-y-auto">
+            <div className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2 flex-shrink-0">
               <Move className="h-4 w-4" />
               Click and drag to pan images
             </div>
              {renderControls()}
-            {preview && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Results</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center">
-                    <p
-                      className={cn(
-                        "text-4xl font-bold",
-                        sizeReduction >= 0 ? "text-green-500" : "text-red-500"
-                      )}
-                    >
-                      {sizeReduction >= 0
-                        ? `-${sizeReduction.toFixed(1)}%`
-                        : `+${Math.abs(sizeReduction).toFixed(1)}%`}
-                    </p>
-                    <p className="text-muted-foreground">
-                      reduction in file size
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
              {preview && renderSaveOptions()}
           </div>
         </div>
