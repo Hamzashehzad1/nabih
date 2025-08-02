@@ -197,7 +197,6 @@ export async function replaceWpMediaFile(
       method: 'POST', 
       headers: {
         'Authorization': authHeader,
-        'Content-Type': mediaItem.mime_type,
         'Content-Disposition': `attachment; filename="${mediaItem.filename}"`,
       },
       body: buffer,
