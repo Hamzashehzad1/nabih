@@ -150,7 +150,8 @@ export function ImageOptimizeDialog({
     if (open && image && originalImageBase64) {
         handleGeneratePreview();
     }
-  }, [originalImageBase64, open, image, handleGeneratePreview]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originalImageBase64, open, image]);
 
  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -334,9 +335,10 @@ export function ImageOptimizeDialog({
             <Button
                 onClick={() => handleSave('replace')}
                 disabled={isUploading}
+                className="justify-start text-left h-auto"
             >
-                {uploadAction === 'replace' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <div className="text-left">
+                {uploadAction === 'replace' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Replace className="mr-2 h-4 w-4" />}
+                <div>
                     <p className="font-semibold">Replace Original</p>
                     <p className="text-xs font-normal">Overwrite the original file. Keeps the same URL.</p>
                 </div>
@@ -345,9 +347,10 @@ export function ImageOptimizeDialog({
                 onClick={() => handleSave('saveAsCopy')}
                 disabled={isUploading}
                 variant="secondary"
+                className="justify-start text-left h-auto"
             >
-                {uploadAction === 'saveAsCopy' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <div className="text-left">
+                {uploadAction === 'saveAsCopy' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                <div>
                     <p className="font-semibold">Save as Optimized Copy</p>
                     <p className="text-xs font-normal">Upload as a new file (e.g., image-optimized.jpg).</p>
                 </div>
