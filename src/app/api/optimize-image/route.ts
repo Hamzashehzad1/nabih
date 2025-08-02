@@ -7,6 +7,8 @@ const OptimizeRequestSchema = z.object({
   image: z.string(), // base64 string
   format: z.enum(['jpeg', 'png', 'webp']),
   quality: z.number().min(0).max(100),
+  width: z.number().optional(),
+  height: z.number().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -18,20 +20,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body', details: parseResult.error.errors }, { status: 400 });
     }
 
-    const { image, format, quality } = parseResult.data;
+    const { image, format, quality, width, height } = parseResult.data;
 
     const imageBuffer = Buffer.from(image.split(';base64,').pop()!, 'base64');
 
-    let optimizedBuffer: Buffer;
-    const sharpInstance = sharp(imageBuffer);
+    let sharpInstance = sharp(imageBuffer);
 
-    // This endpoint is now primarily for PNG, but can handle others if called.
+    if (width || height) {
+        sharpInstance = sharpInstance.resize(width, height);
+    }
+
+    let optimizedBuffer: Buffer;
+
     switch (format) {
       case 'jpeg':
         optimizedBuffer = await sharpInstance.jpeg({ quality }).toBuffer();
         break;
       case 'png':
-         // Use pngquant for high-quality PNG compression
         optimizedBuffer = await sharpInstance.png({ quality, compressionLevel: 8, palette: true }).toBuffer();
         break;
       case 'webp':
