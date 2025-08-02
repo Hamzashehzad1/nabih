@@ -150,8 +150,7 @@ export function ImageOptimizeDialog({
     if (open && image && originalImageBase64) {
         handleGeneratePreview();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originalImageBase64]);
+  }, [originalImageBase64, open, image, handleGeneratePreview]);
 
  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
