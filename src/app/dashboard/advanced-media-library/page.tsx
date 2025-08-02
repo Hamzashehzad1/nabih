@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWpMedia, updateWpMediaDetails, type WpMediaItem } from './actions';
-import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download, Square } from "lucide-react";
+import { Globe, Power, Image as ImageIcon, Loader2, ArrowUp, ArrowDown, ExternalLink, Settings2, Edit, AlertCircle, CloudUpload, CheckCircle2, XCircle, Download, Square, RefreshCw } from "lucide-react";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -573,9 +573,14 @@ export default function AdvancedMediaLibraryPage() {
                                         Displaying media items from {new URL(selectedSite!.url).hostname}.
                                     </CardDescription>
                                 </div>
-                                <Button onClick={() => setSelectedSiteId(null)} variant="outline">
-                                    <Power className="mr-2 h-4 w-4" /> Change Site
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button onClick={() => loadInitialMedia()} variant="outline" size="icon" disabled={isLoading}>
+                                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                                    </Button>
+                                    <Button onClick={() => setSelectedSiteId(null)} variant="outline">
+                                        <Power className="mr-2 h-4 w-4" /> Change Site
+                                    </Button>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>

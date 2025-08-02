@@ -56,7 +56,7 @@ async function generateServerPreview(
     quality: number,
     width?: number,
     height?: number,
-): Promise<{ base64: string; size: number }> {
+): Promise<{ base64: string; size: number, width?: number, height?: number }> {
     const response = await fetch('/api/optimize-image', {
         method: 'POST',
         headers: {
@@ -96,7 +96,7 @@ export function ImageOptimizeDialog({
   const [dimensions, setDimensions] = useState<{width?: number, height?: number}>({width: undefined, height: undefined});
   const [isLoading, setIsLoading] = useState(false);
   const [uploadAction, setUploadAction] = useState<UploadAction>(null);
-  const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
+  const [preview, setPreview] = useState<{ base64: string; size: number, width?: number, height?: number } | null>(null);
   const [originalImageBase64, setOriginalImageBase64] = useState<string | null>(null);
   const { toast } = useToast();
   
@@ -161,7 +161,6 @@ export function ImageOptimizeDialog({
         };
         initialPreview();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalImageBase64, open, image]);
 
  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -245,7 +244,7 @@ export function ImageOptimizeDialog({
 
   const imageTransform = {
       transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-      transformOrigin: 'top left',
+      transformOrigin: 'center center',
   };
 
   const renderControls = () => (
@@ -255,11 +254,11 @@ export function ImageOptimizeDialog({
           <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <div className="space-y-2 w-1/2">
-                    <Label htmlFor="width">Width</Label>
+                    <Label htmlFor="width">Width (px)</Label>
                     <Input id="width" type="number" placeholder="Original" value={dimensions.width || ''} onChange={e => setDimensions(d => ({...d, width: e.target.value ? parseInt(e.target.value) : undefined}))}/>
                 </div>
                  <div className="space-y-2 w-1/2">
-                    <Label htmlFor="height">Height</Label>
+                    <Label htmlFor="height">Height (px)</Label>
                     <Input id="height" type="number" placeholder="Original" value={dimensions.height || ''} onChange={e => setDimensions(d => ({...d, height: e.target.value ? parseInt(e.target.value) : undefined}))}/>
                 </div>
               </div>
@@ -325,30 +324,7 @@ export function ImageOptimizeDialog({
               </Button>
           </CardContent>
       </Card>
-      {preview && (
-        <Card>
-            <CardHeader>
-            <CardTitle>Results</CardTitle>
-            </CardHeader>
-            <CardContent>
-            <div className="text-center">
-                <p
-                className={cn(
-                    "text-4xl font-bold",
-                    sizeReduction >= 0 ? "text-green-500" : "text-red-500"
-                )}
-                >
-                {sizeReduction >= 0
-                    ? `-${sizeReduction.toFixed(1)}%`
-                    : `+${Math.abs(sizeReduction).toFixed(1)}%`}
-                </p>
-                <p className="text-muted-foreground">
-                reduction in file size
-                </p>
-            </div>
-            </CardContent>
-        </Card>
-        )}
+      
     </>
   );
 
@@ -408,7 +384,7 @@ export function ImageOptimizeDialog({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow min-h-0">
           <div className="md:col-span-2 grid grid-cols-2 gap-4 min-h-0">
             <div className="flex flex-col gap-2">
-                <h3 className="font-semibold text-center">Original ({formatBytes(originalSize)})</h3>
+                <h3 className="font-semibold text-center">Original ({image?.width}x{image?.height} - {formatBytes(originalSize)})</h3>
                 <div 
                     className={cn(
                         "flex-grow bg-muted/50 rounded-md overflow-hidden relative",
@@ -443,7 +419,7 @@ export function ImageOptimizeDialog({
             </div>
             <div className="flex flex-col gap-2">
                 <h3 className="font-semibold text-center">
-                    Preview ({preview ? formatBytes(preview.size) : '...'})
+                    Preview ({preview ? `${preview.width}x${preview.height} - ${formatBytes(preview.size)}` : '...'})
                 </h3>
                 <div 
                      className={cn(
@@ -468,8 +444,8 @@ export function ImageOptimizeDialog({
                             <Image
                                 src={preview.base64}
                                 alt="Preview"
-                                width={dimensions.width || image.width}
-                                height={dimensions.height || image.height}
+                                width={preview.width || image.width}
+                                height={preview.height || image.height}
                                 className="max-w-full max-h-full object-contain pointer-events-none"
                             />
                         </div>
@@ -484,7 +460,31 @@ export function ImageOptimizeDialog({
               Click and drag to pan images
             </div>
              {renderControls()}
-             {preview && renderSaveOptions()}
+            {preview && (
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Results</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                    <div className="text-center">
+                        <p
+                        className={cn(
+                            "text-4xl font-bold",
+                            sizeReduction >= 0 ? "text-green-500" : "text-red-500"
+                        )}
+                        >
+                        {sizeReduction >= 0
+                            ? `-${sizeReduction.toFixed(1)}%`
+                            : `+${Math.abs(sizeReduction).toFixed(1)}%`}
+                        </p>
+                        <p className="text-muted-foreground">
+                        reduction in file size
+                        </p>
+                    </div>
+                    </CardContent>
+                </Card>
+            )}
+            {preview && renderSaveOptions()}
           </div>
         </div>
 

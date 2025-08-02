@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
             width: width,
             height: height,
             fit: 'inside', // 'inside' preserves aspect ratio, ensuring image is not distorted
-            withoutEnlargement: true, // Prevents making the image larger than it is
         });
     }
 
@@ -54,8 +53,15 @@ export async function POST(request: NextRequest) {
     const mimeType = `image/${format}`;
     const base64 = `data:${mimeType};base64,${optimizedBuffer.toString('base64')}`;
     const size = optimizedBuffer.length;
+    const metadata = await sharp(optimizedBuffer).metadata();
 
-    return NextResponse.json({ base64, size });
+
+    return NextResponse.json({ 
+        base64, 
+        size,
+        width: metadata.width,
+        height: metadata.height 
+    });
 
   } catch (error) {
     console.error('Image optimization error:', error);
