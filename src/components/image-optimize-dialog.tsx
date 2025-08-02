@@ -446,7 +446,7 @@ export function ImageOptimizeDialog({
                                 alt="Preview"
                                 width={preview.width || image.width}
                                 height={preview.height || image.height}
-                                className="max-w-full max-h-full object-contain pointer-events-none"
+                                className="pointer-events-none"
                             />
                         </div>
                     )}
