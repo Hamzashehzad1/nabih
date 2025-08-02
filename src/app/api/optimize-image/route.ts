@@ -26,11 +26,12 @@ export async function POST(request: NextRequest) {
 
     let sharpInstance = sharp(imageBuffer);
 
-    if (width || height) {
+    // Only resize if both width and height are provided, and force the exact dimensions.
+    if (width && height) {
         sharpInstance = sharpInstance.resize({
             width: width,
             height: height,
-            fit: 'fill', // Change from 'inside' to 'fill' to force exact dimensions
+            fit: sharp.fit.fill, // Use sharp.fit.fill to force exact dimensions
         });
     }
 
@@ -71,3 +72,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
