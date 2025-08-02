@@ -191,15 +191,15 @@ export async function replaceWpMediaFile(
   const url = `${siteUrl.replace(/\/$/, '')}/wp-json/wp/v2/media/${mediaItem.id}`;
   const authHeader = 'Basic ' + btoa(`${username}:${appPassword}`);
   const buffer = Buffer.from(optimizedImage.base64.split(';base64,').pop()!, 'base64');
-
+  
   try {
     const response = await fetch(url, {
-      method: 'POST', 
+      method: 'POST',
       headers: {
         'Authorization': authHeader,
-        'Content-Disposition': `attachment; filename="${mediaItem.filename}"`,
+        'Content-Disposition': `attachment; filename="${mediaItem.filename}"`
       },
-      body: buffer,
+      body: buffer
     });
 
     if (!response.ok) {
@@ -312,3 +312,5 @@ export async function backupMediaToCloud(
   
   return { success: true, message: `Successfully backed up ${mediaItem.filename} to ${destination}.` };
 }
+
+    
