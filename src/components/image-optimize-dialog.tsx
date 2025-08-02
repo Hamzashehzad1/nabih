@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription as CardDescriptionComponent } from '@/components/ui/card';
-import { AlertTriangle, Loader2, Move, Replace, Save } from 'lucide-react';
+import { AlertTriangle, Loader2, Move, Replace, Save, Wand2 } from 'lucide-react';
 import { WpMediaItem, replaceWpMediaFile, uploadWpMedia } from '@/app/dashboard/advanced-media-library/actions';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
@@ -148,12 +148,10 @@ export function ImageOptimizeDialog({
   
   useEffect(() => {
     if (open && image && originalImageBase64) {
-        const handler = setTimeout(() => {
-            handleGeneratePreview();
-        }, 500); 
-        return () => clearTimeout(handler);
+        handleGeneratePreview();
     }
-  }, [quality, format, open, image, originalImageBase64, dimensions, handleGeneratePreview]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originalImageBase64]);
 
  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -306,22 +304,14 @@ export function ImageOptimizeDialog({
                       step={0.1}
                   />
               </div>
-          </CardContent>
-      </Card>
-
-      <Card>
-          <CardHeader><CardTitle>Results</CardTitle></CardHeader>
-          <CardContent>
-              {preview ? (
-                  <div className="text-center">
-                      <p className={cn("text-4xl font-bold", sizeReduction >= 0 ? 'text-green-500' : 'text-red-500')}>
-                          {sizeReduction >= 0 ? `-${sizeReduction.toFixed(1)}%` : `+${Math.abs(sizeReduction).toFixed(1)}%`}
-                      </p>
-                      <p className="text-muted-foreground">reduction in file size</p>
-                  </div>
-              ) : (
-                  <p className="text-center text-muted-foreground">Adjust quality to see size reduction.</p>
-              )}
+              <Button onClick={handleGeneratePreview} disabled={isLoading} className="w-full">
+                {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Wand2 className="mr-2 h-4 w-4" />
+                )}
+                 Generate Preview
+              </Button>
           </CardContent>
       </Card>
     </>
@@ -456,7 +446,32 @@ export function ImageOptimizeDialog({
               <Move className="h-4 w-4" />
               Click and drag to pan images
             </div>
-            {preview ? renderSaveOptions() : renderControls()}
+             {renderControls()}
+            {preview && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <p
+                      className={cn(
+                        "text-4xl font-bold",
+                        sizeReduction >= 0 ? "text-green-500" : "text-red-500"
+                      )}
+                    >
+                      {sizeReduction >= 0
+                        ? `-${sizeReduction.toFixed(1)}%`
+                        : `+${Math.abs(sizeReduction).toFixed(1)}%`}
+                    </p>
+                    <p className="text-muted-foreground">
+                      reduction in file size
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+             {preview && renderSaveOptions()}
           </div>
         </div>
 
