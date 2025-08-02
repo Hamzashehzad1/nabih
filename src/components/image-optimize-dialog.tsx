@@ -21,6 +21,7 @@ import { WpMediaItem, replaceWpMediaFile, uploadWpMedia } from '@/app/dashboard/
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Input } from './ui/input';
 
 type ImageFormat = 'jpeg' | 'png' | 'webp';
 type UploadAction = 'replace' | 'saveAsCopy' | null;
@@ -51,15 +52,17 @@ async function fetchImageAsBase64(imageUrl: string): Promise<string> {
 
 async function generateServerPreview(
     base64: string,
-    format: 'png',
-    quality: number
+    format: ImageFormat,
+    quality: number,
+    width?: number,
+    height?: number,
 ): Promise<{ base64: string; size: number }> {
     const response = await fetch('/api/optimize-image', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ image: base64, format, quality }),
+        body: JSON.stringify({ image: base64, format, quality, width, height }),
     });
 
     if (!response.ok) {
@@ -68,46 +71,6 @@ async function generateServerPreview(
     }
 
     return await response.json();
-}
-
-async function generateClientPreview(
-    base64: string,
-    format: 'jpeg' | 'webp',
-    quality: number,
-): Promise<{ base64: string, size: number }> {
-    const image = new window.Image();
-    image.src = base64;
-    await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = (err) => reject(new Error('Image failed to load for preview. Check CORS policy.'));
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Could not get canvas context');
-
-    ctx.drawImage(image, 0, 0);
-    
-    return new Promise((resolve, reject) => {
-        canvas.toBlob(
-            (blob) => {
-                if (!blob) {
-                    return reject(new Error('Canvas toBlob failed'));
-                }
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const newBase64 = reader.result as string;
-                    resolve({ base64: newBase64, size: blob.size });
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            },
-            `image/${format}`,
-            quality / 100
-        );
-    });
 }
 
 
@@ -130,6 +93,7 @@ export function ImageOptimizeDialog({
 }: ImageOptimizeDialogProps) {
   const [format, setFormat] = useState<ImageFormat>('jpeg');
   const [quality, setQuality] = useState(85);
+  const [dimensions, setDimensions] = useState<{width?: number, height?: number}>({width: undefined, height: undefined});
   const [isLoading, setIsLoading] = useState(false);
   const [uploadAction, setUploadAction] = useState<UploadAction>(null);
   const [preview, setPreview] = useState<{ base64: string; size: number } | null>(null);
@@ -147,12 +111,7 @@ export function ImageOptimizeDialog({
     setIsLoading(true);
     setPreview(null);
     try {
-        let result;
-        if (format === 'png') {
-            result = await generateServerPreview(originalImageBase64, format, quality);
-        } else {
-            result = await generateClientPreview(originalImageBase64, format, quality);
-        }
+        let result = await generateServerPreview(originalImageBase64, format, quality, dimensions.width, dimensions.height);
         setPreview(result);
     } catch(err) {
         console.error(err);
@@ -161,7 +120,7 @@ export function ImageOptimizeDialog({
     } finally {
         setIsLoading(false);
     }
-  }, [image, format, quality, originalImageBase64, toast]);
+  }, [image, format, quality, originalImageBase64, dimensions, toast]);
   
   useEffect(() => {
     if (open && image) {
@@ -170,6 +129,7 @@ export function ImageOptimizeDialog({
       setPreview(null);
       setFormat('jpeg');
       setQuality(85);
+      setDimensions({ width: image.width, height: image.height });
       setZoom(1);
       setPosition({x: 0, y: 0});
       setUploadAction(null);
@@ -193,7 +153,7 @@ export function ImageOptimizeDialog({
         }, 500); 
         return () => clearTimeout(handler);
     }
-  }, [quality, format, open, image, originalImageBase64, handleGeneratePreview]);
+  }, [quality, format, open, image, originalImageBase64, dimensions, handleGeneratePreview]);
 
  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -284,6 +244,16 @@ export function ImageOptimizeDialog({
       <Card>
           <CardHeader><CardTitle>Optimization Controls</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <div className="space-y-2 w-1/2">
+                    <Label htmlFor="width">Width</Label>
+                    <Input id="width" type="number" placeholder="Original" value={dimensions.width || ''} onChange={e => setDimensions(d => ({...d, width: e.target.value ? parseInt(e.target.value) : undefined}))}/>
+                </div>
+                 <div className="space-y-2 w-1/2">
+                    <Label htmlFor="height">Height</Label>
+                    <Input id="height" type="number" placeholder="Original" value={dimensions.height || ''} onChange={e => setDimensions(d => ({...d, height: e.target.value ? parseInt(e.target.value) : undefined}))}/>
+                </div>
+              </div>
               <div className="space-y-2">
                   <Label>Output Format</Label>
                   <Select value={format} onValueChange={(v) => setFormat(v as ImageFormat)}>
@@ -471,8 +441,8 @@ export function ImageOptimizeDialog({
                             <Image
                                 src={preview.base64}
                                 alt="Preview"
-                                width={image.width}
-                                height={image.height}
+                                width={dimensions.width || image.width}
+                                height={dimensions.height || image.height}
                                 className="max-w-full max-h-full object-contain pointer-events-none"
                             />
                         </div>

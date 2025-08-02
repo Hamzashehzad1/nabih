@@ -7,8 +7,8 @@ const OptimizeRequestSchema = z.object({
   image: z.string(), // base64 string
   format: z.enum(['jpeg', 'png', 'webp']),
   quality: z.number().min(0).max(100),
-  width: z.number().optional(),
-  height: z.number().optional(),
+  width: z.number().positive().optional(),
+  height: z.number().positive().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -27,7 +27,12 @@ export async function POST(request: NextRequest) {
     let sharpInstance = sharp(imageBuffer);
 
     if (width || height) {
-        sharpInstance = sharpInstance.resize(width, height);
+        sharpInstance = sharpInstance.resize({
+            width: width,
+            height: height,
+            fit: 'inside', // 'inside' preserves aspect ratio, ensuring image is not distorted
+            withoutEnlargement: true, // Prevents making the image larger than it is
+        });
     }
 
     let optimizedBuffer: Buffer;
@@ -37,7 +42,7 @@ export async function POST(request: NextRequest) {
         optimizedBuffer = await sharpInstance.jpeg({ quality }).toBuffer();
         break;
       case 'png':
-        optimizedBuffer = await sharpInstance.png({ quality, compressionLevel: 8, palette: true }).toBuffer();
+        optimizedBuffer = await sharpInstance.png({ quality: Math.round(quality / 10), compressionLevel: 8, palette: true }).toBuffer();
         break;
       case 'webp':
         optimizedBuffer = await sharpInstance.webp({ quality }).toBuffer();
