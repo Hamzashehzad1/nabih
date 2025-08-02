@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         sharpInstance = sharpInstance.resize({
             width: width,
             height: height,
-            fit: 'inside', // 'inside' preserves aspect ratio, ensuring image is not distorted
+            fit: 'fill', // Change from 'inside' to 'fill' to force exact dimensions
         });
     }
 
