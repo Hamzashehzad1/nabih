@@ -21,6 +21,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 
 interface WpSite {
   id: string;
@@ -33,6 +35,19 @@ interface ResizeDialogState {
     open: boolean;
     image: WpMediaItem | null;
 }
+
+interface BulkResizeDialogState {
+    open: boolean;
+    images: WpMediaItem[];
+}
+
+interface BulkResizeProgress {
+    [imageId: number]: {
+        status: 'pending' | 'resizing' | 'success' | 'error';
+        message?: string;
+    };
+}
+
 
 const PAGE_SIZE = 50;
 
@@ -80,14 +95,11 @@ const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: 
     return <Image src={imgSrc} alt={alt} {...props} />;
 };
 
-const ResizeDialog = ({ state, setState, onComplete }: { state: ResizeDialogState, setState: (state: ResizeDialogState) => void, onComplete: () => void }) => {
+const ResizeDialog = ({ site, state, setState, onComplete }: { site?: WpSite, state: ResizeDialogState, setState: (state: ResizeDialogState) => void, onComplete: () => void }) => {
     const { toast } = useToast();
-    const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
     const [width, setWidth] = useState(0);
     const [height, setHeight] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    
-    const selectedSite = sites.find(s => s.id === localStorage.getItem('image-resizer-selected-site'));
     
     useEffect(() => {
         if (state.image) {
@@ -97,7 +109,7 @@ const ResizeDialog = ({ state, setState, onComplete }: { state: ResizeDialogStat
     }, [state.image]);
     
     const handleResize = async () => {
-        if (!state.image || !selectedSite?.appPassword) return;
+        if (!state.image || !site?.appPassword) return;
         
         setIsLoading(true);
         try {
@@ -124,7 +136,7 @@ const ResizeDialog = ({ state, setState, onComplete }: { state: ResizeDialogStat
 
             const resizedImage = await optimizeResponse.json();
 
-            const replaceResult = await replaceWpMediaFile(selectedSite.url, selectedSite.user, selectedSite.appPassword, state.image, resizedImage);
+            const replaceResult = await replaceWpMediaFile(site.url, site.user, site.appPassword, state.image, resizedImage);
             
             if (replaceResult.success) {
                 toast({ title: 'Image Resized!', description: `${state.image.filename} has been updated.`});
@@ -176,6 +188,116 @@ const ResizeDialog = ({ state, setState, onComplete }: { state: ResizeDialogStat
     )
 }
 
+const BulkResizeDialog = ({ site, state, setState, onComplete }: { site?: WpSite, state: BulkResizeDialogState, setState: (state: BulkResizeDialogState) => void, onComplete: () => void }) => {
+    const { toast } = useToast();
+    const [width, setWidth] = useState(1200);
+    const [height, setHeight] = useState(800);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [progress, setProgress] = useState<BulkResizeProgress>({});
+    
+    const startBulkResize = async () => {
+        if (!site?.appPassword) return;
+
+        setIsProcessing(true);
+        setProgress(
+            state.images.reduce((acc, img) => ({ ...acc, [img.id]: { status: 'pending' } }), {})
+        );
+
+        for (const image of state.images) {
+            setProgress(prev => ({ ...prev, [image.id]: { status: 'resizing' } }));
+            try {
+                const proxyResponse = await fetch(`/api/proxy-image?url=${encodeURIComponent(image.fullUrl)}`);
+                if(!proxyResponse.ok) throw new Error('Failed to fetch original image');
+                const { base64: originalBase64 } = await proxyResponse.json();
+
+                const optimizeResponse = await fetch('/api/optimize-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: originalBase64,
+                        format: image.mime_type.split('/')[1] || 'jpeg',
+                        quality: 90,
+                        width,
+                        height,
+                    }),
+                });
+                if (!optimizeResponse.ok) {
+                    const errorData = await optimizeResponse.json();
+                    throw new Error(errorData.error || 'Failed to resize image');
+                }
+
+                const resizedImage = await optimizeResponse.json();
+                const replaceResult = await replaceWpMediaFile(site.url, site.user, site.appPassword, image, resizedImage);
+                if (!replaceResult.success) throw new Error(replaceResult.error);
+                
+                setProgress(prev => ({ ...prev, [image.id]: { status: 'success' } }));
+            } catch (e: any) {
+                setProgress(prev => ({ ...prev, [image.id]: { status: 'error', message: e.message } }));
+            }
+        }
+
+        setIsProcessing(false);
+        toast({ title: 'Bulk Resize Complete', description: 'All selected images have been processed.' });
+        onComplete();
+    };
+
+    const total = state.images.length;
+    const completed = Object.values(progress).filter(p => p.status === 'success' || p.status === 'error').length;
+    const progressPercentage = total > 0 ? (completed / total) * 100 : 0;
+    
+    return (
+        <Dialog open={state.open} onOpenChange={(open) => !isProcessing && setState({ ...state, open })}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Bulk Resize Images</DialogTitle>
+                    <DialogDescription>Resizing {state.images.length} images. This action cannot be undone.</DialogDescription>
+                </DialogHeader>
+                {!isProcessing && (
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="bulk-width">Width (px)</Label>
+                            <Input id="bulk-width" type="number" value={width} onChange={(e) => setWidth(Number(e.target.value))} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="bulk-height">Height (px)</Label>
+                            <Input id="bulk-height" type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} />
+                        </div>
+                    </div>
+                )}
+                
+                {(isProcessing || Object.keys(progress).length > 0) && (
+                     <div className="space-y-4 py-4">
+                        <Progress value={progressPercentage} className="w-full" />
+                        <ScrollArea className="h-64 border rounded-md p-2">
+                            <div className="space-y-2">
+                               {state.images.map(image => (
+                                   <div key={image.id} className="flex items-center justify-between text-sm p-1 rounded-md">
+                                       <span className="truncate pr-2">{image.filename}</span>
+                                       {progress[image.id]?.status === 'pending' && <span className="text-muted-foreground">Pending...</span>}
+                                       {progress[image.id]?.status === 'resizing' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                                       {progress[image.id]?.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                       {progress[image.id]?.status === 'error' && <XCircle className="h-4 w-4 text-destructive" title={progress[image.id]?.message} />}
+                                   </div>
+                               ))}
+                            </div>
+                        </ScrollArea>
+                    </div>
+                )}
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setState({ open: false, images: [] })} disabled={isProcessing}>
+                       {isProcessing ? 'Close After Completion' : 'Cancel'}
+                    </Button>
+                    <Button onClick={startBulkResize} disabled={isProcessing || progressPercentage > 0}>
+                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crop className="mr-2 h-4 w-4" />}
+                        {isProcessing ? 'Processing...' : `Resize ${total} Images`}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export default function ImageResizerPage() {
     const { toast } = useToast();
@@ -192,6 +314,7 @@ export default function ImageResizerPage() {
     const [hasMore, setHasMore] = useState(true);
 
     const [resizeDialogState, setResizeDialogState] = useState<ResizeDialogState>({ open: false, image: null });
+    const [bulkResizeDialogState, setBulkResizeDialogState] = useState<BulkResizeDialogState>({ open: false, images: [] });
 
     const { ref: infiniteScrollRef, inView } = useInView({ threshold: 0.5 });
     
@@ -211,6 +334,8 @@ export default function ImageResizerPage() {
             setCurrentPage(1);
             if (result.data.length < PAGE_SIZE || result.totalPages <= 1) {
                 setHasMore(false);
+            } else {
+                setHasMore(true);
             }
         } else {
             setError(result.error);
@@ -223,6 +348,7 @@ export default function ImageResizerPage() {
         setCurrentPage(1);
         setHasMore(true);
         setError(null);
+        setSelectedIds(new Set());
         if (selectedSite) {
             loadInitialMedia();
         }
@@ -270,6 +396,15 @@ export default function ImageResizerPage() {
         } else {
             setSelectedIds(new Set(mediaItems.map(item => item.id)));
         }
+    };
+
+    const handleBulkResizeClick = () => {
+        const imagesToResize = mediaItems.filter(item => selectedIds.has(item.id));
+        if (imagesToResize.length === 0) {
+            toast({ title: "No images selected", description: "Please select at least one image to resize.", variant: "destructive" });
+            return;
+        }
+        setBulkResizeDialogState({ open: true, images: imagesToResize });
     };
     
     const renderSiteSelection = () => (
@@ -331,11 +466,10 @@ export default function ImageResizerPage() {
                          <Button size="sm" onClick={handleSelectAll}>
                             {selectedIds.size === mediaItems.length ? 'Deselect All' : 'Select All'}
                         </Button>
-                        <Button size="sm" disabled={selectedIds.size === 0}>
+                        <Button size="sm" disabled={selectedIds.size === 0} onClick={handleBulkResizeClick}>
                             <Crop className="mr-2 h-4 w-4"/>
                             Bulk Resize Selected ({selectedIds.size})
                         </Button>
-                         <p className="text-sm text-muted-foreground ml-auto">Bulk resizing coming soon!</p>
                     </div>
                     
                     {isLoading && (
@@ -410,7 +544,8 @@ export default function ImageResizerPage() {
 
     return (
         <div className="space-y-8">
-            <ResizeDialog state={resizeDialogState} setState={setResizeDialogState} onComplete={loadInitialMedia} />
+            <ResizeDialog site={selectedSite} state={resizeDialogState} setState={setResizeDialogState} onComplete={loadInitialMedia} />
+            <BulkResizeDialog site={selectedSite} state={bulkResizeDialogState} setState={setBulkResizeDialogState} onComplete={loadInitialMedia} />
             <div>
                 <h1 className="text-3xl font-headline font-bold">Image Resizer</h1>
                 <p className="text-muted-foreground max-w-2xl">
