@@ -50,6 +50,7 @@ import {
   Network,
   DownloadCloud,
   Crop,
+  Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -96,6 +97,10 @@ const generalNav = [
     { href: "/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: { children: "Settings", side: "right" } },
     { href: "/dashboard/profile", icon: <User />, label: "Profile", tooltip: { children: "Profile", side: "right" } },
 ];
+
+const adminNav = [
+    { href: "/dashboard/admin-analytics", icon: <Users />, label: "User Analytics", tooltip: { children: "User Analytics", side: "right" } },
+]
 
 
 export default function DashboardLayout({
@@ -220,6 +225,25 @@ export default function DashboardLayout({
                 <SidebarGroupLabel>Agency Toolkit</SidebarGroupLabel>
                 <SidebarMenu>
                 {agencyToolkitNav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <Link href={item.href}>
+                        <SidebarMenuButton
+                        isActive={pathname.startsWith(item.href)}
+                        tooltip={item.tooltip}
+                        >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                    </SidebarMenuItem>
+                ))}
+                </SidebarMenu>
+            </SidebarGroup>
+            
+            <SidebarGroup>
+                <SidebarGroupLabel>Admin</SidebarGroupLabel>
+                <SidebarMenu>
+                {adminNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
