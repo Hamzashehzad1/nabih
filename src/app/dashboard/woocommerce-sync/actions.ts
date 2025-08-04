@@ -156,17 +156,8 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
     const logs: Omit<SyncLog, 'timestamp'>[] = [];
     const syncedItems: SyncedItem[] = [];
 
-    const apiConfig = {
-      version: "wc/v3",
-      axiosConfig: {
-        validateStatus: function (status: number) {
-          return status >= 200 && status < 500;
-        },
-      },
-    };
-
-    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, ...apiConfig });
-    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, ...apiConfig });
+    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, version: "wc/v3" });
+    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, version: "wc/v3" });
     
     try {
         await syncDataType(apiA, apiB, 'products', 'Product', logs, syncedItems);
