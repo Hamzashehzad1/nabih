@@ -12,137 +12,145 @@ const siteSchema = z.object({
 });
 export type SiteFormData = z.infer<typeof siteSchema>;
 
-export interface ExportLog {
+export interface SyncLog {
     timestamp: string;
     message: string;
-    type: 'info' | 'success' | 'error';
+    type: 'info' | 'success' | 'error' | 'warn';
 }
 
-export interface ExportResult {
-    logs: Omit<ExportLog, 'timestamp'>[];
-    data: {
-        products?: string;
-        orders?: string;
-        reviews?: string;
-        coupons?: string;
-    }
+type AddLogFn = (message: string, type?: SyncLog['type']) => void;
+
+interface DataTypeConfig {
+    endpoint: string;
+    idKey: string;
+    compareKeys: (keyof any)[];
 }
+
+const dataTypesConfig: Record<string, DataTypeConfig> = {
+    products: { endpoint: 'products', idKey: 'id', compareKeys: ['name', 'price', 'stock_quantity'] },
+    orders: { endpoint: 'orders', idKey: 'id', compareKeys: ['status', 'total'] },
+    reviews: { endpoint: 'products/reviews', idKey: 'id', compareKeys: ['review', 'rating'] },
+    coupons: { endpoint: 'coupons', idKey: 'id', compareKeys: ['code', 'amount', 'usage_limit'] },
+};
+
 
 // Helper to fetch all items of a certain type from a site
-async function fetchAllItems(api: WooCommerceRestApi, endpoint: string, logs: Omit<ExportLog, 'timestamp'>[]): Promise<any[] | null> {
+async function fetchAllItems(api: WooCommerceRestApi, endpoint: string, addLog: AddLogFn): Promise<any[]> {
     let allItems: any[] = [];
     let page = 1;
     const perPage = 100;
+    addLog(`Fetching all items from endpoint: ${endpoint}`);
 
     try {
         while (true) {
-            logs.push({ message: `Fetching page ${page} from ${endpoint}...`, type: 'info' });
-            const { data, headers } = await api.get(endpoint, {
-                per_page: perPage,
-                page: page,
-                status: 'any',
-            });
+            const { data } = await api.get(endpoint, { per_page: perPage, page: page, status: 'any' });
             
-            if (data && Array.isArray(data) && data.length > 0) {
-                allItems = allItems.concat(data);
-            } else if (data && (data as any).code === 'rest_post_invalid_page_number') {
-                break; // WooCommerce sometimes sends this code for the last page
-            } else if (!data || (Array.isArray(data) && data.length === 0)) {
-                break; // No more items
-            }
+            if (!data || data.length === 0) break;
             
-            const totalPages = headers && headers['x-wp-totalpages'];
-            if (!totalPages || parseInt(totalPages, 10) <= page) {
-                break;
-            }
+            allItems = allItems.concat(data);
             page++;
         }
+        addLog(`Successfully fetched ${allItems.length} items from ${endpoint}.`, 'success');
         return allItems;
-    } catch (e: any) {
-        logs.push({ message: `Error fetching from ${endpoint}: ${e.message}. Check URL and API keys.`, type: 'error' });
-        return null; // Indicate failure
-    }
-}
-
-// Helper to convert an array of objects to a CSV string
-function toCsv(items: any[]): string {
-    if (items.length === 0) return '';
-    const headers = Object.keys(items[0]);
-    const csvRows = [
-        headers.join(','),
-        ...items.map(item =>
-            headers.map(header => {
-                let value = item[header];
-                if (value === null || value === undefined) {
-                    return '';
-                }
-                if (typeof value === 'object') {
-                    value = JSON.stringify(value);
-                }
-                const stringValue = String(value).replace(/"/g, '""');
-                if (stringValue.includes(',')) {
-                    return `"${stringValue}"`;
-                }
-                return stringValue;
-            }).join(',')
-        )
-    ];
-    return csvRows.join('\n');
-}
-
-export async function exportWooCommerceData(
-    site: SiteFormData,
-    dataTypes: { products: boolean, orders: boolean, reviews: boolean, coupons: boolean }
-): Promise<ExportResult> {
-    const logs: Omit<ExportLog, 'timestamp'>[] = [];
-    const exportedData: ExportResult['data'] = {};
-
-    const api = new WooCommerceRestApi({
-      url: site.url,
-      consumerKey: site.consumerKey,
-      consumerSecret: site.consumerSecret,
-      version: "wc/v3"
-    });
-    
-    try {
-        if (dataTypes.products) {
-            logs.push({ message: 'Starting product export...', type: 'info' });
-            const products = await fetchAllItems(api, 'products', logs);
-            if (products) {
-                exportedData.products = toCsv(products);
-                logs.push({ message: `Successfully fetched ${products.length} products.`, type: 'success' });
-            }
-        }
-        if (dataTypes.orders) {
-            logs.push({ message: 'Starting order export...', type: 'info' });
-            const orders = await fetchAllItems(api, 'orders', logs);
-            if (orders) {
-                exportedData.orders = toCsv(orders);
-                logs.push({ message: `Successfully fetched ${orders.length} orders.`, type: 'success' });
-            }
-        }
-        if (dataTypes.reviews) {
-            logs.push({ message: 'Starting review export...', type: 'info' });
-            const reviews = await fetchAllItems(api, 'products/reviews', logs);
-            if (reviews) {
-                exportedData.reviews = toCsv(reviews);
-                logs.push({ message: `Successfully fetched ${reviews.length} reviews.`, type: 'success' });
-            }
-        }
-        if (dataTypes.coupons) {
-            logs.push({ message: 'Starting coupon export...', type: 'info' });
-            const coupons = await fetchAllItems(api, 'coupons', logs);
-            if (coupons) {
-                exportedData.coupons = toCsv(coupons);
-                logs.push({ message: `Successfully fetched ${coupons.length} coupons.`, type: 'success' });
-            }
-        }
-
-        logs.push({ message: "Export process finished.", type: 'success' });
-        
     } catch (error: any) {
-        logs.push({ message: `A critical error occurred during the export process: ${error.message}`, type: 'error' });
+        addLog(`Error fetching from ${endpoint}: ${error.message}. Please check API keys and URL.`, 'error');
+        throw error;
     }
-    
-    return { logs, data: exportedData };
+}
+
+// Helper to sanitize data for creation (remove read-only fields)
+function sanitizeForCreation(item: any, type: string): any {
+    const readOnlyFields = ['id', 'date_created', 'date_modified', 'permalink', 'date_created_gmt', 'date_modified_gmt', '_links'];
+    const sanitizedItem = { ...item };
+    for (const key of readOnlyFields) {
+        delete sanitizedItem[key];
+    }
+    // Specific sanitizations
+    if (type === 'products') {
+        delete sanitizedItem.variations;
+        delete sanitizedItem.related_ids;
+    }
+    if (type === 'orders') {
+        // Orders are particularly tricky, often better to not create them this way
+        // But if needed, many fields must be removed or handled differently.
+        delete sanitizedItem.customer_id;
+        delete sanitizedItem.date_paid;
+        delete sanitizedItem.number;
+    }
+    return sanitizedItem;
+}
+
+export async function performSync(
+    sourceSite: SiteFormData,
+    destinationSite: SiteFormData,
+    dataTypesToSync: { [key: string]: boolean },
+    addLog: AddLogFn
+) {
+    const sourceApi = new WooCommerceRestApi({ ...sourceSite, version: "wc/v3" });
+    const destApi = new WooCommerceRestApi({ ...destinationSite, version: "wc/v3" });
+
+    for (const type of Object.keys(dataTypesConfig)) {
+        if (!dataTypesToSync[type]) continue;
+        
+        const config = dataTypesConfig[type];
+        addLog(`--- Starting sync for ${type} ---`, 'info');
+
+        try {
+            const [sourceItems, destItems] = await Promise.all([
+                fetchAllItems(sourceApi, config.endpoint, addLog),
+                fetchAllItems(destApi, config.endpoint, addLog),
+            ]);
+
+            const sourceMap = new Map(sourceItems.map(item => [item[config.idKey], item]));
+            const destMap = new Map(destItems.map(item => [item[config.idKey], item]));
+
+            // Items to create on destination
+            for (const [id, item] of sourceMap.entries()) {
+                if (!destMap.has(id)) {
+                    try {
+                        const createData = sanitizeForCreation(item, type);
+                        await destApi.post(config.endpoint, createData);
+                        addLog(`CREATED ${type} #${id} on destination.`, 'success');
+                    } catch (e: any) {
+                        addLog(`Failed to CREATE ${type} #${id}: ${e.message}`, 'error');
+                    }
+                } else {
+                    // Item exists, check if it needs update (simple comparison)
+                    const destItem = destMap.get(id);
+                    let needsUpdate = false;
+                    for (const key of config.compareKeys) {
+                        if(item[key] !== destItem[key]) {
+                            needsUpdate = true;
+                            break;
+                        }
+                    }
+                    if (needsUpdate) {
+                         try {
+                            const updateData = sanitizeForCreation(item, type);
+                            await destApi.put(`${config.endpoint}/${id}`, updateData);
+                            addLog(`UPDATED ${type} #${id} on destination.`, 'success');
+                        } catch (e: any) {
+                            addLog(`Failed to UPDATE ${type} #${id}: ${e.message}`, 'error');
+                        }
+                    }
+                }
+            }
+
+            // Items to delete from destination
+            for (const [id, item] of destMap.entries()) {
+                if (!sourceMap.has(id)) {
+                     try {
+                        await destApi.delete(`${config.endpoint}/${id}`, { force: true });
+                        addLog(`DELETED ${type} #${id} from destination.`, 'warn');
+                    } catch (e: any) {
+                        addLog(`Failed to DELETE ${type} #${id}: ${e.message}`, 'error');
+                    }
+                }
+            }
+
+        } catch (error: any) {
+            addLog(`Could not complete sync for ${type}: ${error.message}`, 'error');
+        }
+         addLog(`--- Finished sync for ${type} ---`, 'info');
+    }
 }

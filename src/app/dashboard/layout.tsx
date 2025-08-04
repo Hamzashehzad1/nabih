@@ -53,11 +53,7 @@ const dashboardContentSuiteNav = contentSuiteNav.map(item =>
         : item
 );
 
-const dashboardSiteManagementNav = siteManagementNav.map(item =>
-  item.href === '/dashboard/woocommerce-sync'
-    ? { ...item, label: 'WooCommerce Exporter' }
-    : item
-);
+const dashboardSiteManagementNav = siteManagementNav;
 
 
 const dashboardAgencyToolkitNav = agencyToolkitNav.map(item =>
