@@ -1,3 +1,4 @@
+
 // src/app/dashboard/layout.tsx
 "use client";
 
@@ -51,6 +52,13 @@ const dashboardContentSuiteNav = contentSuiteNav.map(item =>
         ? { ...item, href: '/dashboard/wireframe-generator', icon: <LayoutTemplate /> } 
         : item
 );
+
+const dashboardSiteManagementNav = siteManagementNav.map(item =>
+  item.href === '/dashboard/woocommerce-sync'
+    ? { ...item, label: 'WooCommerce Exporter' }
+    : item
+);
+
 
 const dashboardAgencyToolkitNav = agencyToolkitNav.map(item =>
   item.href === '/time-tracker'
@@ -161,7 +169,7 @@ export default function DashboardLayout({
             <SidebarGroup>
                 <SidebarGroupLabel>Site Management</SidebarGroupLabel>
                 <SidebarMenu>
-                {siteManagementNav.map((item) => (
+                {dashboardSiteManagementNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton

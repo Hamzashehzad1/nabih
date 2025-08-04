@@ -1,7 +1,8 @@
+
 // src/app/dashboard/woocommerce-sync/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,11 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Power, PowerOff, CheckCircle2, Package, Star, ShoppingCart, GitCompare, AlertTriangle, ArrowRight, Trash2, Edit, PlusCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Power, PowerOff, CheckCircle2, Package, Star, ShoppingCart, Download, AlertTriangle, FileText, BadgePercent } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { performSync, type SyncLog, type SyncedItem } from './actions';
+import { exportWooCommerceData, type ExportLog, type ExportResult } from './actions';
 
 
 const siteSchema = z.object({
@@ -28,20 +28,20 @@ const siteSchema = z.object({
 
 export type SiteFormData = z.infer<typeof siteSchema>;
 
-const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLabel: 'A (Source)' | 'B (Destination)', onSave: (data: SiteFormData) => void, isConnected: boolean }) => (
+const SiteForm = ({ form, onSave, isConnected, onClear }: { form: any, onSave: (data: SiteFormData) => void, isConnected: boolean, onClear: () => void }) => (
     <Card className={cn(isConnected && "border-green-500")}>
         <CardHeader>
             <CardTitle className="flex justify-between items-center">
-                <span>Site {siteLabel}</span>
+                <span>Source Site</span>
                 {isConnected && <Badge variant="default" className="bg-green-600">Connected</Badge>}
             </CardTitle>
-            <CardDescription>Enter the WooCommerce details for site {siteLabel.charAt(0)}.</CardDescription>
+            <CardDescription>Enter the WooCommerce details for the site you want to export data from.</CardDescription>
         </CardHeader>
         <CardContent>
             <form onSubmit={form.handleSubmit(onSave)} className="space-y-4">
                  <div className="space-y-2">
                     <Label>Website URL</Label>
-                    <Input {...form.register('url')} placeholder="https://site-a.com" />
+                    <Input {...form.register('url')} placeholder="https://source-site.com" />
                     {form.formState.errors.url && <p className="text-xs text-destructive">{form.formState.errors.url.message}</p>}
                 </div>
                  <div className="space-y-2">
@@ -54,182 +54,170 @@ const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLab
                     <Input {...form.register('consumerSecret')} type="password" />
                     {form.formState.errors.consumerSecret && <p className="text-xs text-destructive">{form.formState.errors.consumerSecret.message}</p>}
                 </div>
-                <Button type="submit" className="w-full">Save Site {siteLabel.charAt(0)}</Button>
+                <div className="flex gap-2">
+                    <Button type="submit" className="flex-grow">Save Credentials</Button>
+                    <Button type="button" variant="outline" onClick={onClear}>Clear</Button>
+                </div>
             </form>
         </CardContent>
     </Card>
 );
 
 
-export default function WooCommerceSyncPage() {
+export default function WooCommerceExporterPage() {
     const { toast } = useToast();
-    const [siteA, setSiteA] = useLocalStorage<SiteFormData | null>('wc-sync-site-a', null);
-    const [siteB, setSiteB] = useLocalStorage<SiteFormData | null>('wc-sync-site-b', null);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [logs, setLogs] = useState<SyncLog[]>([]);
-    const [syncedItems, setSyncedItems] = useState<SyncedItem[]>([]);
+    const [sourceSite, setSourceSite] = useLocalStorage<SiteFormData | null>('wc-exporter-source', null);
+    const [isExporting, setIsExporting] = useState(false);
+    const [logs, setLogs] = useState<ExportLog[]>([]);
+    const [exportedFiles, setExportedFiles] = useState<ExportResult['data'] | null>(null);
+    const [dataTypes, setDataTypes] = useState({
+        products: true,
+        orders: true,
+        reviews: true,
+        coupons: true,
+    });
     
-    const formA = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteA || { url: '', consumerKey: '', consumerSecret: '' }});
-    const formB = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteB || { url: '', consumerKey: '', consumerSecret: '' }});
+    const form = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: sourceSite || { url: '', consumerKey: '', consumerSecret: '' }});
     
     useEffect(() => {
-        formA.reset(siteA || { url: '', consumerKey: '', consumerSecret: '' });
-    }, [siteA, formA]);
+        form.reset(sourceSite || { url: '', consumerKey: '', consumerSecret: '' });
+    }, [sourceSite, form]);
 
-    useEffect(() => {
-        formB.reset(siteB || { url: '', consumerKey: '', consumerSecret: '' });
-    }, [siteB, formB]);
-
-    const addLog = (message: string, type: SyncLog['type'] = 'info') => {
+    const addLog = (message: string, type: ExportLog['type'] = 'info') => {
         setLogs(prev => [{ timestamp: new Date().toISOString(), message, type }, ...prev].slice(0, 100));
     };
     
-    const handleSaveSite = (site: 'A' | 'B', data: SiteFormData) => {
-        if (site === 'A') setSiteA(data);
-        else setSiteB(data);
-        toast({ title: `Site ${site} Saved`, description: `Credentials for ${data.url} have been saved locally.` });
+    const handleSaveSite = (data: SiteFormData) => {
+        setSourceSite(data);
+        toast({ title: "Source Site Saved", description: `Credentials for ${data.url} have been saved locally.` });
     };
 
-    const runSync = async () => {
-        if (!siteA || !siteB) {
-            addLog("Both sites must be configured before syncing.", 'error');
+    const runExport = async () => {
+        if (!sourceSite) {
+            addLog("Source site must be configured before exporting.", 'error');
             return;
         }
-        setIsSyncing(true);
+        setIsExporting(true);
         setLogs([]);
-        setSyncedItems([]);
-        addLog(`Starting sync from ${siteA.url} to ${siteB.url}`);
-        const results = await performSync(siteA, siteB);
+        setExportedFiles(null);
+        addLog(`Starting export from ${sourceSite.url}`);
+        const results = await exportWooCommerceData(sourceSite, dataTypes);
         
         results.logs.forEach(log => addLog(log.message, log.type));
         
-        if (results.syncedItems.length > 0) {
-            setSyncedItems(prev => [...results.syncedItems, ...prev].slice(0, 50));
-            addLog(`Successfully synced ${results.syncedItems.length} item(s).`, 'success');
-        } else {
-             addLog("No items needed syncing in this cycle.", 'info');
-        }
-        setIsSyncing(false);
+        setExportedFiles(results.data);
+        setIsExporting(false);
     };
 
-    const getIconForType = (type: SyncedItem['type']) => {
-        switch(type) {
-            case 'Order': return <ShoppingCart className="h-4 w-4" />;
-            case 'Product': return <Package className="h-4 w-4" />;
-            case 'Review': return <Star className="h-4 w-4" />;
-            default: return null;
+    const downloadFile = (content: string | undefined, filename: string) => {
+        if (!content) {
+            toast({ title: 'No data to download', variant: 'destructive' });
+            return;
         }
-    }
-    
-     const getIconForAction = (action: SyncedItem['action']) => {
-        switch(action) {
-            case 'Created': return <PlusCircle className="h-4 w-4 text-green-500" />;
-            case 'Updated': return <Edit className="h-4 w-4 text-blue-500" />;
-            case 'Deleted': return <Trash2 className="h-4 w-4 text-destructive" />;
-            default: return null;
-        }
-    }
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-headline font-bold">WooCommerce Site Mirroring</h1>
+                <h1 className="text-3xl font-headline font-bold">WooCommerce Exporter</h1>
                 <p className="text-muted-foreground max-w-2xl">
-                    Keep a staging or secondary site perfectly in sync with your production site. This tool mirrors products, orders, and reviews from a source site (A) to a destination site (B).
+                   Export your products, orders, reviews, and coupons into an import-ready CSV format. Perfect for migrations or creating backups.
                 </p>
             </div>
 
-            <Alert variant="warning">
+            <Alert>
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Directional Sync: A to B</AlertTitle>
+                <AlertTitle>How It Works</AlertTitle>
                 <AlertDescription>
-                   This is a one-way sync. It will make Site B an exact copy of Site A by creating, updating, and **deleting** data on Site B. Any data on Site B that is not on Site A will be removed. Use with caution.
+                   This tool fetches all public data for the selected types from your source site via the WooCommerce API and formats it into CSV files. You can then use these files with the native WooCommerce CSV importers on another site.
                 </AlertDescription>
             </Alert>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <SiteForm form={formA} siteLabel="A (Source)" onSave={(data) => handleSaveSite('A', data)} isConnected={!!siteA} />
-                <SiteForm form={formB} siteLabel="B (Destination)" onSave={(data) => handleSaveSite('B', data)} isConnected={!!siteB} />
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div className="lg:col-span-1 space-y-6">
+                    <SiteForm 
+                        form={form} 
+                        onSave={handleSaveSite} 
+                        isConnected={!!sourceSite} 
+                        onClear={() => {
+                            setSourceSite(null);
+                            form.reset({ url: '', consumerKey: '', consumerSecret: '' });
+                            toast({title: "Site Cleared"});
+                        }}
+                    />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Export Options</CardTitle>
+                            <CardDescription>Select the data you wish to export.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                           {Object.keys(dataTypes).map(key => (
+                               <div key={key} className="flex items-center space-x-2">
+                                   <Checkbox 
+                                        id={key}
+                                        checked={dataTypes[key as keyof typeof dataTypes]}
+                                        onCheckedChange={(checked) => setDataTypes(prev => ({...prev, [key]: !!checked}))}
+                                    />
+                                   <label htmlFor={key} className="text-sm font-medium capitalize leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                       {key}
+                                    </label>
+                               </div>
+                           ))}
+                        </CardContent>
+                    </Card>
+                </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Sync Control Panel</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1 flex flex-col items-center justify-center gap-4 p-6 bg-muted/50 rounded-lg">
-                         <div className="text-center">
-                             <h3 className="text-xl font-bold font-headline">One-Way Mirror Sync</h3>
-                             <p className="text-sm text-muted-foreground">Site A <ArrowRight className="inline-block mx-2 h-4 w-4"/> Site B</p>
-                        </div>
-                        <Button onClick={runSync} disabled={isSyncing || !siteA || !siteB} size="lg">
-                            {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <GitCompare className="h-4 w-4 mr-2" />}
-                            {isSyncing ? 'Syncing...' : 'Run Sync Now'}
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Export Control Panel</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={runExport} disabled={isExporting || !sourceSite} size="lg">
+                            {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Download className="h-4 w-4 mr-2" />}
+                            {isExporting ? 'Exporting Data...' : 'Start Export'}
                         </Button>
-                         <p className="text-xs text-muted-foreground text-center">
-                           Click to perform a full one-time sync.
-                        </p>
-                    </div>
-                    <div className="md:col-span-2 space-y-4">
-                        <div>
-                             <h3 className="font-semibold mb-2">Sync Log</h3>
-                            <ScrollArea className="h-40 w-full rounded-md border bg-muted/50 p-4">
-                                <div className="flex flex-col gap-1 text-sm font-mono">
-                                    {logs.map((log, i) => (
-                                        <p key={i} className={cn(
-                                            log.type === 'error' && 'text-destructive',
-                                            log.type === 'success' && 'text-green-500',
-                                            log.type === 'delete' && 'text-amber-600',
-                                            log.type === 'create' && 'text-blue-500',
-                                            log.type === 'update' && 'text-purple-500',
-                                        )}>
-                                            [{new Date(log.timestamp).toLocaleTimeString()}] {log.message}
-                                        </p>
-                                    ))}
-                                </div>
-                            </ScrollArea>
-                        </div>
-                        <div>
-                            <h3 className="font-semibold mb-2">Sync Activity</h3>
-                             <ScrollArea className="h-40 w-full rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Action</TableHead>
-                                            <TableHead>Description</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {syncedItems.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                                    No sync activity yet.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                        {syncedItems.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell>
-                                                    <Badge variant="secondary" className="flex items-center gap-1.5 w-fit">
-                                                        {getIconForType(item.type)} {item.type}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1.5">
-                                                        {getIconForAction(item.action)} {item.action}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{item.description}</TableCell>
-                                            </TableRow>
+
+                         <div className="mt-6 space-y-4">
+                            <div>
+                                <h3 className="font-semibold mb-2">Export Log</h3>
+                                <ScrollArea className="h-40 w-full rounded-md border bg-muted/50 p-4">
+                                    <div className="flex flex-col gap-1 text-sm font-mono">
+                                        {logs.map((log, i) => (
+                                            <p key={i} className={cn(
+                                                log.type === 'error' && 'text-destructive',
+                                                log.type === 'success' && 'text-green-500',
+                                            )}>
+                                                [{new Date(log.timestamp).toLocaleTimeString()}] {log.message}
+                                            </p>
                                         ))}
-                                    </TableBody>
-                                </Table>
-                            </ScrollArea>
+                                    </div>
+                                </ScrollArea>
+                            </div>
+
+                           {exportedFiles && (
+                                <div>
+                                    <h3 className="font-semibold mb-2">Downloads</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                       {exportedFiles.products && <Button variant="outline" onClick={() => downloadFile(exportedFiles.products, 'products.csv')}><Package className="mr-2"/> Products CSV</Button>}
+                                       {exportedFiles.orders && <Button variant="outline" onClick={() => downloadFile(exportedFiles.orders, 'orders.csv')}><ShoppingCart className="mr-2"/> Orders CSV</Button>}
+                                       {exportedFiles.reviews && <Button variant="outline" onClick={() => downloadFile(exportedFiles.reviews, 'reviews.csv')}><Star className="mr-2"/> Reviews CSV</Button>}
+                                       {exportedFiles.coupons && <Button variant="outline" onClick={() => downloadFile(exportedFiles.coupons, 'coupons.csv')}><BadgePercent className="mr-2"/> Coupons CSV</Button>}
+                                    </div>
+                                </div>
+                           )}
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
