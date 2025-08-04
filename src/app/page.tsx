@@ -155,16 +155,16 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow">
-        <section id="hero" className="py-24 text-center">
+        <section id="hero" className="py-20 md:py-24 text-center">
           <div className="container mx-auto px-4">
-            <h1 className="text-4xl md:text-6xl font-headline font-bold mb-6 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline font-bold mb-6 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
               Your All-In-One Toolkit for{' '}
               <span className="text-primary brightness-125">Web Agencies & Creators.</span>
             </h1>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground mb-8">
               Stop juggling dozens of apps. Nabih is the ultimate AI-powered platform to write content, manage websites, and streamline client workflows.
             </p>
-            <div className="flex justify-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
               <Button asChild size="lg">
                 <Link href="/signup">
                   Launch Command Center <ArrowRight className="ml-2 h-5 w-5" />
