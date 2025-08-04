@@ -1,3 +1,4 @@
+
 // src/app/dashboard/lead-finder/page.tsx
 "use client";
 
@@ -5,7 +6,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Briefcase, Sparkles, ExternalLink, Mail, Phone } from "lucide-react";
+import { Loader2, Briefcase, Sparkles, ExternalLink, Mail, Phone, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,37 @@ export default function LeadFinderPage() {
       setIsLoading(false);
     }
   };
+
+  const convertToCSV = (data: FindLeadsOutput['leads']): string => {
+    const headers = ['Business Name', 'Description', 'Website', 'Email', 'Phone Number'];
+    const rows = data.map(lead => [
+        `"${lead.businessName.replace(/"/g, '""')}"`,
+        `"${lead.description.replace(/"/g, '""')}"`,
+        lead.websiteUrl,
+        lead.email || '',
+        lead.phoneNumber || ''
+    ]);
+    return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+};
+
+  const handleExport = () => {
+    if (generatedLeads.length === 0) {
+        toast({ title: 'No leads to export', variant: 'destructive' });
+        return;
+    }
+    const csvData = convertToCSV(generatedLeads);
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.href) {
+        URL.revokeObjectURL(link.href);
+    }
+    link.href = URL.createObjectURL(blob);
+    link.download = `leads-${form.getValues('keyword').replace(/\s+/g, '-')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Exported!', description: 'Your leads are downloading as a CSV file.' });
+};
   
   return (
     <div className="space-y-8">
@@ -137,9 +169,15 @@ export default function LeadFinderPage() {
             </Card>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Generated Leads</CardTitle>
-                    <CardDescription>Here are the potential leads found by the AI. You can visit their websites to find contact information.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Generated Leads</CardTitle>
+                        <CardDescription>Here are the potential leads found by the AI. You can visit their websites to find contact information.</CardDescription>
+                    </div>
+                     <Button variant="outline" size="sm" onClick={handleExport} disabled={generatedLeads.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Export as CSV
+                    </Button>
                 </CardHeader>
                 <CardContent>
                 <div className="h-[500px] overflow-y-auto rounded-md border">
@@ -201,3 +239,4 @@ export default function LeadFinderPage() {
     </div>
   );
 }
+
