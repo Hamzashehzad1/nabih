@@ -80,6 +80,7 @@ const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: 
             setIsLoading(true);
             if (src.startsWith('data:')) {
                 setImgSrc(src);
+                setIsLoading(false);
             } else if (src.startsWith('http')) {
                 try {
                     const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
@@ -96,10 +97,11 @@ const ProxiedImage = ({ src, alt, ...props }: { src: string, alt: string, [key: 
                         setImgSrc(null); // Set to null on error
                     }
                 }
+                setIsLoading(false);
             } else {
                 setImgSrc(src);
+                setIsLoading(false);
             }
-            setIsLoading(false);
         }
 
         loadImage();
