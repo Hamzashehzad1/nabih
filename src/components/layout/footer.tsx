@@ -18,14 +18,14 @@ export default function Footer() {
         { name: 'Features', href: '/#features' },
         { name: 'Pricing', href: '/pricing' },
         { name: 'Tools', href: '/#tools' },
-        { name: 'Updates', href: '#' },
+        { name: 'Updates', href: '/updates' },
       ],
     },
     {
       title: 'Company',
       links: [
         { name: 'About', href: '/about' },
-        { name: 'Careers', href: '#' },
+        { name: 'Careers', href: '/careers' },
         { name: 'Contact', href: '/contact' },
       ],
     },
@@ -39,8 +39,8 @@ export default function Footer() {
     {
       title: 'Legal',
       links: [
-        { name: 'Terms of Service', href: '#' },
-        { name: 'Privacy Policy', href: '#' },
+        { name: 'Terms of Service', href: '/terms' },
+        { name: 'Privacy Policy', href: '/privacy' },
       ],
     },
   ];
