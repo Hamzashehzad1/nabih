@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 const contentSuiteNav = [
     { href: "/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },
     { href: "/blog-generator", icon: <FileText />, label: "Blog Generator" },
-    { href: "/dashboard/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
+    { href: "/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator" },
     { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
     { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
