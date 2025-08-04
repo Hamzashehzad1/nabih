@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const FindLeadsInputSchema = z.object({
+const FindLeadsInputSchema = z.object({
   keyword: z.string().describe("The type of business to search for, e.g., 'plumber', 'marketing agency'."),
   location: z.string().describe("The city and/or country to search in, e.g., 'Dubai' or 'New York, USA'."),
   numberOfLeads: z.number().describe("The number of leads to generate."),
@@ -26,7 +26,7 @@ const LeadSchema = z.object({
     description: z.string().describe("A brief, one-sentence description of the business."),
 });
 
-export const FindLeadsOutputSchema = z.object({
+const FindLeadsOutputSchema = z.object({
   leads: z.array(LeadSchema).describe('An array of business leads.'),
 });
 export type FindLeadsOutput = z.infer<typeof FindLeadsOutputSchema>;
