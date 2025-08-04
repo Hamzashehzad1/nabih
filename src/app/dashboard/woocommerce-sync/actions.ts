@@ -40,9 +40,16 @@ async function fetchAllItems(api: WooCommerceRestApi, endpoint: string) {
             page: page,
             status: 'any',
         });
-        if (data && data.length > 0) {
+        
+        if (data && Array.isArray(data) && data.length > 0) {
             allItems = allItems.concat(data);
+        } else if (data && (data as any).code === 'rest_post_invalid_page_number') {
+            // This is a valid end-of-data response from WP
+            break;
+        } else if (!data || data.length === 0) {
+            break;
         }
+        
         const totalPages = headers['x-wp-totalpages'];
         if (!totalPages || parseInt(totalPages, 10) <= page) {
             break;
@@ -51,6 +58,24 @@ async function fetchAllItems(api: WooCommerceRestApi, endpoint: string) {
     }
     return allItems;
 }
+
+// Helper to sanitize data for creation
+function sanitizeCreateData(item: any, dataType: 'Product' | 'Order' | 'Review') {
+    const createData = { ...item };
+    const fieldsToRemove = [
+      'id', 'date_created', 'date_created_gmt', 'date_modified', 
+      'date_modified_gmt', 'permalink', '_links', 'guid',
+      // Product specific read-only fields
+      'average_rating', 'rating_count', 'related_ids', 'upsell_ids',
+      'cross_sell_ids', 'parent_id', 'purchase_count', 'variations',
+      // Order specific read-only fields
+      'number', 'order_key', 'currency_symbol', 'date_paid', 'date_paid_gmt',
+      'date_completed', 'date_completed_gmt', 'cart_hash', 'prices_include_tax'
+    ];
+    fieldsToRemove.forEach(field => delete createData[field]);
+    return createData;
+}
+
 
 // Main sync logic for a given data type (products, orders, reviews)
 async function syncDataType(
@@ -77,10 +102,7 @@ async function syncDataType(
         const idA = itemA.id.toString();
         const itemB = mapB.get(idA);
 
-        // Sanitize data for creation/update
-        const createData = { ...itemA };
-        const fieldsToRemove = ['id', 'date_created', 'date_created_gmt', 'date_modified', 'date_modified_gmt', 'permalink', '_links'];
-        fieldsToRemove.forEach(field => delete createData[field]);
+        const createData = sanitizeCreateData(itemA, dataType);
 
         if (itemB) { // Item exists on B, check for update
             if (new Date(itemA.date_modified_gmt) > new Date(itemB.date_modified_gmt)) {
@@ -122,8 +144,19 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
     const logs: Omit<SyncLog, 'timestamp'>[] = [];
     const syncedItems: SyncedItem[] = [];
 
-    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, version: "wc/v3", axiosConfig: { responseEncoding: 'utf8' } });
-    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, version: "wc/v3", axiosConfig: { responseEncoding: 'utf8' } });
+    const apiConfig = {
+      version: "wc/v3",
+      axiosConfig: {
+        // Prevent axios from throwing on non-2xx status codes.
+        // This allows us to handle API errors gracefully.
+        validateStatus: function (status: number) {
+          return status >= 200 && status < 500; // Accept all responses except server errors
+        },
+      },
+    };
+
+    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, ...apiConfig });
+    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, ...apiConfig });
     
     try {
         await syncDataType(apiA, apiB, 'products', 'Product', logs, syncedItems);
