@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Briefcase, Sparkles, ExternalLink } from "lucide-react";
+import { Loader2, Briefcase, Sparkles, ExternalLink, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,10 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { findLeads, type FindLeadsInput, type FindLeadsOutput } from "@/ai/flows/find-leads";
 
+
 const formSchema = z.object({
   keyword: z.string().min(2, "Please enter a business type or keyword."),
   location: z.string().min(2, "Please enter a location."),
+  numberOfLeads: z.coerce.number().min(1, "Please enter a number").max(50, "Please enter a number less than 50"),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 
 export default function LeadFinderPage() {
@@ -28,19 +32,20 @@ export default function LeadFinderPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<FindLeadsInput>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       keyword: "",
       location: "",
+      numberOfLeads: 10,
     },
   });
 
-  const onSubmit: SubmitHandler<FindLeadsInput> = async (data) => {
+  const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setGeneratedLeads([]);
     try {
-      const result = await findLeads(data);
+      const result = await findLeads(data as FindLeadsInput);
       setGeneratedLeads(result.leads);
     } catch (error) {
       console.error("Error finding leads:", error);
@@ -71,47 +76,62 @@ export default function LeadFinderPage() {
                 <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField
-                        control={form.control}
-                        name="keyword"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Business Type / Keyword</FormLabel>
-                            <FormControl>
-                            <Input placeholder="e.g., 'Web Design Agency'" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    
-                    <FormField
-                        control={form.control}
-                        name="location"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Location</FormLabel>
-                            <FormControl>
-                            <Input placeholder="e.g., 'Dubai, UAE'" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                        <FormField
+                            control={form.control}
+                            name="keyword"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Business Type / Keyword</FormLabel>
+                                <FormControl>
+                                <Input placeholder="e.g., 'Web Design Agency'" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        
+                         <div className="flex gap-4">
+                            <FormField
+                                control={form.control}
+                                name="location"
+                                render={({ field }) => (
+                                <FormItem className="flex-grow">
+                                    <FormLabel>Location</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="e.g., 'Dubai, UAE'" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="numberOfLeads"
+                                render={({ field }) => (
+                                <FormItem className="w-24">
+                                    <FormLabel># of Leads</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
 
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Finding Leads...
-                        </>
-                        ) : (
-                        <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Generate Leads
-                        </>
-                        )}
-                    </Button>
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Finding Leads...
+                            </>
+                            ) : (
+                            <>
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Generate Leads
+                            </>
+                            )}
+                        </Button>
                     </form>
                 </Form>
                 </CardContent>
@@ -128,7 +148,7 @@ export default function LeadFinderPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Business Name</TableHead>
-                                <TableHead>Website</TableHead>
+                                <TableHead>Contact</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -156,10 +176,17 @@ export default function LeadFinderPage() {
                                     <p>{lead.businessName}</p>
                                     <p className="text-xs text-muted-foreground">{lead.description}</p>
                                 </TableCell>
-                                <TableCell>
-                                    <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                                <TableCell className="space-y-1">
+                                     <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 text-sm">
                                         Visit Site <ExternalLink className="h-3 w-3" />
                                     </a>
+                                     {lead.email ? (
+                                        <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:underline flex items-center gap-1 text-sm">
+                                            <Mail className="h-3 w-3" /> {lead.email}
+                                        </a>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground/70">No email found</p>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
