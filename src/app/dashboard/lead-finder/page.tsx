@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Briefcase, Sparkles, ExternalLink, Mail } from "lucide-react";
+import { Loader2, Briefcase, Sparkles, ExternalLink, Mail, Phone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,8 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { findLeads, type FindLeadsInput, type FindLeadsOutput } from "@/ai/flows/find-leads";
-
+import { findLeads, type FindLeadsOutput } from "@/ai/flows/find-leads";
 
 const formSchema = z.object({
   keyword: z.string().min(2, "Please enter a business type or keyword."),
@@ -45,7 +44,7 @@ export default function LeadFinderPage() {
     setIsLoading(true);
     setGeneratedLeads([]);
     try {
-      const result = await findLeads(data as FindLeadsInput);
+      const result = await findLeads(data);
       setGeneratedLeads(result.leads);
     } catch (error) {
       console.error("Error finding leads:", error);
@@ -184,9 +183,12 @@ export default function LeadFinderPage() {
                                         <a href={`mailto:${lead.email}`} className="text-muted-foreground hover:underline flex items-center gap-1 text-sm">
                                             <Mail className="h-3 w-3" /> {lead.email}
                                         </a>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground/70">No email found</p>
-                                    )}
+                                    ) : null }
+                                     {lead.phoneNumber ? (
+                                        <a href={`tel:${lead.phoneNumber}`} className="text-muted-foreground hover:underline flex items-center gap-1 text-sm">
+                                            <Phone className="h-3 w-3" /> {lead.phoneNumber}
+                                        </a>
+                                    ) : null }
                                 </TableCell>
                             </TableRow>
                         ))}
