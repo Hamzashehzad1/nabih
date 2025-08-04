@@ -29,6 +29,13 @@ export default function Footer() {
         { name: 'Contact', href: '/contact' },
       ],
     },
+     {
+      title: 'Resources',
+      links: [
+        { name: 'Checklist', href: '/checklist' },
+        { name: 'Sitemap', href: '/sitemap.xml' },
+      ]
+    },
     {
       title: 'Legal',
       links: [
@@ -42,8 +49,8 @@ export default function Footer() {
     <>
       <footer className="bg-background/50 border-t border-white/10">
         <div className="container mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-8">
-            <div className="md:col-span-1 lg:col-span-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+            <div className="col-span-2 md:col-span-1 lg:col-span-2">
               <Link href="/">
                 <Logo />
               </Link>
