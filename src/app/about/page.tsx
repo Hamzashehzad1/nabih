@@ -67,7 +67,7 @@ export default function AboutPage() {
               </div>
               <div>
                 <Image
-                  src="https://placehold.co/600x400.png"
+                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070&auto=format&fit=crop"
                   alt="Team working on a project"
                   width={600}
                   height={400}

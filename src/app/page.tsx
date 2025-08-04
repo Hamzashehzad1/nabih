@@ -209,7 +209,7 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
                 <Image
-                  src="https://placehold.co/600x500.png"
+                  src="https://images.unsplash.com/photo-1529148482725-783d502a503a?q=80&w=1974&auto=format&fit=crop"
                   alt="Checklist preview"
                   width={600}
                   height={500}
