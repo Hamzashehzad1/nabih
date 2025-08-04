@@ -30,6 +30,7 @@ import {
   Crop,
   Users,
   GitCompare,
+  Clock,
 } from "lucide-react";
 
 export const contentSuiteNav = [
@@ -65,6 +66,7 @@ export const agencyToolkitNav = [
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator", tooltip: { children: "Invoice Generator", side: "right" } },
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
+    { href: "/time-tracker", icon: <Clock />, label: "Time Tracker", tooltip: { children: "Time Tracker", side: "right" } },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
     { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper", tooltip: { children: "Products Scraper", side: "right" } },
 ];

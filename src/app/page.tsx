@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,7 @@ const contentSuiteNav = [
     { href: "/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
     { href: "/image-generator", icon: <ImageIcon />, label: "Image Generator" },
     { href: "/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
-    { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
+    { href: "/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
 ];
 
 const siteManagementNav = [
@@ -45,6 +45,7 @@ const agencyToolkitNav = [
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator" },
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback" },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator" },
+    { href: "/time-tracker", icon: <Clock />, label: "Time Tracker" },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label" },
     { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper" },
 ];

@@ -52,6 +52,12 @@ const dashboardContentSuiteNav = contentSuiteNav.map(item =>
         : item
 );
 
+const dashboardAgencyToolkitNav = agencyToolkitNav.map(item =>
+  item.href === '/time-tracker'
+    ? { ...item, href: '/dashboard/time-tracker' }
+    : item
+);
+
 
 export default function DashboardLayout({
   children,
@@ -174,7 +180,7 @@ export default function DashboardLayout({
             <SidebarGroup>
                 <SidebarGroupLabel>Agency Toolkit</SidebarGroupLabel>
                 <SidebarMenu>
-                {agencyToolkitNav.map((item) => (
+                {dashboardAgencyToolkitNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
