@@ -55,7 +55,7 @@ export default function Footer() {
                 <Logo />
               </Link>
               <p className="mt-4 text-muted-foreground max-w-xs">
-                AI-powered content creation for modern teams.
+                The All-In-One AI toolkit for web agencies & creators.
               </p>
             </div>
 
