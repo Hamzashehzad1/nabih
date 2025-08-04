@@ -132,9 +132,9 @@ export default function WooCommerceSyncPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-headline font-bold">WooCommerce Sync</h1>
+                <h1 className="text-3xl font-headline font-bold">WooCommerce Sync: Your Digital Twin for E-commerce</h1>
                 <p className="text-muted-foreground max-w-2xl">
-                    Connect two WooCommerce sites to sync products, orders, and reviews in near real-time.
+                    Manually updating products between your staging and live sites is a soul-sucking, error-prone nightmare. Connect two WooCommerce stores and let our AI-powered sync handle the grunt work. Sync products, orders, and more in near real-time.
                 </p>
             </div>
 
