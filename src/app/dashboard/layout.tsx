@@ -51,6 +51,7 @@ import {
   DownloadCloud,
   Crop,
   Users,
+  GitCompare,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -73,6 +74,7 @@ const siteManagementNav = [
     { href: "/dashboard/image-resizer", icon: <Crop />, label: "Image Resizer", tooltip: { children: "Image Resizer", side: "right" } },
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
     { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content", tooltip: { children: "Stale Content", side: "right" } },
+    { href: "/dashboard/woocommerce-sync", icon: <GitCompare />, label: "WooCommerce Sync", tooltip: { children: "WooCommerce Sync", side: "right" } },
     { href: "/dashboard/legal-generator", icon: <Shield />, label: "Legal Generator", tooltip: { children: "Legal Generator", side: "right" } },
 ];
 
