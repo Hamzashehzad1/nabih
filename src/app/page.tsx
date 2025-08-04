@@ -277,8 +277,8 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
                 <Image
-                  src="https://images.unsplash.com/photo-1529148482725-783d502a503a?q=80&w=1974&auto=format&fit=crop"
-                  alt="Checklist preview"
+                  src="https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=2070&auto=format&fit=crop"
+                  alt="Person writing on a checklist"
                   width={600}
                   height={500}
                   className="rounded-lg shadow-lg"
