@@ -44,7 +44,7 @@ async function fetchAllItems(api: WooCommerceRestApi, endpoint: string) {
             allItems = allItems.concat(data);
         }
         const totalPages = headers['x-wp-totalpages'];
-        if (parseInt(totalPages, 10) <= page) {
+        if (!totalPages || parseInt(totalPages, 10) <= page) {
             break;
         }
         page++;
@@ -122,8 +122,8 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
     const logs: Omit<SyncLog, 'timestamp'>[] = [];
     const syncedItems: SyncedItem[] = [];
 
-    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, version: "wc/v3" });
-    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, version: "wc/v3" });
+    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, version: "wc/v3", axiosConfig: { responseEncoding: 'utf8' } });
+    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, version: "wc/v3", axiosConfig: { responseEncoding: 'utf8' } });
     
     try {
         await syncDataType(apiA, apiB, 'products', 'Product', logs, syncedItems);
