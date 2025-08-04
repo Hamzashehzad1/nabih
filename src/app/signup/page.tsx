@@ -1,3 +1,4 @@
+
 // src/app/signup/page.tsx
 'use client';
 import Link from 'next/link';
@@ -88,8 +89,8 @@ export default function SignupPage() {
         </div>
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-headline">Create Your Account</CardTitle>
-            <CardDescription>Join Nabih and 10x your content workflow today.</CardDescription>
+            <CardTitle className="text-2xl font-headline">Create Your Nabih Account</CardTitle>
+            <CardDescription>Join the future of content creation. 10x your workflow today.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignUp} className="space-y-4">
@@ -107,7 +108,7 @@ export default function SignupPage() {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Account
+                Create Free Account
               </Button>
             </form>
              <div className="relative my-4">
@@ -116,7 +117,7 @@ export default function SignupPage() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-card px-2 text-muted-foreground">
-                  Or continue with
+                  Or sign up with
                 </span>
               </div>
             </div>
@@ -126,8 +127,12 @@ export default function SignupPage() {
             </Button>
             <p className="mt-4 text-xs text-center text-muted-foreground">
               By signing up, you agree to our{' '}
-              <Link href="#" className="underline hover:text-primary">
+              <Link href="/terms" className="underline hover:text-primary">
                 Terms of Service
+              </Link>
+               and 
+              <Link href="/privacy" className="underline hover:text-primary">
+                 Privacy Policy
               </Link>
               .
             </p>

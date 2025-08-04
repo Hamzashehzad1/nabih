@@ -1,3 +1,4 @@
+
 // src/app/login/page.tsx
 'use client';
 import Link from 'next/link';
@@ -85,9 +86,9 @@ export default function LoginPage() {
         </div>
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-headline">Welcome Back!</CardTitle>
+            <CardTitle className="text-2xl font-headline">Welcome Back to Nabih!</CardTitle>
             <CardDescription>
-              Log in to unleash your content creation superpowers.
+              Log in to your account to continue building your content empire.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -135,7 +136,7 @@ export default function LoginPage() {
             </div>
             <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={googleLoading}>
               {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-5 w-5" />}
-              Google
+              Sign in with Google
             </Button>
             <div className="mt-4 text-center text-sm text-muted-foreground">
               Don't have an account?{' '}

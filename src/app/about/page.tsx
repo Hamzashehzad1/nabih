@@ -9,6 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NabihIcon } from '@/components/nabih-icon';
 import { Card, CardContent } from '@/components/ui/card';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'About Us | Nabih',
+  description: 'Learn about the mission and story behind Nabih. We are dedicated to ending content bottlenecks for creators and agencies through powerful AI tools.',
+  alternates: {
+    canonical: '/about',
+  },
+};
+
 
 export default function AboutPage() {
   return (
@@ -47,7 +57,7 @@ export default function AboutPage() {
               <div>
                 <Image
                   src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070&auto=format&fit=crop"
-                  alt="Team working on a project"
+                  alt="Team working together on a project"
                   width={600}
                   height={400}
                   className="rounded-lg shadow-lg"

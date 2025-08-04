@@ -6,6 +6,16 @@ import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Pricing Plans | Nabih',
+  description: 'Simple, transparent pricing for the Nabih AI content toolkit. Choose the plan that fits your needs, from free for individuals to enterprise for large agencies.',
+  alternates: {
+    canonical: '/pricing',
+  },
+};
+
 
 export default function PricingPage() {
   const pricingTiers = [

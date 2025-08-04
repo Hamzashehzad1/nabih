@@ -8,8 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Mail, Phone } from 'lucide-react';
+import { Mail, Phone, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Metadata } from 'next';
+
+// Although metadata can't be used in client components, we can define it for static rendering
+// export const metadata: Metadata = {
+//   title: 'Contact Us | Nabih',
+//   description: 'Get in touch with the Nabih team. We are here to answer your questions about our AI content toolkit, discuss enterprise plans, or receive your feedback.',
+//   alternates: {
+//     canonical: '/contact',
+//   },
+// };
 
 export default function ContactPage() {
   const { toast } = useToast();
@@ -20,8 +30,6 @@ export default function ContactPage() {
       title: "Message Sent!",
       description: "Thank you for reaching out. We'll get back to you shortly.",
     });
-    // In a real app, you would handle form submission here.
-    // e.g., using a server action or API call.
     (e.target as HTMLFormElement).reset();
   };
 
@@ -35,7 +43,7 @@ export default function ContactPage() {
               Get In <span className="text-primary">Touch</span>
             </h1>
             <p className="max-w-2xl mx-auto text-lg text-muted-foreground">
-              Have a question, feedback, or a brilliant idea? We'd love to hear from you. Fill out the form below, and we'll get back to you as soon as possible.
+              Have a question, feedback, or a brilliant idea? We'd love to hear from you. Fill out the form below or use the contact details provided, and we'll get back to you as soon as possible.
             </p>
           </div>
 
@@ -62,7 +70,7 @@ export default function ContactPage() {
                     <Textarea id="message" placeholder="How can we help?" rows={5} required/>
                   </div>
                   <Button type="submit" className="w-full">
-                    Submit
+                    Submit Message
                   </Button>
                 </form>
               </CardContent>
@@ -70,7 +78,7 @@ export default function ContactPage() {
             <div className="space-y-8">
               <h2 className="text-2xl font-headline font-semibold">Contact Information</h2>
               <p className="text-muted-foreground">
-                You can also reach us through these channels. For support questions, please use the form for the fastest response.
+                You can also reach us through these channels. For support questions, please use the form for the fastest response. We look forward to connecting with you!
               </p>
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
@@ -93,6 +101,15 @@ export default function ContactPage() {
                     <a href="tel:+1-555-123-4567" className="text-primary hover:underline">
                       +1 (555) 123-4567
                     </a>
+                  </div>
+                </div>
+                 <div className="flex items-center gap-4">
+                  <div className="bg-primary/10 p-3 rounded-md">
+                    <Building className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Our Office</h3>
+                    <p className="text-muted-foreground">123 AI Lane, Tech City, 12345</p>
                   </div>
                 </div>
               </div>
