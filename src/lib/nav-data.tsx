@@ -31,6 +31,7 @@ import {
   Users,
   GitCompare,
   Clock,
+  Briefcase,
 } from "lucide-react";
 
 export const contentSuiteNav = [
@@ -69,4 +70,5 @@ export const agencyToolkitNav = [
     { href: "/time-tracker", icon: <Clock />, label: "Time Tracker", tooltip: { children: "Time Tracker", side: "right" } },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
     { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper", tooltip: { children: "Products Scraper", side: "right" } },
+    { href: "/dashboard/job-post-analyzer", icon: <Briefcase />, label: "Job Post Analyzer", tooltip: { children: "Job Post Analyzer", side: "right" } },
 ];
