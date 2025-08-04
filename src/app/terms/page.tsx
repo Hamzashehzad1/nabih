@@ -16,14 +16,6 @@ export default function TermsOfServicePage() {
           <div className="max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-5xl font-headline font-bold mb-4">Terms of Service</h1>
             <p className="text-muted-foreground mb-8">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-
-            <Alert variant="destructive" className="mb-8">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>This is a Template, Not Legal Advice</AlertTitle>
-              <AlertDescription>
-                This document is a placeholder and for informational purposes only. It is not a substitute for professional legal advice. You must consult with a qualified lawyer to create a Terms of Service agreement that is tailored to your specific business needs.
-              </AlertDescription>
-            </Alert>
             
             <Card className="glass-card">
               <CardContent className="pt-6 space-y-6">
