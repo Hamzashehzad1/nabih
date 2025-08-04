@@ -27,6 +27,7 @@ import {
   LogOut,
   Loader2,
   Users,
+  LayoutTemplate,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -43,6 +44,13 @@ const generalNav = [
 const adminNav = [
     { href: "/dashboard/admin-analytics", icon: <Users />, label: "User Analytics", tooltip: { children: "User Analytics", side: "right" } },
 ]
+
+// Overriding wireframe generator link to point to dashboard
+const dashboardContentSuiteNav = contentSuiteNav.map(item => 
+    item.href === '/wireframe-generator' 
+        ? { ...item, href: '/dashboard/wireframe-generator', icon: <LayoutTemplate /> } 
+        : item
+);
 
 
 export default function DashboardLayout({
@@ -109,7 +117,7 @@ export default function DashboardLayout({
             <SidebarGroup>
                 <SidebarGroupLabel>Content Suite</SidebarGroupLabel>
                 <SidebarMenu>
-                {contentSuiteNav.map((item) => (
+                {dashboardContentSuiteNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
