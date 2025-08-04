@@ -1,3 +1,4 @@
+
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Inter, Space_Grotesk } from 'next/font/google';
@@ -49,6 +50,9 @@ export const metadata: Metadata = {
       'max-image-preview': 'large',
       'max-snippet': -1,
     },
+  },
+  verification: {
+    google: 'HnbU27o3ntDzMGLEgz1ubvIa1CC8KZEXgDaj9f95zSs',
   },
 };
 
