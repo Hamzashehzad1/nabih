@@ -23,14 +23,13 @@ export interface SyncedItem {
     description: string;
 }
 
-interface SyncResult {
+export interface SyncResult {
     logs: Omit<SyncLog, 'timestamp'>[];
     syncedItems: SyncedItem[];
+    newLastSyncTime: string;
 }
 
-let lastSyncTime = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // Set initial sync to 5 minutes ago
-
-async function getNewItems(api: WooCommerceRestApi, endpoint: string, name: string) {
+async function getNewItems(api: WooCommerceRestApi, endpoint: string, name: string, lastSyncTime: string) {
     try {
         const response = await api.get(endpoint, {
             after: lastSyncTime,
@@ -66,7 +65,7 @@ async function createItem(api: WooCommerceRestApi, endpoint: string, data: any, 
     }
 }
 
-export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Promise<SyncResult> {
+export async function performSync(siteA: SiteFormData, siteB: SiteFormData, lastSyncTime: string): Promise<SyncResult> {
     const logs: Omit<SyncLog, 'timestamp'>[] = [];
     const syncedItems: SyncedItem[] = [];
 
@@ -90,21 +89,21 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
         logs.push({ message: `Checking Site A for new items... (since ${new Date(lastSyncTime).toLocaleString()})`, type: 'info' });
         
         // Products A -> B
-        const newProductsA = await getNewItems(apiA, 'products', 'Product');
+        const newProductsA = await getNewItems(apiA, 'products', 'Product', lastSyncTime);
         for (const product of newProductsA) {
             await createItem(apiB, 'products', product, 'Product');
             syncedItems.push({ id: `prod_A_to_B_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from A to B.`});
         }
         
         // Orders A -> B
-        const newOrdersA = await getNewItems(apiA, 'orders', 'Order');
+        const newOrdersA = await getNewItems(apiA, 'orders', 'Order', lastSyncTime);
          for (const order of newOrdersA) {
             await createItem(apiB, 'orders', order, 'Order');
             syncedItems.push({ id: `order_A_to_B_${order.id}`, type: 'Order', description: `Synced order #${order.id} from A to B.`});
         }
 
         // Reviews A -> B
-        const newReviewsA = await getNewItems(apiA, 'products/reviews', 'Review');
+        const newReviewsA = await getNewItems(apiA, 'products/reviews', 'Review', lastSyncTime);
          for (const review of newReviewsA) {
             await createItem(apiB, 'products/reviews', review, 'Review');
             syncedItems.push({ id: `review_A_to_B_${review.id}`, type: 'Review', description: `Synced review by ${review.reviewer} from A to B.`});
@@ -114,21 +113,21 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
         logs.push({ message: "Checking Site B for new items...", type: 'info' });
 
         // Products B -> A
-        const newProductsB = await getNewItems(apiB, 'products', 'Product');
+        const newProductsB = await getNewItems(apiB, 'products', 'Product', lastSyncTime);
         for (const product of newProductsB) {
             await createItem(apiA, 'products', product, 'Product');
             syncedItems.push({ id: `prod_B_to_A_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from B to A.`});
         }
         
         // Orders B -> A
-        const newOrdersB = await getNewItems(apiB, 'orders', 'Order');
+        const newOrdersB = await getNewItems(apiB, 'orders', 'Order', lastSyncTime);
         for (const order of newOrdersB) {
             await createItem(apiA, 'orders', order, 'Order');
             syncedItems.push({ id: `order_B_to_A_${order.id}`, type: 'Order', description: `Synced order #${order.id} from B to A.`});
         }
         
         // Reviews B -> A
-        const newReviewsB = await getNewItems(apiB, 'products/reviews', 'Review');
+        const newReviewsB = await getNewItems(apiB, 'products/reviews', 'Review', lastSyncTime);
          for (const review of newReviewsB) {
             await createItem(apiA, 'products/reviews', review, 'Review');
             syncedItems.push({ id: `review_B_to_A_${review.id}`, type: 'Review', description: `Synced review by ${review.reviewer} from B to A.`});
@@ -136,8 +135,9 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
 
     } catch (error: any) {
         logs.push({ message: error.message, type: 'error' });
+        // Return current time on error to avoid re-syncing failed items repeatedly
+        return { logs, syncedItems, newLastSyncTime: currentSyncTime };
     }
     
-    lastSyncTime = currentSyncTime;
-    return { logs, syncedItems };
+    return { logs, syncedItems, newLastSyncTime: currentSyncTime };
 }

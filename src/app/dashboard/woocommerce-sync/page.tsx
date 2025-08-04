@@ -68,12 +68,12 @@ export default function WooCommerceSyncPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [logs, setLogs] = useState<SyncLog[]>([]);
     const [syncedItems, setSyncedItems] = useState<SyncedItem[]>([]);
+    const [lastSyncTime, setLastSyncTime] = useLocalStorage<string>('wc-last-sync-time', new Date(0).toISOString());
     const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const formA = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteA || { url: '', consumerKey: '', consumerSecret: '' }});
     const formB = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteB || { url: '', consumerKey: '', consumerSecret: '' }});
     
-    // This effect ensures that the form's default values are updated if the data in local storage changes from another tab.
     useEffect(() => {
         formA.reset(siteA || { url: '', consumerKey: '', consumerSecret: '' });
     }, [siteA, formA]);
@@ -99,12 +99,13 @@ export default function WooCommerceSyncPage() {
         }
 
         addLog(`Starting sync between ${siteA.url} and ${siteB.url}`);
-        const results = await performSync(siteA, siteB);
+        const results = await performSync(siteA, siteB, lastSyncTime);
+        setLastSyncTime(results.newLastSyncTime);
         
         results.logs.forEach(log => addLog(log.message, log.type));
         
         if (results.syncedItems.length > 0) {
-            setSyncedItems(prev => [...results.syncedItems, ...prev]);
+            setSyncedItems(prev => [...results.syncedItems, ...prev].slice(0, 50)); // Keep last 50 items
             addLog(`Successfully synced ${results.syncedItems.length} item(s).`, 'success');
         } else {
              addLog("No new items to sync in this cycle.", 'info');
