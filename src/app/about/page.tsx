@@ -17,7 +17,7 @@ const contentSuiteNav = [
     { href: "/blog-generator", icon: <FileText />, label: "Blog Generator" },
     { href: "/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
     { href: "/image-generator", icon: <ImageIcon />, label: "Image Generator" },
-    { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
+    { href: "/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
     { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
 ];
 
