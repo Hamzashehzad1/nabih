@@ -1,4 +1,3 @@
-
 // src/app/dashboard/lead-finder/page.tsx
 "use client";
 
@@ -16,9 +15,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { findLeads, FindLeadsInputSchema as formSchema, type FindLeadsOutput } from "@/ai/flows/find-leads";
+import { findLeads, type FindLeadsInput, type FindLeadsOutput } from "@/ai/flows/find-leads";
 
-type FormValues = z.infer<typeof formSchema>;
+const formSchema = z.object({
+  keyword: z.string().min(2, "Please enter a business type or keyword."),
+  location: z.string().min(2, "Please enter a location."),
+});
 
 
 export default function LeadFinderPage() {
@@ -26,7 +28,7 @@ export default function LeadFinderPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<FormValues>({
+  const form = useForm<FindLeadsInput>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       keyword: "",
@@ -34,7 +36,7 @@ export default function LeadFinderPage() {
     },
   });
 
-  const onSubmit: SubmitHandler<FormValues> = async (data) => {
+  const onSubmit: SubmitHandler<FindLeadsInput> = async (data) => {
     setIsLoading(true);
     setGeneratedLeads([]);
     try {

@@ -35,7 +35,7 @@ const findLeadsFlow = ai.defineFlow(
     inputSchema: FindLeadsInputSchema,
     outputSchema: FindLeadsOutputSchema,
   },
-  async input => {
+  async (input) => {
     const prompt = ai.definePrompt({
       name: 'findLeadsPrompt',
       input: {schema: FindLeadsInputSchema},
