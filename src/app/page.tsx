@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare, Clock } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare, Clock, Briefcase } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +42,7 @@ const seoSuiteNav = [
 ];
 
 const agencyToolkitNav = [
+    { href: "/lead-finder", icon: <Briefcase />, label: "Lead Finder" },
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator" },
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback" },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator" },
