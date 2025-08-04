@@ -11,27 +11,6 @@ import { NabihIcon } from '@/components/nabih-icon';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function AboutPage() {
-  const teamMembers = [
-    {
-      name: 'Alex Johnson',
-      title: 'Founder & CEO',
-      avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026707d',
-      bio: 'Alex saw the content bottleneck and decided to build the solution.',
-    },
-    {
-      name: 'Maria Garcia',
-      title: 'Head of Product',
-      avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026708d',
-      bio: 'Maria is obsessed with user experience and making Nabih intuitive.',
-    },
-    {
-      name: 'Chen Wei',
-      title: 'Lead AI Engineer',
-      avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026709d',
-      bio: 'The mastermind behind our powerful content and image generation models.',
-    },
-  ];
-
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
@@ -107,22 +86,40 @@ export default function AboutPage() {
 
         <section className="py-20 bg-card/80">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-headline font-bold text-center mb-12">
-              Meet the Innovators
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {teamMembers.map((member) => (
-                <div key={member.name} className="text-center">
-                  <Avatar className="h-32 w-32 mx-auto mb-4">
-                    <AvatarImage src={member.avatar} alt={member.name} />
-                    <AvatarFallback>{member.name.substring(0, 2)}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="text-xl font-headline font-semibold">{member.name}</h3>
-                  <p className="text-primary mb-2">{member.title}</p>
-                  <p className="text-muted-foreground max-w-xs mx-auto">{member.bio}</p>
+            <Card className="glass-card">
+              <CardContent className="p-8 md:p-12 grid md:grid-cols-3 gap-8 items-center">
+                <div className="md:col-span-1">
+                  <Image
+                    src="https://webbrewery.co/wp-content/uploads/2024/07/hamza-studio.jpg"
+                    alt="Hamza Shahzad, Founder & CEO of Nabih"
+                    width={300}
+                    height={300}
+                    className="rounded-full aspect-square object-cover mx-auto shadow-lg border-4 border-primary/20"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="md:col-span-2">
+                  <h2 className="text-2xl md:text-3xl font-headline font-bold mb-2">Meet the Guy Who Got Tired of Doing the Same WordPress Tasks 500 Times… So He Built a Robot to Do It Instead</h2>
+                  <p className="font-semibold text-primary mb-4">Hamza Shahzad, Founder & CEO</p>
+                  <div className="space-y-4 text-muted-foreground">
+                    <p>
+                    👋 Hey, I’m Hamza Shahzad — Founder & CEO of this powerhouse WordPress automation web app. After working on 500+ WordPress projects, scaling my agency, and managing a team that drinks more chai than water, I had one question:
+                    </p>
+                    <p className="font-semibold text-foreground italic">
+                    Why the heck am I still uploading blog images manually in 2025?!
+                    </p>
+                    <p>
+                    So, I did what every exhausted, overworked, tech-obsessed web developer dreams of… I built a tool that automates all the boring WordPress stuff. Now, clients, developers, and agency owners (like my past self) use this app to bulk publish blogs, upload & optimize images, scrape WooCommerce products, sync stores, audit websites, run SEO tools, generate mockups, check responsiveness — and still have time left to touch grass.
+                    </p>
+                     <p>
+                    No more repetitive tasks. No more 97 open Chrome tabs. Just results. On autopilot.
+                     </p>
+                     <p>
+                    If you’ve ever screamed at your screen while resizing product images or syncing WooCommerce sites across staging and live — I made this for you.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
