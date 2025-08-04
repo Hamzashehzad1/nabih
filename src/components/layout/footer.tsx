@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Twitter, Github, Linkedin } from 'lucide-react';
 import { Logo } from '@/components/logo';
@@ -16,6 +17,7 @@ export default function Footer() {
       links: [
         { name: 'Features', href: '/#features' },
         { name: 'Pricing', href: '/pricing' },
+        { name: 'Tools', href: '/#tools' },
         { name: 'Updates', href: '#' },
       ],
     },

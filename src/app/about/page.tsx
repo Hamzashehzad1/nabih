@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 const contentSuiteNav = [
-    { href: "/dashboard/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },
+    { href: "/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },
     { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator" },
     { href: "/dashboard/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator" },
