@@ -1,4 +1,3 @@
-
 // src/app/dashboard/woocommerce-sync/page.tsx
 "use client";
 
@@ -13,12 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Power, PowerOff, CheckCircle2, Package, Star, ShoppingCart, GitCompare, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { performSync, type SyncLog, type SyncedItem } from './actions';
+
 
 const siteSchema = z.object({
     url: z.string().url("Please enter a valid URL."),
@@ -26,19 +26,7 @@ const siteSchema = z.object({
     consumerSecret: z.string().min(1, "Consumer Secret is required."),
 });
 
-type SiteFormData = z.infer<typeof siteSchema>;
-
-interface SyncLog {
-    timestamp: string;
-    message: string;
-    type: 'info' | 'success' | 'error';
-}
-
-interface SyncedItem {
-    id: string;
-    type: 'Order' | 'Product' | 'Review';
-    description: string;
-}
+export type SiteFormData = z.infer<typeof siteSchema>;
 
 export default function WooCommerceSyncPage() {
     const { toast } = useToast();
@@ -62,30 +50,23 @@ export default function WooCommerceSyncPage() {
         toast({ title: `Site ${site} Saved`, description: `Credentials for ${data.url} have been saved locally.` });
     };
 
-    const performSync = async () => {
+    const runSyncCycle = async () => {
         if (!siteA || !siteB) {
             addLog("Both sites must be configured before syncing.", 'error');
             return;
         }
-        addLog(`Starting sync between ${siteA.url} and ${siteB.url}`);
-        
-        // This is where you would call the real API endpoints
-        // For now, we simulate the process
-        await new Promise(res => setTimeout(res, 2000));
-        
-        const newItems: SyncedItem[] = [];
-        const random = Math.random();
-        
-        if (random < 0.3) {
-            newItems.push({ id: `ord_${Date.now()}`, type: 'Order', description: 'New order #12345 synced.' });
-        } else if (random < 0.6) {
-            newItems.push({ id: `prod_${Date.now()}`, type: 'Product', description: 'Product "Cool Widget" updated.' });
-        } else {
-             newItems.push({ id: `rev_${Date.now()}`, type: 'Review', description: 'New 5-star review for "Awesome Gadget".' });
-        }
 
-        setSyncedItems(prev => [...newItems, ...prev]);
-        addLog(`Successfully synced ${newItems.length} item(s).`, 'success');
+        addLog(`Starting sync between ${siteA.url} and ${siteB.url}`);
+        const results = await performSync(siteA, siteB);
+        
+        results.logs.forEach(log => addLog(log.message, log.type));
+        
+        if (results.syncedItems.length > 0) {
+            setSyncedItems(prev => [...results.syncedItems, ...prev]);
+            addLog(`Successfully synced ${results.syncedItems.length} item(s).`, 'success');
+        } else {
+             addLog("No new items to sync in this cycle.", 'info');
+        }
     };
 
 
@@ -93,8 +74,8 @@ export default function WooCommerceSyncPage() {
         if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
         setIsSyncing(true);
         addLog("Sync process started. Will run every 5 minutes.", "success");
-        performSync(); // Run immediately
-        syncIntervalRef.current = setInterval(performSync, 5 * 60 * 1000); // 5 minutes
+        runSyncCycle(); // Run immediately
+        syncIntervalRef.current = setInterval(runSyncCycle, 5 * 60 * 1000); // 5 minutes
     };
     
     const stopSyncing = () => {
