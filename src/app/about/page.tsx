@@ -90,11 +90,12 @@ export default function AboutPage() {
               <CardContent className="p-8 md:p-12 grid md:grid-cols-3 gap-8 items-center">
                 <div className="md:col-span-1">
                   <Image
-                    src="/hamza-studio.jpg"
+                    src="https://placehold.co/300x300.png"
                     alt="Hamza Shahzad, Founder & CEO of Nabih"
                     width={300}
                     height={300}
                     className="rounded-full aspect-square object-cover mx-auto shadow-lg border-4 border-primary/20"
+                    data-ai-hint="founder portrait"
                   />
                 </div>
                 <div className="md:col-span-2">
