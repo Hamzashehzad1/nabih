@@ -1,3 +1,6 @@
+
+"use client";
+
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -6,8 +9,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Mail, Phone } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ContactPage() {
+  const { toast } = useToast();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast({
+      title: "Message Sent!",
+      description: "Thank you for reaching out. We'll get back to you shortly.",
+    });
+    // In a real app, you would handle form submission here.
+    // e.g., using a server action or API call.
+    (e.target as HTMLFormElement).reset();
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
@@ -31,18 +48,18 @@ export default function ContactPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" placeholder="Your Name" />
+                    <Input id="name" placeholder="Your Name" required/>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="you@example.com" />
+                    <Input id="email" type="email" placeholder="you@example.com" required/>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
-                    <Textarea id="message" placeholder="How can we help?" rows={5} />
+                    <Textarea id="message" placeholder="How can we help?" rows={5} required/>
                   </div>
                   <Button type="submit" className="w-full">
                     Submit

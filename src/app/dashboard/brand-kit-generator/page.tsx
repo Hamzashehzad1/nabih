@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PexelsImage } from "@/components/pexels-image";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 
 const formSchema = z.object({
@@ -39,7 +40,9 @@ export default function BrandKitGeneratorPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [generatedKit, setGeneratedKit] = useState<GenerateBrandKitOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const [savedKits, setSavedKits] = useLocalStorage<GenerateBrandKitOutput[]>("brand-kits", []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -98,6 +101,16 @@ export default function BrandKitGeneratorPage() {
       setCurrentStep(0);
       form.reset();
   }
+
+  const handleSaveKit = () => {
+      if (!generatedKit) return;
+      setIsSaving(true);
+      setSavedKits(prev => [...prev, generatedKit]);
+      setTimeout(() => {
+        setIsSaving(false);
+        toast({ title: 'Brand Kit Saved!', description: 'You can view your saved kits in the future.' });
+      }, 1000);
+  };
 
   const renderStepContent = () => {
     switch(currentStep) {
@@ -301,8 +314,8 @@ export default function BrandKitGeneratorPage() {
                     <RefreshCw className="mr-2" />
                     Regenerate Kit
                 </Button>
-                 <Button>
-                    <Download className="mr-2" />
+                 <Button onClick={handleSaveKit} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2" />}
                     Save Brand Kit
                 </Button>
             </div>

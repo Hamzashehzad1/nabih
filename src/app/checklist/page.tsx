@@ -1,12 +1,50 @@
 
+"use client";
+
+import { useRef } from 'react';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckSquare, Search, Brush, Rocket, ShieldCheck, Zap, ArrowDownToLine } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ChecklistPage() {
+    const checklistRef = useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
+
+    const handleDownloadPdf = async () => {
+        const checklistElement = checklistRef.current;
+        if (!checklistElement) return;
+
+        toast({ title: 'Generating PDF...', description: 'Please wait a moment.' });
+        
+        try {
+            const canvas = await html2canvas(checklistElement, {
+                scale: 2,
+                backgroundColor: null,
+            });
+            const imgData = canvas.toDataURL('image/png');
+            
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+            });
+
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.save(`wordpress-launch-checklist.pdf`);
+            
+            toast({ title: 'PDF Downloaded!', description: 'Your checklist has been successfully downloaded.' });
+
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });
+        }
+    };
 
     const checklistSections = [
         {
@@ -101,12 +139,12 @@ export default function ChecklistPage() {
             <p className="text-lg text-muted-foreground">
               From initial idea to a high-performing, secure, and SEO-friendly website, this checklist covers every crucial step. Don't miss a thing.
             </p>
-            <Button size="lg" className="mt-6">
+            <Button size="lg" className="mt-6" onClick={handleDownloadPdf}>
                 <ArrowDownToLine className="mr-2 h-5 w-5" /> Download as PDF
             </Button>
           </div>
 
-          <Card className="max-w-4xl mx-auto glass-card">
+          <Card className="max-w-4xl mx-auto glass-card" ref={checklistRef}>
               <CardContent className="p-6 md:p-8">
                 <Accordion type="multiple" defaultValue={["item-0"]} className="w-full">
                     {checklistSections.map((section, index) => (
@@ -139,4 +177,3 @@ export default function ChecklistPage() {
     </div>
   );
 }
-
