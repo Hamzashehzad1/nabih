@@ -47,12 +47,14 @@ async function getNewItems(api: WooCommerceRestApi, endpoint: string, name: stri
 
 async function createItem(api: WooCommerceRestApi, endpoint: string, data: any, name: string) {
      try {
-        // Basic transformation to avoid sending read-only fields
+        // More robust sanitization to avoid sending read-only or invalid fields for creation
         const createData = { ...data };
-        delete createData.id;
-        delete createData.date_created;
-        delete createData.date_modified;
-        delete createData.total; // for orders
+        const fieldsToRemove = [
+          'id', 'date_created', 'date_created_gmt', 'date_modified', 'date_modified_gmt', 
+          'date_completed', 'date_paid', 'permalink', '_links',
+          'total', 'total_tax', 'currency_symbol', 'customer_id', 'order_key' // for orders
+        ];
+        fieldsToRemove.forEach(field => delete createData[field]);
         
         const response = await api.post(endpoint, createData);
         if (response.status !== 201) {
@@ -61,7 +63,11 @@ async function createItem(api: WooCommerceRestApi, endpoint: string, data: any, 
         }
         return response.data;
     } catch (error: any) {
-        throw new Error(`Error creating ${name}: ${error.message}`);
+        let errorMessage = `Error creating ${name}: ${error.message}`;
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage += ` Details: ${error.response.data.message}`;
+        }
+        throw new Error(errorMessage);
     }
 }
 
