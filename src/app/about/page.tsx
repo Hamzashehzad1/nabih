@@ -1,7 +1,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Bot, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare } from 'lucide-react';
 
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
@@ -18,6 +18,50 @@ export const metadata: Metadata = {
     canonical: '/about',
   },
 };
+
+const contentSuiteNav = [
+    { href: "/dashboard/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },
+    { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator" },
+    { href: "/dashboard/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
+    { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator" },
+    { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
+    { href: "/dashboard/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
+];
+
+const siteManagementNav = [
+    { href: "/dashboard/ai-chatbot", icon: <Bot />, label: "AI Chatbot" },
+    { href: "/dashboard/website-audit", icon: <Activity />, label: "Website Audit" },
+    { href: "/dashboard/advanced-media-library", icon: <Library />, label: "Media Library" },
+    { href: "/dashboard/image-resizer", icon: <Crop />, label: "Image Resizer" },
+    { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking" },
+    { href: "/dashboard/stale-content", icon: <TrendingDown />, label: "Stale Content" },
+    { href: "/dashboard/woocommerce-sync", icon: <GitCompare />, label: "WooCommerce Sync" },
+    { href: "/dashboard/legal-generator", icon: <Shield />, label: "Legal Generator" },
+];
+
+const seoSuiteNav = [
+    { href: "/dashboard/keyword-clustering", icon: <Layers3 />, label: "Keyword Clustering" },
+    { href: "/dashboard/keyword-density-checker", icon: <Type />, label: "Keyword Density" },
+    { href: "/dashboard/people-also-ask", icon: <HelpCircle />, label: "People Also Ask" },
+    { href: "/dashboard/schema-markup-generator", icon: <Code2 />, label: "Schema Generator" },
+    { href: "/dashboard/broken-link-checker", icon: <Unlink />, label: "Broken Link Checker" },
+    { href: "/dashboard/sitemap-generator", icon: <Network />, label: "Sitemap Generator" },
+];
+
+const agencyToolkitNav = [
+    { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator" },
+    { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback" },
+    { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator" },
+    { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label" },
+    { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper" },
+];
+
+const toolCategories = [
+    { title: "Content Suite", tools: contentSuiteNav },
+    { title: "SEO Suite", tools: seoSuiteNav },
+    { title: "Site Management", tools: siteManagementNav },
+    { title: "Agency Toolkit", tools: agencyToolkitNav },
+];
 
 
 export default function AboutPage() {
@@ -130,6 +174,29 @@ export default function AboutPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </section>
+
+        <section id="tools" className="py-20">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl md:text-4xl font-headline font-bold text-center mb-12">Explore Our Full Toolkit</h2>
+            <div className="space-y-12">
+              {toolCategories.map(category => (
+                <div key={category.title}>
+                  <h3 className="text-2xl font-headline font-semibold text-center mb-6">{category.title}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {category.tools.map(tool => (
+                      <Link href={tool.href} key={tool.label}>
+                         <div className="flex items-center gap-3 p-3 rounded-md transition-colors hover:bg-primary/10">
+                            <div className="text-primary">{tool.icon}</div>
+                            <span className="font-medium">{tool.label}</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
