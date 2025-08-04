@@ -1,3 +1,4 @@
+
 // src/app/dashboard/lead-finder/page.tsx
 "use client";
 
@@ -162,6 +163,7 @@ export default function LeadFinderPage() {
                         ))}
                         </TableBody>
                     </Table>
+                </div>
                 </CardContent>
             </Card>
         </div>
