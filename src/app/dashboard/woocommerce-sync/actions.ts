@@ -1,3 +1,4 @@
+
 // src/app/dashboard/woocommerce-sync/actions.ts
 'use server';
 
@@ -31,11 +32,24 @@ export interface SyncResult {
 
 async function getNewItems(api: WooCommerceRestApi, endpoint: string, name: string, lastSyncTime: string) {
     try {
-        const response = await api.get(endpoint, {
-            after: lastSyncTime,
+        const params: any = {
             per_page: 100,
-            status: 'any', // Include all statuses for orders/reviews
-        });
+        };
+
+        // WooCommerce API has different parameter names for date filtering and status based on endpoint
+        if (endpoint === 'orders') {
+            params.modified_after = lastSyncTime;
+            params.status = ['processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed'];
+        } else if (endpoint === 'products/reviews') {
+            params.after = lastSyncTime;
+            params.status = 'any';
+        } else { // 'products'
+            params.after = lastSyncTime;
+            params.status = 'any';
+        }
+        
+        const response = await api.get(endpoint, params);
+        
         if (response.status !== 200) {
             throw new Error(`Failed to fetch ${name}s: ${response.statusText}`);
         }
