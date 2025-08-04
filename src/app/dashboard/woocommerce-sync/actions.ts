@@ -30,37 +30,43 @@ export interface SyncResult {
 }
 
 // Helper to fetch all items of a certain type from a site
-async function fetchAllItems(api: WooCommerceRestApi, endpoint: string) {
+async function fetchAllItems(api: WooCommerceRestApi, endpoint: string, siteName: string, logs: Omit<SyncLog, 'timestamp'>[]): Promise<any[] | null> {
     let allItems: any[] = [];
     let page = 1;
     const perPage = 100;
-    while (true) {
-        const { data, headers } = await api.get(endpoint, {
-            per_page: perPage,
-            page: page,
-            status: 'any',
-        });
-        
-        if (data && Array.isArray(data) && data.length > 0) {
-            allItems = allItems.concat(data);
-        } else if (data && (data as any).code === 'rest_post_invalid_page_number') {
-            // This is a valid end-of-data response from WP
-            break;
-        } else if (!data || data.length === 0) {
-            break;
+
+    try {
+        while (true) {
+            const { data, headers } = await api.get(endpoint, {
+                per_page: perPage,
+                page: page,
+                status: 'any',
+            });
+            
+            if (data && Array.isArray(data) && data.length > 0) {
+                allItems = allItems.concat(data);
+            } else if (data && (data as any).code === 'rest_post_invalid_page_number') {
+                break;
+            } else if (!data || data.length === 0) {
+                break;
+            }
+            
+            const totalPages = headers['x-wp-totalpages'];
+            if (!totalPages || parseInt(totalPages, 10) <= page) {
+                break;
+            }
+            page++;
         }
-        
-        const totalPages = headers['x-wp-totalpages'];
-        if (!totalPages || parseInt(totalPages, 10) <= page) {
-            break;
-        }
-        page++;
+        return allItems;
+    } catch (e: any) {
+        logs.push({ message: `Error fetching from ${siteName} (${endpoint}): ${e.message}. Check URL and API keys.`, type: 'error' });
+        return null; // Return null to indicate failure
     }
-    return allItems;
 }
 
-// Helper to sanitize data for creation
-function sanitizeCreateData(item: any, dataType: 'Product' | 'Order' | 'Review') {
+
+// Helper to sanitize data for creation/update
+function sanitizeData(item: any) {
     const createData = { ...item };
     const fieldsToRemove = [
       'id', 'date_created', 'date_created_gmt', 'date_modified', 
@@ -87,10 +93,17 @@ async function syncDataType(
     syncedItems: SyncedItem[]
 ) {
     logs.push({ message: `Fetching all ${dataType}s from both sites...`, type: 'info' });
+    
     const [itemsA, itemsB] = await Promise.all([
-        fetchAllItems(apiA, endpoint),
-        fetchAllItems(apiB, endpoint)
+        fetchAllItems(apiA, endpoint, 'Site A', logs),
+        fetchAllItems(apiB, endpoint, 'Site B', logs)
     ]);
+
+    // If fetching from either site fails, we can't proceed with this data type.
+    if (itemsA === null || itemsB === null) {
+        logs.push({ message: `Aborting sync for ${dataType}s due to fetch error.`, type: 'error' });
+        return;
+    }
 
     const mapA = new Map(itemsA.map(item => [item.id.toString(), item]));
     const mapB = new Map(itemsB.map(item => [item.id.toString(), item]));
@@ -101,13 +114,12 @@ async function syncDataType(
     for (const itemA of itemsA) {
         const idA = itemA.id.toString();
         const itemB = mapB.get(idA);
-
-        const createData = sanitizeCreateData(itemA, dataType);
+        const cleanData = sanitizeData(itemA);
 
         if (itemB) { // Item exists on B, check for update
             if (new Date(itemA.date_modified_gmt) > new Date(itemB.date_modified_gmt)) {
                 try {
-                    await apiB.put(`${endpoint}/${itemA.id}`, createData);
+                    await apiB.put(`${endpoint}/${itemA.id}`, cleanData);
                     logs.push({ message: `Updated ${dataType} #${itemA[nameField]} on Site B.`, type: 'update' });
                     syncedItems.push({ id: `${dataType}_update_${itemA.id}`, type: dataType, action: 'Updated', description: `${dataType} #${itemA[nameField]}`});
                 } catch(e: any) {
@@ -116,7 +128,7 @@ async function syncDataType(
             }
         } else { // Item doesn't exist on B, create it
             try {
-                await apiB.post(endpoint, createData);
+                await apiB.post(endpoint, cleanData);
                 logs.push({ message: `Created ${dataType} #${itemA[nameField]} on Site B.`, type: 'create' });
                 syncedItems.push({ id: `${dataType}_create_${itemA.id}`, type: dataType, action: 'Created', description: `${dataType} #${itemA[nameField]}`});
             } catch(e: any) {
@@ -147,10 +159,8 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
     const apiConfig = {
       version: "wc/v3",
       axiosConfig: {
-        // Prevent axios from throwing on non-2xx status codes.
-        // This allows us to handle API errors gracefully.
         validateStatus: function (status: number) {
-          return status >= 200 && status < 500; // Accept all responses except server errors
+          return status >= 200 && status < 500;
         },
       },
     };
@@ -166,7 +176,7 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
         logs.push({ message: "Mirror sync complete.", type: 'success' });
         
     } catch (error: any) {
-        logs.push({ message: `A critical error occurred: ${error.message}`, type: 'error' });
+        logs.push({ message: `A critical error occurred during the sync process: ${error.message}`, type: 'error' });
     }
     
     return { logs, syncedItems };
