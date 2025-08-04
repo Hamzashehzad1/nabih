@@ -64,6 +64,7 @@ export const seoSuiteNav = [
 ];
 
 export const agencyToolkitNav = [
+    { href: "/dashboard/lead-finder", icon: <Briefcase />, label: "Lead Finder", tooltip: { children: "Lead Finder", side: "right" } },
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator", tooltip: { children: "Invoice Generator", side: "right" } },
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
