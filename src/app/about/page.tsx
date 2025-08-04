@@ -90,7 +90,7 @@ export default function AboutPage() {
               <CardContent className="p-8 md:p-12 grid md:grid-cols-3 gap-8 items-center">
                 <div className="md:col-span-1">
                   <Image
-                    src="https://webbrewery.co/wp-content/uploads/2024/07/hamza-studio.jpg"
+                    src="/hamza-studio.jpg"
                     alt="Hamza Shahzad, Founder & CEO of Nabih"
                     width={300}
                     height={300}
