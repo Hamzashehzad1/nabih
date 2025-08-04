@@ -20,7 +20,7 @@ export type FindLeadsInput = z.infer<typeof FindLeadsInputSchema>;
 
 const LeadSchema = z.object({
     businessName: z.string().describe("The full name of the business."),
-    websiteUrl: z.string().url().describe("The likely, publicly accessible website URL for the business. Should start with http or https."),
+    websiteUrl: z.string().describe("The likely, publicly accessible website URL for the business. Should start with http or https."),
     description: z.string().describe("A brief, one-sentence description of the business."),
 });
 
