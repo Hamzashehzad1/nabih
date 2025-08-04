@@ -35,6 +35,7 @@ async function getNewItems(api: WooCommerceRestApi, endpoint: string, name: stri
         const response = await api.get(endpoint, {
             after: lastSyncTime,
             per_page: 100,
+            status: 'any', // Include all statuses for orders/reviews
         });
         if (response.status !== 200) {
             throw new Error(`Failed to fetch ${name}s: ${response.statusText}`);
@@ -85,32 +86,52 @@ export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Pro
     const currentSyncTime = new Date().toISOString();
 
     try {
-        // Sync from A to B
-        logs.push({ message: "Checking Site A for new items...", type: 'info' });
+        // --- Sync from Site A to Site B ---
+        logs.push({ message: `Checking Site A for new items... (since ${new Date(lastSyncTime).toLocaleString()})`, type: 'info' });
+        
+        // Products A -> B
         const newProductsA = await getNewItems(apiA, 'products', 'Product');
         for (const product of newProductsA) {
             await createItem(apiB, 'products', product, 'Product');
-            syncedItems.push({ id: `prod_A_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from A to B.`});
+            syncedItems.push({ id: `prod_A_to_B_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from A to B.`});
         }
         
+        // Orders A -> B
         const newOrdersA = await getNewItems(apiA, 'orders', 'Order');
          for (const order of newOrdersA) {
             await createItem(apiB, 'orders', order, 'Order');
-            syncedItems.push({ id: `order_A_${order.id}`, type: 'Order', description: `Synced order #${order.id} from A to B.`});
+            syncedItems.push({ id: `order_A_to_B_${order.id}`, type: 'Order', description: `Synced order #${order.id} from A to B.`});
+        }
+
+        // Reviews A -> B
+        const newReviewsA = await getNewItems(apiA, 'products/reviews', 'Review');
+         for (const review of newReviewsA) {
+            await createItem(apiB, 'products/reviews', review, 'Review');
+            syncedItems.push({ id: `review_A_to_B_${review.id}`, type: 'Review', description: `Synced review by ${review.reviewer} from A to B.`});
         }
         
-        // Sync from B to A
+        // --- Sync from Site B to Site A ---
         logs.push({ message: "Checking Site B for new items...", type: 'info' });
+
+        // Products B -> A
         const newProductsB = await getNewItems(apiB, 'products', 'Product');
         for (const product of newProductsB) {
             await createItem(apiA, 'products', product, 'Product');
-            syncedItems.push({ id: `prod_B_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from B to A.`});
+            syncedItems.push({ id: `prod_B_to_A_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from B to A.`});
         }
         
+        // Orders B -> A
         const newOrdersB = await getNewItems(apiB, 'orders', 'Order');
         for (const order of newOrdersB) {
             await createItem(apiA, 'orders', order, 'Order');
-            syncedItems.push({ id: `order_B_${order.id}`, type: 'Order', description: `Synced order #${order.id} from B to A.`});
+            syncedItems.push({ id: `order_B_to_A_${order.id}`, type: 'Order', description: `Synced order #${order.id} from B to A.`});
+        }
+        
+        // Reviews B -> A
+        const newReviewsB = await getNewItems(apiB, 'products/reviews', 'Review');
+         for (const review of newReviewsB) {
+            await createItem(apiA, 'products/reviews', review, 'Review');
+            syncedItems.push({ id: `review_B_to_A_${review.id}`, type: 'Review', description: `Synced review by ${review.reviewer} from B to A.`});
         }
 
     } catch (error: any) {
