@@ -60,8 +60,8 @@ import { app } from "@/lib/firebase"; // Make sure firebase config is in this fi
 import { cn } from "@/lib/utils";
 
 const contentSuiteNav = [
-    { href: "/dashboard/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
-    { href: "/dashboard/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
+    { href: "/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
+    { href: "/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
     { href: "/dashboard/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator", tooltip: { children: "Bulk Blog Generator", side: "right" } },
     { href: "/dashboard/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
     { href: "/dashboard/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
