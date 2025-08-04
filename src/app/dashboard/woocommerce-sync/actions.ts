@@ -1,4 +1,3 @@
-
 // src/app/dashboard/woocommerce-sync/actions.ts
 'use server';
 
@@ -15,149 +14,127 @@ type SiteFormData = z.infer<typeof siteSchema>;
 export interface SyncLog {
     timestamp: string;
     message: string;
-    type: 'info' | 'success' | 'error';
+    type: 'info' | 'success' | 'error' | 'delete' | 'create' | 'update';
 }
 
 export interface SyncedItem {
     id: string;
     type: 'Order' | 'Product' | 'Review';
+    action: 'Created' | 'Updated' | 'Deleted';
     description: string;
 }
 
 export interface SyncResult {
     logs: Omit<SyncLog, 'timestamp'>[];
     syncedItems: SyncedItem[];
-    newLastSyncTime: string;
 }
 
-async function getNewItems(api: WooCommerceRestApi, endpoint: string, name: string, lastSyncTime: string) {
-    try {
-        const params: any = {
-            per_page: 100,
-        };
-
-        // WooCommerce API has different parameter names for date filtering and status based on endpoint
-        if (endpoint === 'orders') {
-            params.modified_after = lastSyncTime;
-            params.status = ['processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed'];
-        } else if (endpoint === 'products/reviews') {
-            params.after = lastSyncTime;
-            params.status = 'any';
-        } else { // 'products'
-            params.after = lastSyncTime;
-            params.status = 'any';
+// Helper to fetch all items of a certain type from a site
+async function fetchAllItems(api: WooCommerceRestApi, endpoint: string) {
+    let allItems: any[] = [];
+    let page = 1;
+    const perPage = 100;
+    while (true) {
+        const { data, headers } = await api.get(endpoint, {
+            per_page: perPage,
+            page: page,
+            status: 'any',
+        });
+        if (data && data.length > 0) {
+            allItems = allItems.concat(data);
         }
-        
-        const response = await api.get(endpoint, params);
-        
-        if (response.status !== 200) {
-            throw new Error(`Failed to fetch ${name}s: ${response.statusText}`);
+        const totalPages = headers['x-wp-totalpages'];
+        if (parseInt(totalPages, 10) <= page) {
+            break;
         }
-        return response.data;
-    } catch (error: any) {
-        throw new Error(`Error fetching ${name}s: ${error.message}`);
+        page++;
     }
+    return allItems;
 }
 
-async function createItem(api: WooCommerceRestApi, endpoint: string, data: any, name: string) {
-     try {
-        // More robust sanitization to avoid sending read-only or invalid fields for creation
-        const createData = { ...data };
-        const fieldsToRemove = [
-          'id', 'date_created', 'date_created_gmt', 'date_modified', 'date_modified_gmt', 
-          'date_completed', 'date_paid', 'permalink', '_links',
-          'total', 'total_tax', 'currency_symbol', 'customer_id', 'order_key' // for orders
-        ];
+// Main sync logic for a given data type (products, orders, reviews)
+async function syncDataType(
+    apiA: WooCommerceRestApi,
+    apiB: WooCommerceRestApi,
+    endpoint: string,
+    dataType: 'Product' | 'Order' | 'Review',
+    logs: Omit<SyncLog, 'timestamp'>[],
+    syncedItems: SyncedItem[]
+) {
+    logs.push({ message: `Fetching all ${dataType}s from both sites...`, type: 'info' });
+    const [itemsA, itemsB] = await Promise.all([
+        fetchAllItems(apiA, endpoint),
+        fetchAllItems(apiB, endpoint)
+    ]);
+
+    const mapA = new Map(itemsA.map(item => [item.id.toString(), item]));
+    const mapB = new Map(itemsB.map(item => [item.id.toString(), item]));
+    const nameField = dataType === 'Product' ? 'name' : 'id';
+
+
+    // Create/Update items from A to B
+    for (const itemA of itemsA) {
+        const idA = itemA.id.toString();
+        const itemB = mapB.get(idA);
+
+        // Sanitize data for creation/update
+        const createData = { ...itemA };
+        const fieldsToRemove = ['id', 'date_created', 'date_created_gmt', 'date_modified', 'date_modified_gmt', 'permalink', '_links'];
         fieldsToRemove.forEach(field => delete createData[field]);
-        
-        const response = await api.post(endpoint, createData);
-        if (response.status !== 201) {
-             const errorData = response.data.message || `Status code ${response.status}`;
-            throw new Error(`Failed to create ${name}: ${errorData}`);
+
+        if (itemB) { // Item exists on B, check for update
+            if (new Date(itemA.date_modified_gmt) > new Date(itemB.date_modified_gmt)) {
+                try {
+                    await apiB.put(`${endpoint}/${itemA.id}`, createData);
+                    logs.push({ message: `Updated ${dataType} #${itemA[nameField]} on Site B.`, type: 'update' });
+                    syncedItems.push({ id: `${dataType}_update_${itemA.id}`, type: dataType, action: 'Updated', description: `${dataType} #${itemA[nameField]}`});
+                } catch(e: any) {
+                    logs.push({ message: `Failed to update ${dataType} #${itemA[nameField]}: ${e.message}`, type: 'error' });
+                }
+            }
+        } else { // Item doesn't exist on B, create it
+            try {
+                await apiB.post(endpoint, createData);
+                logs.push({ message: `Created ${dataType} #${itemA[nameField]} on Site B.`, type: 'create' });
+                syncedItems.push({ id: `${dataType}_create_${itemA.id}`, type: dataType, action: 'Created', description: `${dataType} #${itemA[nameField]}`});
+            } catch(e: any) {
+                logs.push({ message: `Failed to create ${dataType} #${itemA[nameField]}: ${e.message}`, type: 'error' });
+            }
         }
-        return response.data;
-    } catch (error: any) {
-        let errorMessage = `Error creating ${name}: ${error.message}`;
-        if (error.response && error.response.data && error.response.data.message) {
-            errorMessage += ` Details: ${error.response.data.message}`;
+    }
+
+    // Delete items on B that are not on A
+    for (const itemB of itemsB) {
+        if (!mapA.has(itemB.id.toString())) {
+            try {
+                await apiB.delete(`${endpoint}/${itemB.id}`, { force: true });
+                logs.push({ message: `Deleted ${dataType} #${itemB[nameField]} from Site B.`, type: 'delete' });
+                syncedItems.push({ id: `${dataType}_delete_${itemB.id}`, type: dataType, action: 'Deleted', description: `${dataType} #${itemB[nameField]}`});
+            } catch (e: any) {
+                logs.push({ message: `Failed to delete ${dataType} #${itemB[nameField]} from Site B: ${e.message}`, type: 'error' });
+            }
         }
-        throw new Error(errorMessage);
     }
 }
 
-export async function performSync(siteA: SiteFormData, siteB: SiteFormData, lastSyncTime: string): Promise<SyncResult> {
+
+export async function performSync(siteA: SiteFormData, siteB: SiteFormData): Promise<SyncResult> {
     const logs: Omit<SyncLog, 'timestamp'>[] = [];
     const syncedItems: SyncedItem[] = [];
 
-    const apiA = new WooCommerceRestApi({
-        url: siteA.url,
-        consumerKey: siteA.consumerKey,
-        consumerSecret: siteA.consumerSecret,
-        version: "wc/v3"
-    });
-    const apiB = new WooCommerceRestApi({
-        url: siteB.url,
-        consumerKey: siteB.consumerKey,
-        consumerSecret: siteB.consumerSecret,
-        version: "wc/v3"
-    });
+    const apiA = new WooCommerceRestApi({ url: siteA.url, consumerKey: siteA.consumerKey, consumerSecret: siteA.consumerSecret, version: "wc/v3" });
+    const apiB = new WooCommerceRestApi({ url: siteB.url, consumerKey: siteB.consumerKey, consumerSecret: siteB.consumerSecret, version: "wc/v3" });
     
-    const currentSyncTime = new Date().toISOString();
-
     try {
-        // --- Sync from Site A to Site B ---
-        logs.push({ message: `Checking Site A for new items... (since ${new Date(lastSyncTime).toLocaleString()})`, type: 'info' });
+        await syncDataType(apiA, apiB, 'products', 'Product', logs, syncedItems);
+        await syncDataType(apiA, apiB, 'orders', 'Order', logs, syncedItems);
+        await syncDataType(apiA, apiB, 'products/reviews', 'Review', logs, syncedItems);
         
-        // Products A -> B
-        const newProductsA = await getNewItems(apiA, 'products', 'Product', lastSyncTime);
-        for (const product of newProductsA) {
-            await createItem(apiB, 'products', product, 'Product');
-            syncedItems.push({ id: `prod_A_to_B_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from A to B.`});
-        }
+        logs.push({ message: "Mirror sync complete.", type: 'success' });
         
-        // Orders A -> B
-        const newOrdersA = await getNewItems(apiA, 'orders', 'Order', lastSyncTime);
-         for (const order of newOrdersA) {
-            await createItem(apiB, 'orders', order, 'Order');
-            syncedItems.push({ id: `order_A_to_B_${order.id}`, type: 'Order', description: `Synced order #${order.id} from A to B.`});
-        }
-
-        // Reviews A -> B
-        const newReviewsA = await getNewItems(apiA, 'products/reviews', 'Review', lastSyncTime);
-         for (const review of newReviewsA) {
-            await createItem(apiB, 'products/reviews', review, 'Review');
-            syncedItems.push({ id: `review_A_to_B_${review.id}`, type: 'Review', description: `Synced review by ${review.reviewer} from A to B.`});
-        }
-        
-        // --- Sync from Site B to Site A ---
-        logs.push({ message: "Checking Site B for new items...", type: 'info' });
-
-        // Products B -> A
-        const newProductsB = await getNewItems(apiB, 'products', 'Product', lastSyncTime);
-        for (const product of newProductsB) {
-            await createItem(apiA, 'products', product, 'Product');
-            syncedItems.push({ id: `prod_B_to_A_${product.id}`, type: 'Product', description: `Synced product "${product.name}" from B to A.`});
-        }
-        
-        // Orders B -> A
-        const newOrdersB = await getNewItems(apiB, 'orders', 'Order', lastSyncTime);
-        for (const order of newOrdersB) {
-            await createItem(apiA, 'orders', order, 'Order');
-            syncedItems.push({ id: `order_B_to_A_${order.id}`, type: 'Order', description: `Synced order #${order.id} from B to A.`});
-        }
-        
-        // Reviews B -> A
-        const newReviewsB = await getNewItems(apiB, 'products/reviews', 'Review', lastSyncTime);
-         for (const review of newReviewsB) {
-            await createItem(apiA, 'products/reviews', review, 'Review');
-            syncedItems.push({ id: `review_B_to_A_${review.id}`, type: 'Review', description: `Synced review by ${review.reviewer} from B to A.`});
-        }
-
     } catch (error: any) {
-        logs.push({ message: error.message, type: 'error' });
-        // Return current time on error to avoid re-syncing failed items repeatedly
-        return { logs, syncedItems, newLastSyncTime: currentSyncTime };
+        logs.push({ message: `A critical error occurred: ${error.message}`, type: 'error' });
     }
     
-    return { logs, syncedItems, newLastSyncTime: currentSyncTime };
+    return { logs, syncedItems };
 }

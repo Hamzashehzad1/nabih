@@ -15,7 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Power, PowerOff, CheckCircle2, Package, Star, ShoppingCart, GitCompare, AlertTriangle } from 'lucide-react';
+import { Loader2, Power, PowerOff, CheckCircle2, Package, Star, ShoppingCart, GitCompare, AlertTriangle, ArrowRight, Trash2, Edit, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { performSync, type SyncLog, type SyncedItem } from './actions';
 
@@ -28,14 +28,14 @@ const siteSchema = z.object({
 
 export type SiteFormData = z.infer<typeof siteSchema>;
 
-const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLabel: 'A' | 'B', onSave: (data: SiteFormData) => void, isConnected: boolean }) => (
+const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLabel: 'A (Source)' | 'B (Destination)', onSave: (data: SiteFormData) => void, isConnected: boolean }) => (
     <Card className={cn(isConnected && "border-green-500")}>
         <CardHeader>
             <CardTitle className="flex justify-between items-center">
                 <span>Site {siteLabel}</span>
                 {isConnected && <Badge variant="default" className="bg-green-600">Connected</Badge>}
             </CardTitle>
-            <CardDescription>Enter the WooCommerce details for site {siteLabel}.</CardDescription>
+            <CardDescription>Enter the WooCommerce details for site {siteLabel.charAt(0)}.</CardDescription>
         </CardHeader>
         <CardContent>
             <form onSubmit={form.handleSubmit(onSave)} className="space-y-4">
@@ -54,7 +54,7 @@ const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLab
                     <Input {...form.register('consumerSecret')} type="password" />
                     {form.formState.errors.consumerSecret && <p className="text-xs text-destructive">{form.formState.errors.consumerSecret.message}</p>}
                 </div>
-                <Button type="submit" className="w-full">Save Site {siteLabel}</Button>
+                <Button type="submit" className="w-full">Save Site {siteLabel.charAt(0)}</Button>
             </form>
         </CardContent>
     </Card>
@@ -68,9 +68,7 @@ export default function WooCommerceSyncPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [logs, setLogs] = useState<SyncLog[]>([]);
     const [syncedItems, setSyncedItems] = useState<SyncedItem[]>([]);
-    const [lastSyncTime, setLastSyncTime] = useLocalStorage<string>('wc-last-sync-time', new Date(0).toISOString());
-    const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+    
     const formA = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteA || { url: '', consumerKey: '', consumerSecret: '' }});
     const formB = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteB || { url: '', consumerKey: '', consumerSecret: '' }});
     
@@ -83,7 +81,7 @@ export default function WooCommerceSyncPage() {
     }, [siteB, formB]);
 
     const addLog = (message: string, type: SyncLog['type'] = 'info') => {
-        setLogs(prev => [{ timestamp: new Date().toISOString(), message, type }, ...prev]);
+        setLogs(prev => [{ timestamp: new Date().toISOString(), message, type }, ...prev].slice(0, 100));
     };
     
     const handleSaveSite = (site: 'A' | 'B', data: SiteFormData) => {
@@ -92,46 +90,27 @@ export default function WooCommerceSyncPage() {
         toast({ title: `Site ${site} Saved`, description: `Credentials for ${data.url} have been saved locally.` });
     };
 
-    const runSyncCycle = async () => {
+    const runSync = async () => {
         if (!siteA || !siteB) {
             addLog("Both sites must be configured before syncing.", 'error');
             return;
         }
-
-        addLog(`Starting sync between ${siteA.url} and ${siteB.url}`);
-        const results = await performSync(siteA, siteB, lastSyncTime);
-        setLastSyncTime(results.newLastSyncTime);
+        setIsSyncing(true);
+        setLogs([]);
+        setSyncedItems([]);
+        addLog(`Starting sync from ${siteA.url} to ${siteB.url}`);
+        const results = await performSync(siteA, siteB);
         
         results.logs.forEach(log => addLog(log.message, log.type));
         
         if (results.syncedItems.length > 0) {
-            setSyncedItems(prev => [...results.syncedItems, ...prev].slice(0, 50)); // Keep last 50 items
+            setSyncedItems(prev => [...results.syncedItems, ...prev].slice(0, 50));
             addLog(`Successfully synced ${results.syncedItems.length} item(s).`, 'success');
         } else {
-             addLog("No new items to sync in this cycle.", 'info');
+             addLog("No items needed syncing in this cycle.", 'info');
         }
-    };
-
-
-    const startSyncing = () => {
-        if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-        setIsSyncing(true);
-        addLog("Sync process started. Will run every 5 minutes.", "success");
-        runSyncCycle(); // Run immediately
-        syncIntervalRef.current = setInterval(runSyncCycle, 5 * 60 * 1000); // 5 minutes
-    };
-    
-    const stopSyncing = () => {
-        if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
         setIsSyncing(false);
-        addLog("Sync process stopped.", "info");
     };
-
-    useEffect(() => {
-        return () => {
-            if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-        }
-    }, []);
 
     const getIconForType = (type: SyncedItem['type']) => {
         switch(type) {
@@ -141,53 +120,36 @@ export default function WooCommerceSyncPage() {
             default: return null;
         }
     }
+    
+     const getIconForAction = (action: SyncedItem['action']) => {
+        switch(action) {
+            case 'Created': return <PlusCircle className="h-4 w-4 text-green-500" />;
+            case 'Updated': return <Edit className="h-4 w-4 text-blue-500" />;
+            case 'Deleted': return <Trash2 className="h-4 w-4 text-destructive" />;
+            default: return null;
+        }
+    }
 
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-headline font-bold">WooCommerce Sync: Your Digital Twin for E-commerce</h1>
+                <h1 className="text-3xl font-headline font-bold">WooCommerce Site Mirroring</h1>
                 <p className="text-muted-foreground max-w-2xl">
-                    Manually updating products between your staging and live sites is a soul-sucking, error-prone nightmare. Connect two WooCommerce stores and let our AI-powered sync handle the grunt work. Sync products, orders, and more in near real-time.
+                    Keep a staging or secondary site perfectly in sync with your production site. This tool mirrors products, orders, and reviews from a source site (A) to a destination site (B).
                 </p>
             </div>
 
             <Alert variant="warning">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Important Security Note</AlertTitle>
+                <AlertTitle>Directional Sync: A to B</AlertTitle>
                 <AlertDescription>
-                   API keys are stored in your browser's local storage and are not sent to our servers. This is for demonstration purposes. For production use, a secure backend storage solution is required.
+                   This is a one-way sync. It will make Site B an exact copy of Site A by creating, updating, and **deleting** data on Site B. Any data on Site B that is not on Site A will be removed. Use with caution.
                 </AlertDescription>
             </Alert>
             
-            <Card>
-                <CardHeader>
-                    <CardTitle>How to Get WooCommerce API Keys</CardTitle>
-                    <CardDescription>Follow these steps in your WordPress dashboard to generate the necessary keys.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                        <li>Log in to your WordPress admin dashboard.</li>
-                        <li>Navigate to <strong>WooCommerce &gt; Settings</strong>.</li>
-                        <li>Click on the <strong>Advanced</strong> tab, then on <strong>REST API</strong>.</li>
-                        <li>Click <strong>Add key</strong> or <strong>Create an API key</strong>.</li>
-                        <li>Enter a <strong>Description</strong> (e.g., "Nabih Sync").</li>
-                        <li>Select a <strong>User</strong> (usually your admin account).</li>
-                        <li>Set <strong>Permissions</strong> to <strong>Read/Write</strong>.</li>
-                        <li>Click <strong>Generate API key</strong>.</li>
-                    </ol>
-                    <Alert variant="destructive" className="mt-4">
-                        <AlertTriangle className="h-4 w-4"/>
-                        <AlertTitle>Copy Your Keys Now!</AlertTitle>
-                        <AlertDescription>
-                            WooCommerce will only show you the Consumer Key and Consumer Secret once. Copy and save them in a secure place before leaving the page.
-                        </AlertDescription>
-                    </Alert>
-                </CardContent>
-            </Card>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <SiteForm form={formA} siteLabel="A" onSave={(data) => handleSaveSite('A', data)} isConnected={!!siteA} />
-                <SiteForm form={formB} siteLabel="B" onSave={(data) => handleSaveSite('B', data)} isConnected={!!siteB} />
+                <SiteForm form={formA} siteLabel="A (Source)" onSave={(data) => handleSaveSite('A', data)} isConnected={!!siteA} />
+                <SiteForm form={formB} siteLabel="B (Destination)" onSave={(data) => handleSaveSite('B', data)} isConnected={!!siteB} />
             </div>
 
             <Card>
@@ -196,23 +158,17 @@ export default function WooCommerceSyncPage() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1 flex flex-col items-center justify-center gap-4 p-6 bg-muted/50 rounded-lg">
-                        <div className={cn("w-24 h-24 rounded-full flex items-center justify-center transition-colors", isSyncing ? "bg-green-500/20 text-green-500" : "bg-destructive/20 text-destructive")}>
-                           {isSyncing ? <Power className="h-12 w-12" /> : <PowerOff className="h-12 w-12"/>}
+                         <div className="text-center">
+                             <h3 className="text-xl font-bold font-headline">One-Way Mirror Sync</h3>
+                             <p className="text-sm text-muted-foreground">Site A <ArrowRight className="inline-block mx-2 h-4 w-4"/> Site B</p>
                         </div>
-                         <h3 className="text-2xl font-bold font-headline">{isSyncing ? "SYNCING ACTIVE" : "SYNC INACTIVE"}</h3>
-                         <p className="text-sm text-muted-foreground text-center">
-                            {isSyncing ? "Data is being synced automatically every 5 minutes." : "Sync is currently stopped."}
+                        <Button onClick={runSync} disabled={isSyncing || !siteA || !siteB} size="lg">
+                            {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <GitCompare className="h-4 w-4 mr-2" />}
+                            {isSyncing ? 'Syncing...' : 'Run Sync Now'}
+                        </Button>
+                         <p className="text-xs text-muted-foreground text-center">
+                           Click to perform a full one-time sync.
                         </p>
-                         <div className="flex gap-2">
-                           <Button onClick={startSyncing} disabled={isSyncing || !siteA || !siteB}>
-                                {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Power className="h-4 w-4 mr-2" />}
-                                Start Sync
-                            </Button>
-                            <Button onClick={stopSyncing} disabled={!isSyncing} variant="destructive">
-                                <PowerOff className="h-4 w-4 mr-2" />
-                                Stop Sync
-                            </Button>
-                        </div>
                     </div>
                     <div className="md:col-span-2 space-y-4">
                         <div>
@@ -223,6 +179,9 @@ export default function WooCommerceSyncPage() {
                                         <p key={i} className={cn(
                                             log.type === 'error' && 'text-destructive',
                                             log.type === 'success' && 'text-green-500',
+                                            log.type === 'delete' && 'text-amber-600',
+                                            log.type === 'create' && 'text-blue-500',
+                                            log.type === 'update' && 'text-purple-500',
                                         )}>
                                             [{new Date(log.timestamp).toLocaleTimeString()}] {log.message}
                                         </p>
@@ -231,20 +190,21 @@ export default function WooCommerceSyncPage() {
                             </ScrollArea>
                         </div>
                         <div>
-                            <h3 className="font-semibold mb-2">Recently Synced Items</h3>
+                            <h3 className="font-semibold mb-2">Sync Activity</h3>
                              <ScrollArea className="h-40 w-full rounded-md border">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Type</TableHead>
+                                            <TableHead>Action</TableHead>
                                             <TableHead>Description</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {syncedItems.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                                    No items synced yet.
+                                                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                                    No sync activity yet.
                                                 </TableCell>
                                             </TableRow>
                                         )}
@@ -254,6 +214,11 @@ export default function WooCommerceSyncPage() {
                                                     <Badge variant="secondary" className="flex items-center gap-1.5 w-fit">
                                                         {getIconForType(item.type)} {item.type}
                                                     </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1.5">
+                                                        {getIconForAction(item.action)} {item.action}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>{item.description}</TableCell>
                                             </TableRow>
