@@ -28,6 +28,39 @@ const siteSchema = z.object({
 
 export type SiteFormData = z.infer<typeof siteSchema>;
 
+const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLabel: 'A' | 'B', onSave: (data: SiteFormData) => void, isConnected: boolean }) => (
+    <Card className={cn(isConnected && "border-green-500")}>
+        <CardHeader>
+            <CardTitle className="flex justify-between items-center">
+                <span>Site {siteLabel}</span>
+                {isConnected && <Badge variant="default" className="bg-green-600">Connected</Badge>}
+            </CardTitle>
+            <CardDescription>Enter the WooCommerce details for site {siteLabel}.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <form onSubmit={form.handleSubmit(onSave)} className="space-y-4">
+                 <div className="space-y-2">
+                    <Label>Website URL</Label>
+                    <Input {...form.register('url')} placeholder="https://site-a.com" />
+                    {form.formState.errors.url && <p className="text-xs text-destructive">{form.formState.errors.url.message}</p>}
+                </div>
+                 <div className="space-y-2">
+                    <Label>Consumer Key</Label>
+                    <Input {...form.register('consumerKey')} type="password" />
+                     {form.formState.errors.consumerKey && <p className="text-xs text-destructive">{form.formState.errors.consumerKey.message}</p>}
+                </div>
+                 <div className="space-y-2">
+                    <Label>Consumer Secret</Label>
+                    <Input {...form.register('consumerSecret')} type="password" />
+                    {form.formState.errors.consumerSecret && <p className="text-xs text-destructive">{form.formState.errors.consumerSecret.message}</p>}
+                </div>
+                <Button type="submit" className="w-full">Save Site {siteLabel}</Button>
+            </form>
+        </CardContent>
+    </Card>
+);
+
+
 export default function WooCommerceSyncPage() {
     const { toast } = useToast();
     const [siteA, setSiteA] = useLocalStorage<SiteFormData | null>('wc-sync-site-a', null);
@@ -40,6 +73,15 @@ export default function WooCommerceSyncPage() {
     const formA = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteA || { url: '', consumerKey: '', consumerSecret: '' }});
     const formB = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: siteB || { url: '', consumerKey: '', consumerSecret: '' }});
     
+    // This effect ensures that the form's default values are updated if the data in local storage changes from another tab.
+    useEffect(() => {
+        formA.reset(siteA || { url: '', consumerKey: '', consumerSecret: '' });
+    }, [siteA, formA]);
+
+    useEffect(() => {
+        formB.reset(siteB || { url: '', consumerKey: '', consumerSecret: '' });
+    }, [siteB, formB]);
+
     const addLog = (message: string, type: SyncLog['type'] = 'info') => {
         setLogs(prev => [{ timestamp: new Date().toISOString(), message, type }, ...prev]);
     };
@@ -89,36 +131,6 @@ export default function WooCommerceSyncPage() {
             if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
         }
     }, []);
-
-    const SiteForm = ({ form, siteLabel, onSave, isConnected }: { form: any, siteLabel: 'A' | 'B', onSave: (data: SiteFormData) => void, isConnected: boolean }) => (
-        <Card className={cn(isConnected && "border-green-500")}>
-            <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                    <span>Site {siteLabel}</span>
-                    {isConnected && <Badge variant="default" className="bg-green-600">Connected</Badge>}
-                </CardTitle>
-                <CardDescription>Enter the WooCommerce details for site {siteLabel}.</CardDescription>
-            </CardHeader>
-            <CardContent as="form" onSubmit={form.handleSubmit(onSave)} className="space-y-4">
-                 <div className="space-y-2">
-                    <Label>Website URL</Label>
-                    <Input {...form.register('url')} placeholder="https://site-a.com" />
-                    {form.formState.errors.url && <p className="text-xs text-destructive">{form.formState.errors.url.message}</p>}
-                </div>
-                 <div className="space-y-2">
-                    <Label>Consumer Key</Label>
-                    <Input {...form.register('consumerKey')} type="password" />
-                     {form.formState.errors.consumerKey && <p className="text-xs text-destructive">{form.formState.errors.consumerKey.message}</p>}
-                </div>
-                 <div className="space-y-2">
-                    <Label>Consumer Secret</Label>
-                    <Input {...form.register('consumerSecret')} type="password" />
-                    {form.formState.errors.consumerSecret && <p className="text-xs text-destructive">{form.formState.errors.consumerSecret.message}</p>}
-                </div>
-                <Button type="submit" className="w-full">Save Site {siteLabel}</Button>
-            </CardContent>
-        </Card>
-    );
 
     const getIconForType = (type: SyncedItem['type']) => {
         switch(type) {
