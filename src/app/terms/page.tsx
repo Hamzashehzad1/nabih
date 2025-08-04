@@ -1,18 +1,11 @@
 
+"use client";
+
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Terms of Service | Nabih',
-  description: 'Please read our Terms of Service carefully before using the Nabih platform.',
-  alternates: {
-    canonical: '/terms',
-  },
-};
 
 export default function TermsOfServicePage() {
   return (
@@ -28,7 +21,7 @@ export default function TermsOfServicePage() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>This is a Template, Not Legal Advice</AlertTitle>
               <AlertDescription>
-                This document is a placeholder and for informational purposes only. It is not a substitute for professional legal advice. You must consult with a qualified lawyer to create a Terms of Service agreement that is compliant and tailored to your specific business needs.
+                This document is a placeholder and for informational purposes only. It is not a substitute for professional legal advice. You must consult with a qualified lawyer to create a Terms of Service agreement that is tailored to your specific business needs.
               </AlertDescription>
             </Alert>
             

@@ -1,18 +1,11 @@
 
+"use client";
+
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Rocket, Bot, Wand2 } from 'lucide-react';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Platform Updates | Nabih',
-  description: 'See the latest features, improvements, and updates to the Nabih platform. We are constantly innovating to serve you better.',
-  alternates: {
-    canonical: '/updates',
-  },
-};
 
 const updates = [
     {

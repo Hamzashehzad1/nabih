@@ -11,17 +11,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
-import type { Metadata } from 'next';
-
-// Although metadata can't be used in client components, we can define it for static rendering
-// export const metadata: Metadata = {
-//   title: 'The Ultimate WordPress Launch Checklist | Nabih',
-//   description: 'Download our comprehensive, free WordPress pre-launch checklist to ensure your website is secure, optimized, and ready for success. Covers SEO, performance, and more.',
-//   alternates: {
-//     canonical: '/checklist',
-//   },
-// };
-
 
 export default function ChecklistPage() {
     const checklistRef = useRef<HTMLDivElement>(null);

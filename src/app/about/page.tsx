@@ -1,4 +1,6 @@
 
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Bot, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare } from 'lucide-react';
@@ -9,15 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NabihIcon } from '@/components/nabih-icon';
 import { Card, CardContent } from '@/components/ui/card';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'About Us | Nabih',
-  description: 'Learn about the mission and story behind Nabih. We are dedicated to ending content bottlenecks for creators and agencies through powerful AI tools.',
-  alternates: {
-    canonical: '/about',
-  },
-};
 
 const contentSuiteNav = [
     { href: "/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },

@@ -1,18 +1,11 @@
 
+"use client";
+
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Privacy Policy | Nabih',
-  description: 'Your privacy is important to us. This Privacy Policy explains how we collect, use, and protect your information.',
-  alternates: {
-    canonical: '/privacy',
-  },
-};
 
 export default function PrivacyPolicyPage() {
   return (

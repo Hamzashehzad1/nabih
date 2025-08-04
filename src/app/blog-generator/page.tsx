@@ -1,4 +1,6 @@
 
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
@@ -6,15 +8,6 @@ import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'AI Blog Post Generator | Create SEO-Friendly Content Instantly',
-  description: 'Generate complete, high-quality, and SEO-optimized blog posts in seconds. Our AI Blog Generator helps you scale your content strategy, overcome writer\'s block, and publish faster.',
-  alternates: {
-    canonical: '/blog-generator',
-  },
-};
 
 export default function BlogGeneratorLandingPage() {
   const painPoints = [

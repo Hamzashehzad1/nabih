@@ -1,4 +1,6 @@
 
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
@@ -6,15 +8,6 @@ import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Content Idea Generator | Never Run Out of Blog Ideas Again',
-  description: 'Struggling with writer\'s block? Our AI Content Idea Generator gives you endless, SEO-friendly blog topics and content ideas in seconds. Enter your niche and get started.',
-  alternates: {
-    canonical: '/content-ideas',
-  },
-};
 
 export default function ContentIdeasLandingPage() {
   const painPoints = [
@@ -144,4 +137,3 @@ export default function ContentIdeasLandingPage() {
     </div>
   );
 }
-

@@ -10,16 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Mail, Phone, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Metadata } from 'next';
-
-// Although metadata can't be used in client components, we can define it for static rendering
-// export const metadata: Metadata = {
-//   title: 'Contact Us | Nabih',
-//   description: 'Get in touch with the Nabih team. We are here to answer your questions about our AI content toolkit, discuss enterprise plans, or receive your feedback.',
-//   alternates: {
-//     canonical: '/contact',
-//   },
-// };
 
 export default function ContactPage() {
   const { toast } = useToast();

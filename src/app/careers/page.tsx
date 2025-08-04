@@ -1,18 +1,11 @@
 
+"use client";
+
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowRight, Cpu, PenTool, Satellite } from 'lucide-react';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Careers | Nabih',
-  description: 'Join our mission to end content bottlenecks. We are looking for passionate individuals to help us build the future of content creation.',
-  alternates: {
-    canonical: '/careers',
-  },
-};
 
 const openPositions = [
     {
