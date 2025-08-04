@@ -146,6 +146,32 @@ export default function WooCommerceSyncPage() {
                 </AlertDescription>
             </Alert>
             
+            <Card>
+                <CardHeader>
+                    <CardTitle>How to Get WooCommerce API Keys</CardTitle>
+                    <CardDescription>Follow these steps in your WordPress dashboard to generate the necessary keys.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                        <li>Log in to your WordPress admin dashboard.</li>
+                        <li>Navigate to <strong>WooCommerce &gt; Settings</strong>.</li>
+                        <li>Click on the <strong>Advanced</strong> tab, then on <strong>REST API</strong>.</li>
+                        <li>Click <strong>Add key</strong> or <strong>Create an API key</strong>.</li>
+                        <li>Enter a <strong>Description</strong> (e.g., "Nabih Sync").</li>
+                        <li>Select a <strong>User</strong> (usually your admin account).</li>
+                        <li>Set <strong>Permissions</strong> to <strong>Read/Write</strong>.</li>
+                        <li>Click <strong>Generate API key</strong>.</li>
+                    </ol>
+                    <Alert variant="destructive" className="mt-4">
+                        <AlertTriangle className="h-4 w-4"/>
+                        <AlertTitle>Copy Your Keys Now!</AlertTitle>
+                        <AlertDescription>
+                            WooCommerce will only show you the Consumer Key and Consumer Secret once. Copy and save them in a secure place before leaving the page.
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 <SiteForm form={formA} siteLabel="A" onSave={(data) => handleSaveSite('A', data)} isConnected={!!siteA} />
                 <SiteForm form={formB} siteLabel="B" onSave={(data) => handleSaveSite('B', data)} isConnected={!!siteB} />
