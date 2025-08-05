@@ -169,7 +169,7 @@ export default function LeadFinderLandingPage() {
                                             <FormItem><FormLabel>Business Type / Keyword</FormLabel><FormControl><Input placeholder="e.g., 'Web Design Agency'" {...field} /></FormControl><FormMessage /></FormItem>
                                         )} />
                                         <FormField control={form.control} name="location" render={({ field }) => (
-                                            <FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g., 'Dubai, UAE'" {...field} /></FormControl><FormMessage /></FormMessage>
+                                            <FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g., 'Dubai, UAE'" {...field} /></FormControl><FormMessage /></FormItem>
                                         )} />
                                     </div>
                                     <Button type="submit" className="w-full" disabled={isLoading}>
