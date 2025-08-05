@@ -1,3 +1,4 @@
+
 // src/app/dashboard/woocommerce-sync/page.tsx
 "use client";
 
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Power, PowerOff, CheckCircle2, Package, Star, ShoppingCart, GitCompare, AlertTriangle, BadgePercent } from 'lucide-react';
+import { Loader2, CheckCircle2, GitCompare, AlertTriangle, BadgePercent, Package, ShoppingCart, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { performSync, type SyncLog } from './actions';
@@ -27,7 +28,7 @@ const siteSchema = z.object({
 
 export type SiteFormData = z.infer<typeof siteSchema>;
 
-const SiteForm = ({ form, onSave, isConnected, onClear, title, description, storageKey }: { form: any, onSave: (data: SiteFormData, key: string) => void, isConnected: boolean, onClear: () => void, title: string, description: string, storageKey: string }) => (
+const SiteForm = ({ form, onSave, isConnected, onClear, title, description }: { form: any, onSave: (data: SiteFormData) => void, isConnected: boolean, onClear: () => void, title: string, description: string }) => (
     <Card className={cn(isConnected && "border-green-500")}>
         <CardHeader>
             <CardTitle className="flex justify-between items-center">
@@ -37,21 +38,21 @@ const SiteForm = ({ form, onSave, isConnected, onClear, title, description, stor
             <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-            <form onSubmit={form.handleSubmit((data: SiteFormData) => onSave(data, storageKey))} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSave)} className="space-y-4">
                 <div className="space-y-2">
                     <Label>Website URL</Label>
-                    <Input {...form.register('url')} placeholder="https://source-site.com" />
-                    {form.formState.errors.url && <p className="text-xs text-destructive">{form.formState.errors.url.message}</p>}
+                    <Input {...form.register('url')} placeholder="https://example-site.com" />
+                    {form.formState.errors.url && <p className="text-xs text-destructive">{form.formState.errors.url.message as string}</p>}
                 </div>
                 <div className="space-y-2">
                     <Label>Consumer Key</Label>
                     <Input {...form.register('consumerKey')} type="password" />
-                    {form.formState.errors.consumerKey && <p className="text-xs text-destructive">{form.formState.errors.consumerKey.message}</p>}
+                     {form.formState.errors.consumerKey && <p className="text-xs text-destructive">{form.formState.errors.consumerKey.message as string}</p>}
                 </div>
                 <div className="space-y-2">
                     <Label>Consumer Secret</Label>
                     <Input {...form.register('consumerSecret')} type="password" />
-                    {form.formState.errors.consumerSecret && <p className="text-xs text-destructive">{form.formState.errors.consumerSecret.message}</p>}
+                    {form.formState.errors.consumerSecret && <p className="text-xs text-destructive">{form.formState.errors.consumerSecret.message as string}</p>}
                 </div>
                 <div className="flex gap-2">
                     <Button type="submit" className="flex-grow">Save Credentials</Button>
@@ -78,9 +79,9 @@ export default function WooCommerceSyncPage() {
     const [logs, setLogs] = useState<SyncLog[]>([]);
     const [dataTypesToSync, setDataTypesToSync] = useState({
         products: true,
-        orders: false,
-        reviews: false,
-        coupons: false,
+        orders: true,
+        reviews: true,
+        coupons: true,
     });
 
     const sourceForm = useForm<SiteFormData>({ resolver: zodResolver(siteSchema), defaultValues: sourceSite || undefined });
@@ -113,6 +114,11 @@ export default function WooCommerceSyncPage() {
             toast({title: "Configuration Missing", description: "Please save credentials for both source and destination sites.", variant: "destructive"})
             return;
         }
+        if (sourceSite.url === destinationSite.url) {
+            addLog("Source and Destination URLs cannot be the same.", 'error');
+            toast({title: "Configuration Error", description: "Source and Destination URLs cannot be the same.", variant: "destructive"})
+            return;
+        }
         
         setIsSyncing(true);
         setLogs([]);
@@ -136,11 +142,11 @@ export default function WooCommerceSyncPage() {
                 </p>
             </div>
             
-             <Alert variant="warning">
+             <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>One-Way Mirroring Sync</AlertTitle>
+                <AlertTitle>One-Way Mirroring Sync - Use With Caution!</AlertTitle>
                 <AlertDescription>
-                   This is a destructive operation. Any items (products, orders, etc.) on the Destination site that do not exist on the Source site will be **deleted**. Use with caution and always have backups.
+                   This is a destructive operation. Any items on the **Destination** site that do not exist on the **Source** site will be permanently **deleted**. Always have recent backups before proceeding.
                 </AlertDescription>
             </Alert>
             
@@ -155,7 +161,6 @@ export default function WooCommerceSyncPage() {
                     }}
                     title="Site A (Source)"
                     description="The site you want to copy data FROM."
-                    storageKey="source"
                 />
                 <SiteForm
                     form={destForm}
@@ -166,8 +171,7 @@ export default function WooCommerceSyncPage() {
                         destForm.reset({ url: '', consumerKey: '', consumerSecret: '' });
                     }}
                     title="Site B (Destination)"
-                    description="The site you want to copy data TO."
-                    storageKey="destination"
+                    description="The site you want to copy data TO. This site will be modified."
                 />
             </div>
             
@@ -185,6 +189,7 @@ export default function WooCommerceSyncPage() {
                                         id={key}
                                         checked={dataTypesToSync[key as keyof typeof dataTypesToSync]}
                                         onCheckedChange={(checked) => setDataTypesToSync(prev => ({...prev, [key]: !!checked}))}
+                                        disabled={isSyncing}
                                     />
                                     <Icon className="h-5 w-5 text-muted-foreground" />
                                    <label htmlFor={key} className="text-sm font-medium leading-none">
@@ -203,7 +208,7 @@ export default function WooCommerceSyncPage() {
                      <div className="mt-6">
                         <h3 className="font-semibold mb-2">Sync Log</h3>
                         <ScrollArea className="h-64 w-full rounded-md border bg-muted/50 p-4">
-                            <div className="flex flex-col-reverse gap-1 text-sm font-mono">
+                            <div className="flex flex-col-reverse gap-1 text-xs font-mono">
                                 {logs.map((log, i) => (
                                     <p key={i} className={cn(
                                         log.type === 'error' && 'text-destructive',
