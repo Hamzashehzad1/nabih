@@ -32,7 +32,7 @@ export default function Footer() {
      {
       title: 'Resources',
       links: [
-        { name: 'Checklist', href: '/checklist' },
+        { name: 'Checklist', href: '/resources/checklist' },
         { name: 'Sitemap', href: '/sitemap.xml' },
       ]
     },
@@ -101,3 +101,5 @@ export default function Footer() {
     </>
   );
 }
+
+    

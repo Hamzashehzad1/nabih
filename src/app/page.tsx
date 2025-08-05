@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Image from 'next/image';
@@ -14,13 +13,13 @@ import Footer from '@/components/layout/footer';
 import { Input } from '@/components/ui/input';
 
 const contentSuiteNav = [
-    { href: "/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },
-    { href: "/blog-generator", icon: <FileText />, label: "Blog Generator" },
-    { href: "/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
-    { href: "/image-generator", icon: <ImageIcon />, label: "Image Generator" },
-    { href: "/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
-    { href: "/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
-    { href: "/landing-page-generator", icon: <LayoutTemplate />, label: "Landing Page Generator" },
+    { href: "/tools/content-ideas", icon: <Lightbulb />, label: "Content Ideas" },
+    { href: "/tools/blog-generator", icon: <FileText />, label: "Blog Generator" },
+    { href: "/tools/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator" },
+    { href: "/tools/image-generator", icon: <ImageIcon />, label: "Image Generator" },
+    { href: "/tools/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
+    { href: "/tools/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
+    { href: "/tools/landing-page-generator", icon: <LayoutTemplate />, label: "Landing Page Generator" },
 ];
 
 const siteManagementNav = [
@@ -48,11 +47,11 @@ const conversionToolkitNav = [
 ];
 
 const agencyToolkitNav = [
-    { href: "/lead-finder", icon: <Briefcase />, label: "Lead Finder" },
+    { href: "/tools/lead-finder", icon: <Briefcase />, label: "Lead Finder" },
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator" },
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Client Feedback Tool" },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator" },
-    { href: "/time-tracker", icon: <Clock />, label: "Time Tracking & Invoicing" },
+    { href: "/tools/time-tracker", icon: <Clock />, label: "Time Tracking & Invoicing" },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "WordPress Admin Branding" },
     { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper" },
 ];
@@ -70,9 +69,9 @@ export default function Home() {
   const features = [
     {
       icon: <Bot className="w-8 h-8 text-primary" />,
-      title: 'AI Tools for Web Design',
+      title: 'AI Tools for Web Design & Development',
       description:
-        'Use our AI landing page generator to create high-converting pages in minutes. Our tools are built for web design and development agencies.',
+        'Leverage our AI landing page generator and other AI tools for web design and development to create high-converting pages and assets in minutes, not hours.',
     },
     {
       icon: (
@@ -102,7 +101,7 @@ export default function Home() {
       ),
       title: 'Streamline Client Workflow',
       description:
-        'Our client feedback tool for website development makes revisions a breeze. Plus, generate invoices for freelance web developers instantly.',
+        'Our intuitive client feedback tool for website development makes revisions a breeze. Plus, generate invoices for freelance web developers instantly.',
     },
     {
       icon: (
@@ -135,7 +134,7 @@ export default function Home() {
       ),
       title: 'Automate WordPress Management',
       description:
-        'Use our AI-powered website audit tool for performance, deploy custom branding with our white-label solution, and use the best WordPress SEO plugins.',
+        'Use our AI-powered website audit tool for performance, deploy custom WordPress admin branding, and utilize the best WordPress SEO plugins.',
     },
   ];
 
@@ -312,7 +311,7 @@ export default function Home() {
                           <Input type="email" placeholder="you@agency.com" className="pl-10" />
                         </div>
                         <Button asChild>
-                          <Link href="/checklist">
+                          <Link href="/resources/checklist">
                             Download Now <Download className="ml-2 h-4 w-4" />
                           </Link>
                         </Button>
@@ -416,3 +415,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

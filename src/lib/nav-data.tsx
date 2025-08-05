@@ -36,13 +36,13 @@ import {
 } from "lucide-react";
 
 export const contentSuiteNav = [
-    { href: "/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
-    { href: "/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
-    { href: "/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator", tooltip: { children: "Bulk Blog Generator", side: "right" } },
-    { href: "/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
-    { href: "/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
-    { href: "/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator", tooltip: { children: "Wireframe Generator", side: "right" } },
-    { href: "/landing-page-generator", icon: <LayoutTemplate />, label: "Landing Page Generator", tooltip: { children: "Landing Page Generator", side: "right" } },
+    { href: "/tools/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
+    { href: "/tools/blog-generator", icon: <FileText />, label: "Blog Generator", tooltip: { children: "Blog Generator", side: "right" } },
+    { href: "/tools/bulk-blog-generator", icon: <Files />, label: "Bulk Blog Generator", tooltip: { children: "Bulk Blog Generator", side: "right" } },
+    { href: "/tools/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
+    { href: "/tools/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
+    { href: "/tools/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator", tooltip: { children: "Wireframe Generator", side: "right" } },
+    { href: "/tools/landing-page-generator", icon: <LayoutTemplate />, label: "Landing Page Generator", tooltip: { children: "Landing Page Generator", side: "right" } },
 ];
 
 export const siteManagementNav = [
@@ -70,11 +70,13 @@ export const conversionToolkitNav = [
 ];
 
 export const agencyToolkitNav = [
-    { href: "/lead-finder", icon: <Briefcase />, label: "Lead Finder", tooltip: { children: "Lead Finder", side: "right" } },
+    { href: "/tools/lead-finder", icon: <Briefcase />, label: "Lead Finder", tooltip: { children: "Lead Finder", side: "right" } },
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator", tooltip: { children: "Invoice Generator", side: "right" } },
     { href: "/dashboard/visual-feedback", icon: <MessageSquareQuote />, label: "Visual Feedback", tooltip: { children: "Visual Feedback", side: "right" } },
     { href: "/dashboard/responsiveness-checker", icon: <Smartphone />, label: "Mockup Generator", tooltip: { children: "Mockup Generator", side: "right" } },
-    { href: "/time-tracker", icon: <Clock />, label: "Time Tracker", tooltip: { children: "Time Tracker", side: "right" } },
+    { href: "/tools/time-tracker", icon: <Clock />, label: "Time Tracker", tooltip: { children: "Time Tracker", side: "right" } },
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
     { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper", tooltip: { children: "Products Scraper", side: "right" } },
 ];
+
+    

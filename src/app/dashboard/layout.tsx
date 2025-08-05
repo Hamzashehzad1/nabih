@@ -27,8 +27,7 @@ import {
   User,
   LogOut,
   Loader2,
-  Users,
-  LayoutTemplate,
+  Users
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
@@ -46,25 +45,27 @@ const adminNav = [
     { href: "/dashboard/admin-analytics", icon: <Users />, label: "User Analytics", tooltip: { children: "User Analytics", side: "right" } },
 ]
 
-// Overriding wireframe generator link to point to dashboard
-const dashboardContentSuiteNav = contentSuiteNav.map(item => {
-    if (item.href === '/wireframe-generator') {
-        return { ...item, href: '/dashboard/wireframe-generator', icon: <LayoutTemplate /> };
-    }
-    if (item.href === '/landing-page-generator') {
-        return { ...item, href: '/dashboard/landing-page-generator', icon: <LayoutTemplate /> };
-    }
-    return item;
-});
-
-const dashboardSiteManagementNav = siteManagementNav;
-
-
-const dashboardAgencyToolkitNav = agencyToolkitNav.map(item =>
-  item.href === '/time-tracker'
-    ? { ...item, href: '/dashboard/time-tracker' }
-    : item
+// Convert landing page links to dashboard links
+const dashboardNavs = [
+  contentSuiteNav,
+  siteManagementNav,
+  seoSuiteNav,
+  agencyToolkitNav,
+  conversionToolkitNav
+].map(nav => 
+  nav.map(item => ({
+    ...item,
+    href: item.href.startsWith('/') && !item.href.startsWith('/dashboard') ? `/dashboard${item.href.replace('/tools', '')}` : item.href
+  }))
 );
+
+const [
+    dashboardContentSuiteNav,
+    dashboardSiteManagementNav,
+    dashboardSeoSuiteNav,
+    dashboardAgencyToolkitNav,
+    dashboardConversionToolkitNav,
+] = dashboardNavs;
 
 
 export default function DashboardLayout({
@@ -150,7 +151,7 @@ export default function DashboardLayout({
             <SidebarGroup>
                 <SidebarGroupLabel>SEO Suite</SidebarGroupLabel>
                 <SidebarMenu>
-                {seoSuiteNav.map((item) => (
+                {dashboardSeoSuiteNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
@@ -169,7 +170,7 @@ export default function DashboardLayout({
              <SidebarGroup>
                 <SidebarGroupLabel>Compress & Convert</SidebarGroupLabel>
                 <SidebarMenu>
-                {conversionToolkitNav.map((item) => (
+                {dashboardConversionToolkitNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton
@@ -287,3 +288,5 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
+
+    

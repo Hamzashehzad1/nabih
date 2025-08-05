@@ -1,7 +1,27 @@
+
 import { MetadataRoute } from 'next'
  
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://nabih.ai';
+
+  const toolPages = [
+    'content-ideas',
+    'blog-generator',
+    'image-generator',
+    'bulk-blog-generator',
+    'brand-kit-generator',
+    'wireframe-generator',
+    'time-tracker',
+    'lead-finder',
+    'landing-page-generator'
+  ];
+
+  const toolUrls = toolPages.map(tool => ({
+    url: `${baseUrl}/tools/${tool}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
 
   return [
     {
@@ -29,59 +49,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.5,
     },
      {
-      url: `${baseUrl}/checklist`,
+      url: `${baseUrl}/resources/checklist`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.6,
     },
-     {
-      url: `${baseUrl}/content-ideas`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/blog-generator`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-     {
-      url: `${baseUrl}/image-generator`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/bulk-blog-generator`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/brand-kit-generator`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/wireframe-generator`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-     {
-      url: `${baseUrl}/time-tracker`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-     {
-      url: `${baseUrl}/lead-finder`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
+    ...toolUrls,
     {
       url: `${baseUrl}/terms`,
       lastModified: new Date(),
@@ -108,3 +81,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 }
+
+    
