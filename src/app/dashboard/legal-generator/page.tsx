@@ -1,3 +1,4 @@
+
 // src/app/dashboard/legal-generator/page.tsx
 "use client";
 
@@ -73,7 +74,7 @@ export default function LegalGeneratorPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-headline font-bold">AI Legal Document Generator</h1>
+        <h1 className="text-3xl font-headline font-bold">Privacy Policy and Terms of Service Generator</h1>
         <p className="text-muted-foreground max-w-2xl">
           Create a baseline Privacy Policy or Terms of Service for your website.
         </p>

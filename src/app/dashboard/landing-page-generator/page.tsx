@@ -1,3 +1,4 @@
+
 // src/app/dashboard/landing-page-generator/page.tsx
 "use client";
 
@@ -133,9 +134,9 @@ export default function LandingPageGeneratorPage() {
   return (
     <div className="space-y-8">
         <div>
-            <h1 className="text-3xl font-headline font-bold">AI Landing Page Generator</h1>
+            <h1 className="text-3xl font-headline font-bold">AI Landing Page Generator for Conversion</h1>
             <p className="text-muted-foreground max-w-2xl">
-                Describe your business and goals, and let the AI generate a complete, high-fidelity landing page with HTML and Tailwind CSS.
+                Describe your business and goals, and let our AI tools for web design generate a complete, high-fidelity landing page with HTML and Tailwind CSS.
             </p>
         </div>
         <div className="grid gap-8 md:grid-cols-2 items-start">

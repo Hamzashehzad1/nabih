@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -106,7 +107,7 @@ add_filter('admin_footer_text', 'remove_footer_admin');
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-headline font-bold">White-Label WordPress</h1>
+                <h1 className="text-3xl font-headline font-bold">WordPress Admin Branding & White-Label Tool</h1>
                 <p className="text-muted-foreground max-w-2xl">
                     Customize the WordPress admin and login page to match your brand. Configure the options below and copy the generated snippet into your theme's `functions.php` file.
                 </p>

@@ -1,4 +1,5 @@
 
+
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Inter, Space_Grotesk } from 'next/font/google';
@@ -10,16 +11,16 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
 
 export const metadata: Metadata = {
-  title: 'Nabih | AI Content Toolkit for Agencies & Creators',
-  description: 'The All-In-One Toolkit for Web Agencies & Creators. Generate blog posts, manage sites, and streamline workflows with AI.',
+  title: 'Nabih | AI Tools for Web Design, Development & SEO',
+  description: 'The All-In-One Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, and client feedback solutions to streamline your workflow.',
   manifest: '/manifest.json',
   metadataBase: new URL('https://nabih.ai'), // Replace with your actual domain
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Nabih | AI Content Toolkit for Agencies & Creators',
-    description: 'The All-In-One Toolkit for Web Agencies & Creators. Generate blog posts, manage sites, and streamline workflows with AI.',
+    title: 'Nabih | AI Tools for Web Design, Development & SEO',
+    description: 'The All-In-One Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, and client feedback solutions to streamline your workflow.',
     url: 'https://nabih.ai', // Replace with your actual domain
     siteName: 'Nabih',
     images: [
@@ -34,8 +35,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nabih | AI Content Toolkit for Agencies & Creators',
-    description: 'The All-In-One Toolkit for Web Agencies & Creators. Generate blog posts, manage sites, and streamline workflows with AI.',
+    title: 'Nabih | AI Tools for Web Design, Development & SEO',
+    description: 'The All-In-One Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, and client feedback solutions to streamline your workflow.',
     // site: '@yourtwitterhandle', // Replace with your Twitter handle
     // creator: '@yourtwitterhandle',
     images: ['/twitter-og-image.png'], // Path to your Twitter OG image

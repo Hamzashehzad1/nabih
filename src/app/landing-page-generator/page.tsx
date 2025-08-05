@@ -1,4 +1,5 @@
 
+
 // src/app/landing-page-generator/page.tsx
 "use client";
 
@@ -44,7 +45,7 @@ export default function LandingPageGeneratorLanding() {
         <section className="py-20 text-center">
           <div className="container mx-auto px-4">
             <h1 className="text-4xl md:text-6xl font-headline font-bold mb-4 tracking-tight">
-              Generate High-Fidelity Landing Pages with AI.
+              AI Landing Page Generator for Higher Conversions.
             </h1>
             <p className="max-w-3xl mx-auto text-lg text-muted-foreground mb-8">
               Stop building from scratch. Our AI designer creates visually rich, conversion-focused landing pages complete with copywriting and a full HTML structure. Go from concept to code in seconds.
@@ -137,4 +138,3 @@ export default function LandingPageGeneratorLanding() {
     </div>
   );
 }
-

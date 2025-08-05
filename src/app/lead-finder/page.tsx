@@ -1,4 +1,5 @@
 
+
 // src/app/lead-finder/page.tsx
 
 "use client";
@@ -97,7 +98,7 @@ export default function LeadFinderLandingPage() {
                     Your Sales Team is Wasting 80% of Their Time.
                 </h1>
                 <p className="max-w-3xl mx-auto text-lg text-muted-foreground mb-8">
-                    Stop paying smart people to do dumb work. Our AI finds hyper-targeted leads with their emails, websites, and phone numbers in seconds. <span className="font-bold text-primary">Try it yourself below.</span>
+                    Stop paying smart people to do dumb work. Our AI finds hyper-targeted leads for freelance web developers with their emails, websites, and phone numbers in seconds. <span className="font-bold text-primary">Try it yourself below.</span>
                 </p>
                 
                 <Card className="max-w-3xl mx-auto text-left glass-card">
@@ -113,7 +114,7 @@ export default function LeadFinderLandingPage() {
                                         <FormItem><FormLabel>Business Type / Keyword</FormLabel><FormControl><Input placeholder="e.g., 'Web Design Agency'" {...field} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="location" render={({ field }) => (
-                                        <FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g., 'Dubai, UAE'" {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g., 'Dubai, UAE'" {...field} /></FormControl><FormMessage /></FormMessage>
                                     )} />
                                 </div>
                                 <Button type="submit" className="w-full" disabled={isLoading}>

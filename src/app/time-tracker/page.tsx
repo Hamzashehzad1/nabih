@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Image from 'next/image';
@@ -43,7 +44,7 @@ export default function TimeTrackerLandingPage() {
         <section className="py-20 text-center">
           <div className="container mx-auto px-4">
             <h1 className="text-4xl md:text-6xl font-headline font-bold mb-4 tracking-tight">
-              Transparent Time Tracking for Agencies & Freelancers.
+              Time Tracking and Invoicing for Freelancers.
             </h1>
             <p className="max-w-3xl mx-auto text-lg text-muted-foreground mb-8">
               Stop guessing. Start tracking. Our advanced time tracker lets you log every billable minute with detailed notes, ensuring you and your clients are always on the same page.

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -255,7 +256,7 @@ export default function WebsiteAuditPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-headline font-bold">Website Audit</h1>
+        <h1 className="text-3xl font-headline font-bold">AI-Powered Website Audit Tool</h1>
         <p className="text-muted-foreground max-w-2xl">
           Analyze your website's performance, SEO, security, and more to identify areas for improvement.
         </p>
