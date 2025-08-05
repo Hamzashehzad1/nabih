@@ -1,4 +1,3 @@
-
 // src/app/tools/lead-finder/page.tsx
 
 "use client";
@@ -7,7 +6,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Briefcase, Sparkles, ExternalLink, Mail, Phone, Download, ArrowRight } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Mail, Phone, ArrowRight } from "lucide-react";
 import Head from 'next/head';
 
 import Header from '@/components/layout/header';
@@ -338,7 +337,7 @@ export default function LeadFinderLandingPage() {
                 </p>
                 <Button asChild size="lg">
                 <Link href="/signup">
-                    Get Unlimited Leads Now <ArrowRight className="ml-2 h-5 w-5" />
+                    Get Unlimited Leads Now <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
                 </Button>
             </div>
