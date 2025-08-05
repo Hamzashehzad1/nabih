@@ -1,5 +1,4 @@
 
-
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Inter, Space_Grotesk } from 'next/font/google';
@@ -67,9 +66,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Nabih",
+    "url": "https://nabih.ai",
+    "logo": "https://nabih.ai/logo.png", // Replace with your actual logo URL
+    "sameAs": [
+      // Add your social media profiles here
+      // "https://twitter.com/yourprofile",
+      // "https://www.linkedin.com/company/yourprofile"
+    ]
+  };
+  
   return (
     <html lang="en" className="dark">
       <head>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+          />
           <link rel="canonical" href="https://nabih.ai" />
       </head>
       <body className={cn(inter.variable, spaceGrotesk.variable, "font-body antialiased")}>

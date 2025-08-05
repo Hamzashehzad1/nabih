@@ -11,6 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
+import Head from 'next/head';
 
 export default function ChecklistPage() {
     const checklistRef = useRef<HTMLDivElement>(null);
@@ -126,56 +127,70 @@ export default function ChecklistPage() {
             ]
         }
     ];
+    
+    const pageSchema = {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "The Ultimate WordPress Website Launch Checklist",
+      "description": "Download our comprehensive, free checklist for launching a WordPress website. Covers every step from planning and design to SEO, security, and launch.",
+      "url": "https://nabih.ai/resources/checklist"
+    };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Header />
-      <main className="flex-grow py-12 md:py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12 max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-headline font-bold mb-4 tracking-tight">
-              The Ultimate WordPress Website Launch Checklist
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              From initial idea to a high-performing, secure, and SEO-friendly website, this checklist covers every crucial step. Don't miss a thing.
-            </p>
-            <Button size="lg" className="mt-6" onClick={handleDownloadPdf}>
-                <ArrowDownToLine className="mr-2 h-5 w-5" /> Download as PDF
-            </Button>
-          </div>
+    <>
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(pageSchema) }}
+        />
+      </Head>
+      <div className="flex flex-col min-h-screen bg-background">
+        <Header />
+        <main className="flex-grow py-12 md:py-20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12 max-w-3xl mx-auto">
+              <h1 className="text-4xl md:text-5xl font-headline font-bold mb-4 tracking-tight">
+                The Ultimate WordPress Website Launch Checklist
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                From initial idea to a high-performing, secure, and SEO-friendly website, this checklist covers every crucial step. Don't miss a thing.
+              </p>
+              <Button size="lg" className="mt-6" onClick={handleDownloadPdf}>
+                  <ArrowDownToLine className="mr-2 h-5 w-5" /> Download as PDF
+              </Button>
+            </div>
 
-          <Card className="max-w-4xl mx-auto glass-card" ref={checklistRef}>
-              <CardContent className="p-6 md:p-8">
-                <Accordion type="multiple" defaultValue={["item-0"]} className="w-full">
-                    {checklistSections.map((section, index) => (
-                        <AccordionItem value={`item-${index}`} key={section.title}>
-                            <AccordionTrigger className="text-xl md:text-2xl font-headline hover:no-underline">
-                                <div className="flex items-center gap-4">
-                                    {section.icon}
-                                    <h2>{section.title}</h2>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pt-4 pl-4">
-                                <ul className="space-y-3">
-                                    {section.items.map(item => (
-                                        <li key={item} className="flex items-start">
-                                            <CheckSquare className="h-5 w-5 text-green-500 mr-3 mt-1 flex-shrink-0" />
-                                            <span>{item}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-              </CardContent>
-          </Card>
-          
-        </div>
-      </main>
-      <Footer />
-    </div>
+            <Card className="max-w-4xl mx-auto glass-card" ref={checklistRef}>
+                <CardContent className="p-6 md:p-8">
+                  <Accordion type="multiple" defaultValue={["item-0"]} className="w-full">
+                      {checklistSections.map((section, index) => (
+                          <AccordionItem value={`item-${index}`} key={section.title}>
+                              <AccordionTrigger className="text-xl md:text-2xl font-headline hover:no-underline">
+                                  <div className="flex items-center gap-4">
+                                      {section.icon}
+                                      <h2>{section.title}</h2>
+                                  </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="pt-4 pl-4">
+                                  <ul className="space-y-3">
+                                      {section.items.map(item => (
+                                          <li key={item} className="flex items-start">
+                                              <CheckSquare className="h-5 w-5 text-green-500 mr-3 mt-1 flex-shrink-0" />
+                                              <span>{item}</span>
+                                          </li>
+                                      ))}
+                                  </ul>
+                              </AccordionContent>
+                          </AccordionItem>
+                      ))}
+                  </Accordion>
+                </CardContent>
+            </Card>
+            
+          </div>
+        </main>
+        <Footer />
+      </div>
+    </>
   );
 }
-
-    
