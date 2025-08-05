@@ -34,7 +34,7 @@ import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User as FirebaseUser } from "firebase/auth";
 import { app } from "@/lib/firebase"; // Make sure firebase config is in this file
 import { cn } from "@/lib/utils";
-import { contentSuiteNav, siteManagementNav, seoSuiteNav, agencyToolkitNav } from "@/lib/nav-data";
+import { contentSuiteNav, siteManagementNav, seoSuiteNav, agencyToolkitNav, conversionToolkitNav } from "@/lib/nav-data";
 
 
 const generalNav = [
@@ -147,6 +147,25 @@ export default function DashboardLayout({
                 <SidebarGroupLabel>SEO Suite</SidebarGroupLabel>
                 <SidebarMenu>
                 {seoSuiteNav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <Link href={item.href}>
+                        <SidebarMenuButton
+                        isActive={pathname.startsWith(item.href)}
+                        tooltip={item.tooltip}
+                        >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                    </SidebarMenuItem>
+                ))}
+                </SidebarMenu>
+            </SidebarGroup>
+            
+             <SidebarGroup>
+                <SidebarGroupLabel>Compress & Convert</SidebarGroupLabel>
+                <SidebarMenu>
+                {conversionToolkitNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton

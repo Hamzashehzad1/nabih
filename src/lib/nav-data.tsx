@@ -32,6 +32,7 @@ import {
   GitCompare,
   Clock,
   Briefcase,
+  FileCog,
 } from "lucide-react";
 
 export const contentSuiteNav = [
@@ -61,6 +62,10 @@ export const seoSuiteNav = [
     { href: "/dashboard/schema-markup-generator", icon: <Code2 />, label: "Schema Generator", tooltip: { children: "Schema Generator", side: "right" } },
     { href: "/dashboard/broken-link-checker", icon: <Unlink />, label: "Broken Link Checker", tooltip: { children: "Broken Link Checker", side: "right" } },
     { href: "/dashboard/sitemap-generator", icon: <Network />, label: "Sitemap Generator", tooltip: { children: "Sitemap Generator", side: "right" } },
+];
+
+export const conversionToolkitNav = [
+    { href: "/dashboard/compress-and-convert", icon: <FileCog />, label: "Compress & Convert", tooltip: { children: "Compress & Convert", side: "right" } },
 ];
 
 export const agencyToolkitNav = [

@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare, Clock, Briefcase } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Star, Download, Mail, LayoutDashboard, Settings, User, FileText, ImageIcon, LogOut, Library, Activity, Lightbulb, Paintbrush, Shield, TrendingDown, Link2, Files, Palette, LayoutTemplate, Smartphone, MessageSquareQuote, Receipt, HelpCircle, Type, Code2, Unlink, Layers3, Network, DownloadCloud, Crop, Users, GitCompare, Clock, Briefcase, FileCog } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +41,10 @@ const seoSuiteNav = [
     { href: "/dashboard/sitemap-generator", icon: <Network />, label: "Sitemap Generator" },
 ];
 
+const conversionToolkitNav = [
+    { href: "/dashboard/compress-and-convert", icon: <FileCog />, label: "Compress & Convert" },
+];
+
 const agencyToolkitNav = [
     { href: "/lead-finder", icon: <Briefcase />, label: "Lead Finder" },
     { href: "/dashboard/invoice-generator", icon: <Receipt />, label: "Invoice Generator" },
@@ -55,6 +59,7 @@ const toolCategories = [
     { title: "Content Suite", tools: contentSuiteNav },
     { title: "SEO Suite", tools: seoSuiteNav },
     { title: "Site Management", tools: siteManagementNav },
+    { title: "Compress & Convert", tools: conversionToolkitNav },
     { title: "Agency Toolkit", tools: agencyToolkitNav },
 ];
 
