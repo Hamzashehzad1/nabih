@@ -31,52 +31,49 @@ const dataTypesConfig: Record<string, DataTypeConfig> = {
     coupons: { endpoint: 'coupons', idKey: 'id' },
 };
 
-const READ_ONLY_FIELDS = [
+const READ_ONLY_FIELDS_FOR_UPDATE = [
     'id', 'date_created', 'date_created_gmt', 'date_modified', 
-    'date_modified_gmt', 'permalink', 'guid', '_links', 'store_credit_balance'
+    'date_modified_gmt', 'permalink', 'guid', '_links'
 ];
+
+const READ_ONLY_FIELDS_FOR_COMPARISON = [
+    'date_modified', 'date_modified_gmt', '_links'
+];
+
 
 function sanitizeForUpdate(item: any): any {
     let sanitizedItem = cloneDeep(item);
     
-    // Remove top-level read-only fields
-    READ_ONLY_FIELDS.forEach(field => {
+    READ_ONLY_FIELDS_FOR_UPDATE.forEach(field => {
         delete sanitizedItem[field];
     });
 
-    // Remove meta_data with read-only keys
     if (sanitizedItem.meta_data && Array.isArray(sanitizedItem.meta_data)) {
-        sanitizedItem.meta_data = sanitizedItem.meta_data.filter((meta: any) => {
-             // Example of filtering a specific read-only meta key
-            if (meta.key === '_wc_review_count') return false;
-            return true;
-        }).map((meta: any) => ({ key: meta.key, value: meta.value })); // Ensure only key/value is sent
+        sanitizedItem.meta_data = sanitizedItem.meta_data
+        .filter((meta: any) => !meta.key.startsWith('_')) // A good rule of thumb
+        .map((meta: any) => ({ key: meta.key, value: meta.value })); 
     }
     
-    // For products, ensure images are just `src` or `id`
     if (sanitizedItem.images && Array.isArray(sanitizedItem.images)) {
-        sanitizedItem.images = sanitizedItem.images.map((img: any) => {
-            // If the image already exists on the destination site (has an id), just send the id.
-            // Otherwise, send the src to create a new one. This logic may need refinement
-            // based on whether you're syncing images by URL or assuming they exist.
-            return img.id ? { id: img.id } : { src: img.src };
-        });
+        sanitizedItem.images = sanitizedItem.images.map((img: any) => (img.id ? { id: img.id } : { src: img.src }));
     }
 
-    // Orders specific sanitization
     if(sanitizedItem.line_items) {
         sanitizedItem.line_items = sanitizedItem.line_items.map((line: any) => {
             const cleanLine = { ...line };
-            delete cleanLine.id; // line_item ID is read-only
+            delete cleanLine.id;
+            delete cleanLine.subtotal_tax;
+            delete cleanLine.total_tax;
             return cleanLine;
         });
     }
 
+    delete sanitizedItem.number; // read-only for orders
+    delete sanitizedItem.order_key; // read-only for orders
 
     return sanitizedItem;
 }
 
-// For creation, we can use the same aggressive sanitization as update
 const sanitizeForCreation = sanitizeForUpdate;
 
 
@@ -93,8 +90,7 @@ async function fetchAllItems(api: WooCommerceRestApi, endpoint: string): Promise
             if (data.length < perPage) break;
             page++;
         } catch (error: any) {
-            console.error(`Error fetching from ${endpoint} (Page ${page}):`, error.response?.data || error.message);
-            throw new Error(`Failed to fetch from ${endpoint}. Check URL and API keys.`);
+            throw new Error(`Failed to fetch from ${endpoint}: ${error.message || 'Unknown error'}`);
         }
     }
     return allItems;
@@ -135,23 +131,26 @@ export async function performSync(
                 if (!destItem) {
                     logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} not in destination. Creating...`, type: 'info' });
                     try {
-                        const cleanSource = sanitizeForCreation(sourceItem);
-                        await destApi.post(config.endpoint, cleanSource);
+                        const createPayload = sanitizeForCreation(sourceItem);
+                        const response = await destApi.post(config.endpoint, createPayload);
+                        if (response.status >= 400) throw new Error(JSON.stringify(response.data));
                         logs.push({ timestamp: new Date().toISOString(), message: `CREATED ${type} #${id} on destination.`, type: 'success' });
                     } catch (e: any) {
-                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to CREATE ${type} #${id}: ${e.response?.data?.message || e.message}`, type: 'error' });
+                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to CREATE ${type} #${id}: ${e.message}`, type: 'error' });
                     }
                 } else {
-                    const cleanSource = sanitizeForUpdate(sourceItem);
-                    const cleanDest = sanitizeForUpdate(destItem);
+                    const comparableSource = omit(sourceItem, READ_ONLY_FIELDS_FOR_COMPARISON);
+                    const comparableDest = omit(destItem, READ_ONLY_FIELDS_FOR_COMPARISON);
 
-                    if (!isEqual(cleanSource, cleanDest)) {
+                    if (!isEqual(comparableSource, comparableDest)) {
                          logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} differs. Updating...`, type: 'info' });
                          try {
-                            await destApi.put(`${config.endpoint}/${id}`, cleanSource);
+                            const updatePayload = sanitizeForUpdate(sourceItem);
+                            const response = await destApi.put(`${config.endpoint}/${id}`, updatePayload);
+                             if (response.status >= 400) throw new Error(JSON.stringify(response.data));
                             logs.push({ timestamp: new Date().toISOString(), message: `UPDATED ${type} #${id} on destination.`, type: 'success' });
                         } catch (e: any) {
-                            logs.push({ timestamp: new Date().toISOString(), message: `Failed to UPDATE ${type} #${id}: ${e.response?.data?.message || e.message}`, type: 'error' });
+                            logs.push({ timestamp: new Date().toISOString(), message: `Failed to UPDATE ${type} #${id}: ${e.message}`, type: 'error' });
                         }
                     } else {
                         logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} is already in sync. Skipping.`, type: 'info' });
@@ -164,10 +163,12 @@ export async function performSync(
                 if (!sourceMap.has(id)) {
                     logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} in destination but not source. Deleting...`, type: 'warn' });
                      try {
-                        await destApi.delete(`${config.endpoint}/${id}`, { force: true });
+                        const response = await destApi.delete(`${config.endpoint}/${id}`, { force: true });
+                         if (response.status >= 400) throw new Error(JSON.stringify(response.data));
                         logs.push({ timestamp: new Date().toISOString(), message: `DELETED ${type} #${id} from destination.`, type: 'success' });
-                    } catch (e: any) {
-                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to DELETE ${type} #${id}: ${e.response?.data?.message || e.message}`, type: 'error' });
+                    } catch (e: any)
+                     {
+                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to DELETE ${type} #${id}: ${e.message}`, type: 'error' });
                     }
                 }
             }
