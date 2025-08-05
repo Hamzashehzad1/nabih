@@ -95,10 +95,6 @@ export default function WooCommerceSyncPage() {
         destForm.reset(destinationSite || { url: '', consumerKey: '', consumerSecret: '' });
     }, [destinationSite, destForm]);
     
-    const addLog = useCallback((message: string, type: SyncLog['type'] = 'info') => {
-        setLogs(prev => [{ timestamp: new Date().toISOString(), message, type }, ...prev].slice(0, 100));
-    }, []);
-
     const handleSaveSite = (data: SiteFormData, key: 'source' | 'destination') => {
         if (key === 'source') {
             setSourceSite(data);
@@ -110,12 +106,12 @@ export default function WooCommerceSyncPage() {
 
     const runSync = async () => {
         if (!sourceSite || !destinationSite) {
-            addLog("Source and Destination sites must be configured before syncing.", 'error');
+            setLogs(prev => [{ timestamp: new Date().toISOString(), message: "Source and Destination sites must be configured before syncing.", type: 'error' }, ...prev]);
             toast({title: "Configuration Missing", description: "Please save credentials for both source and destination sites.", variant: "destructive"})
             return;
         }
         if (sourceSite.url === destinationSite.url) {
-            addLog("Source and Destination URLs cannot be the same.", 'error');
+            setLogs(prev => [{ timestamp: new Date().toISOString(), message: "Source and Destination URLs cannot be the same.", type: 'error' }, ...prev]);
             toast({title: "Configuration Error", description: "Source and Destination URLs cannot be the same.", variant: "destructive"})
             return;
         }
@@ -124,9 +120,10 @@ export default function WooCommerceSyncPage() {
         setLogs([]);
         
         try {
-            await performSync(sourceSite, destinationSite, dataTypesToSync, addLog);
+            const resultLogs = await performSync(sourceSite, destinationSite, dataTypesToSync);
+            setLogs(resultLogs.reverse()); // Reverse to show latest logs at the bottom
         } catch (e: any) {
-             addLog(`A critical error occurred: ${e.message}`, 'error');
+             setLogs(prev => [{ timestamp: new Date().toISOString(), message: `A critical error occurred: ${e.message}`, type: 'error' }, ...prev]);
         } finally {
             setIsSyncing(false);
             toast({title: "Sync Process Finished", description: "Check the logs for details."})
@@ -208,7 +205,7 @@ export default function WooCommerceSyncPage() {
                      <div className="mt-6">
                         <h3 className="font-semibold mb-2">Sync Log</h3>
                         <ScrollArea className="h-64 w-full rounded-md border bg-muted/50 p-4">
-                            <div className="flex flex-col-reverse gap-1 text-xs font-mono">
+                            <div className="flex flex-col gap-1 text-xs font-mono">
                                 {logs.map((log, i) => (
                                     <p key={i} className={cn(
                                         log.type === 'error' && 'text-destructive',

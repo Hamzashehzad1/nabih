@@ -4,7 +4,7 @@
 
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api";
 import { z } from 'zod';
-import { isEqual } from 'lodash';
+import { isEqual, omit } from 'lodash';
 
 const siteSchema = z.object({
     url: z.string().url(),
@@ -19,12 +19,10 @@ export interface SyncLog {
     type: 'info' | 'success' | 'error' | 'warn';
 }
 
-type AddLogFn = (message: string, type?: SyncLog['type']) => void;
-
 interface DataTypeConfig {
     endpoint: string;
     idKey: string;
-    compareKeys?: (keyof any)[]; // Optional now, as we'll do deep comparison
+    compareKeys?: (keyof any)[];
 }
 
 const dataTypesConfig: Record<string, DataTypeConfig> = {
@@ -34,12 +32,28 @@ const dataTypesConfig: Record<string, DataTypeConfig> = {
     coupons: { endpoint: 'coupons', idKey: 'id' },
 };
 
+function sanitizeForCreation(item: any): any {
+    const readOnlyFields = [
+        'id', 'date_created', 'date_created_gmt', 'date_modified', 
+        'date_modified_gmt', 'permalink', 'guid', '_links'
+    ];
+    return omit(item, readOnlyFields);
+}
+
+function sanitizeForUpdate(item: any): any {
+    const readOnlyFields = [
+       'date_created', 'date_created_gmt', 'date_modified', 
+       'date_modified_gmt', 'permalink', 'guid', '_links'
+    ];
+     return omit(item, readOnlyFields);
+}
+
 // Helper to fetch all items of a certain type from a site
-async function fetchAllItems(api: WooCommerceRestApi, endpoint: string, addLog: AddLogFn): Promise<any[]> {
+async function fetchAllItems(api: WooCommerceRestApi, endpoint: string, logs: SyncLog[]): Promise<any[]> {
     let allItems: any[] = [];
     let page = 1;
     const perPage = 100;
-    addLog(`Fetching all items from endpoint: ${endpoint}`);
+    logs.push({ timestamp: new Date().toISOString(), message: `Fetching all items from endpoint: ${endpoint}`, type: 'info' });
 
     try {
         while (true) {
@@ -51,50 +65,22 @@ async function fetchAllItems(api: WooCommerceRestApi, endpoint: string, addLog: 
             if (data.length < perPage) break;
             page++;
         }
-        addLog(`Successfully fetched ${allItems.length} items from ${endpoint}.`, 'success');
+        logs.push({ timestamp: new Date().toISOString(), message: `Successfully fetched ${allItems.length} items from ${endpoint}.`, type: 'success' });
         return allItems;
     } catch (error: any) {
-        addLog(`Error fetching from ${endpoint}: ${error.message}. Please check API keys and URL.`, 'error');
-        throw error;
+        const errorMessage = `Error fetching from ${endpoint}: ${error.message}. Please check API keys and URL.`;
+        logs.push({ timestamp: new Date().toISOString(), message: errorMessage, type: 'error' });
+        throw new Error(errorMessage);
     }
-}
-
-// More robust sanitization
-function sanitizeData(item: any): any {
-    const readOnlyFields = [
-        'id', 'date_created', 'date_created_gmt', 'date_modified', 
-        'date_modified_gmt', 'permalink', 'guid', '_links'
-    ];
-    const sanitizedItem = { ...item };
-
-    for (const key of readOnlyFields) {
-        delete sanitizedItem[key];
-    }
-    
-    // Remove the entire 'store' object if it exists (often on coupons)
-    if (sanitizedItem.store) {
-        delete sanitizedItem.store;
-    }
-    
-    if (sanitizedItem.images) {
-        sanitizedItem.images = sanitizedItem.images.map((img: any) => ({
-            src: img.src,
-            name: img.name,
-            alt: img.alt,
-            position: img.position
-        }));
-    }
-
-    return sanitizedItem;
 }
 
 
 export async function performSync(
     sourceSite: SiteFormData,
     destinationSite: SiteFormData,
-    dataTypesToSync: { [key: string]: boolean },
-    addLog: AddLogFn
-) {
+    dataTypesToSync: { [key: string]: boolean }
+): Promise<SyncLog[]> {
+    const logs: SyncLog[] = [];
     const sourceApi = new WooCommerceRestApi({ ...sourceSite, version: "wc/v3" });
     const destApi = new WooCommerceRestApi({ ...destinationSite, version: "wc/v3" });
 
@@ -102,51 +88,45 @@ export async function performSync(
         if (!dataTypesToSync[type]) continue;
         
         const config = dataTypesConfig[type];
-        addLog(`--- Starting sync for ${type} ---`, 'info');
+        logs.push({ timestamp: new Date().toISOString(), message: `--- Starting sync for ${type} ---`, type: 'info' });
 
         try {
             const [sourceItems, destItems] = await Promise.all([
-                fetchAllItems(sourceApi, config.endpoint, addLog),
-                fetchAllItems(destApi, config.endpoint, addLog),
+                fetchAllItems(sourceApi, config.endpoint, logs),
+                fetchAllItems(destApi, config.endpoint, logs),
             ]);
 
-            const sourceMap = new Map(sourceItems.map(item => [item[config.idKey], item]));
-            const destMap = new Map(destItems.map(item => [item[config.idKey], item]));
+            const sourceMap = new Map(sourceItems.map(item => [item.id, item]));
+            const destMap = new Map(destItems.map(item => [item.id, item]));
             
-            addLog(`Found ${sourceMap.size} source items and ${destMap.size} destination items for ${type}.`);
+            logs.push({ timestamp: new Date().toISOString(), message: `Found ${sourceMap.size} source items and ${destMap.size} destination items for ${type}.`, type: 'info'});
 
             // Process creations and updates
             for (const [id, sourceItem] of sourceMap.entries()) {
                 const destItem = destMap.get(id);
+                const cleanSourceForCreation = sanitizeForCreation(sourceItem);
+                const cleanSourceForUpdate = sanitizeForUpdate(sourceItem);
 
                 if (!destItem) {
-                    // Item exists in source, but not in destination: CREATE
-                    addLog(`Item #${id} found in source but not destination. Creating...`, 'info');
+                    logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} found in source but not destination. Creating...`, type: 'info' });
                     try {
-                        const createData = sanitizeData(sourceItem);
-                        await destApi.post(config.endpoint, createData);
-                        addLog(`CREATED ${type} #${id} on destination.`, 'success');
+                        await destApi.post(config.endpoint, cleanSourceForCreation);
+                        logs.push({ timestamp: new Date().toISOString(), message: `CREATED ${type} #${id} on destination.`, type: 'success' });
                     } catch (e: any) {
-                        addLog(`Failed to CREATE ${type} #${id}: ${e.response?.data?.message || e.message}`, 'error');
+                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to CREATE ${type} #${id}: ${e.response?.data?.message || e.message}`, type: 'error' });
                     }
                 } else {
-                    // Item exists on both: check for UPDATE
-                    const cleanSource = sanitizeData(sourceItem);
-                    const cleanDest = sanitizeData(destItem);
-
-                    // A simple but effective deep comparison for changes
-                    if (!isEqual(cleanSource, cleanDest)) {
-                         addLog(`Item #${id} differs. Updating...`, 'info');
+                    const cleanDest = sanitizeForUpdate(destItem);
+                     if (!isEqual(cleanSourceForUpdate, cleanDest)) {
+                         logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} differs. Updating...`, type: 'info' });
                          try {
-                            const updateData = sanitizeData(sourceItem);
-                            await destApi.put(`${config.endpoint}/${id}`, updateData);
-                            addLog(`UPDATED ${type} #${id} on destination.`, 'success');
-                        } catch (e: any)
-                         {
-                            addLog(`Failed to UPDATE ${type} #${id}: ${e.response?.data?.message || e.message}`, 'error');
+                            await destApi.put(`${config.endpoint}/${id}`, cleanSourceForUpdate);
+                            logs.push({ timestamp: new Date().toISOString(), message: `UPDATED ${type} #${id} on destination.`, type: 'success' });
+                        } catch (e: any) {
+                            logs.push({ timestamp: new Date().toISOString(), message: `Failed to UPDATE ${type} #${id}: ${e.response?.data?.message || e.message}`, type: 'error' });
                         }
                     } else {
-                        addLog(`Item #${id} is already in sync. Skipping.`, 'info');
+                        logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} is already in sync. Skipping.`, type: 'info' });
                     }
                 }
             }
@@ -154,20 +134,20 @@ export async function performSync(
             // Process deletions
             for (const [id] of destMap.entries()) {
                 if (!sourceMap.has(id)) {
-                    // Item exists in destination, but not in source: DELETE
-                    addLog(`Item #${id} found in destination but not source. Deleting...`, 'warn');
+                    logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} found in destination but not source. Deleting...`, type: 'warn' });
                      try {
                         await destApi.delete(`${config.endpoint}/${id}`, { force: true });
-                        addLog(`DELETED ${type} #${id} from destination.`, 'success');
+                        logs.push({ timestamp: new Date().toISOString(), message: `DELETED ${type} #${id} from destination.`, type: 'success' });
                     } catch (e: any) {
-                        addLog(`Failed to DELETE ${type} #${id}: ${e.response?.data?.message || e.message}`, 'error');
+                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to DELETE ${type} #${id}: ${e.response?.data?.message || e.message}`, type: 'error' });
                     }
                 }
             }
 
         } catch (error: any) {
-            addLog(`Could not complete sync for ${type}: ${error.message}`, 'error');
+            logs.push({ timestamp: new Date().toISOString(), message: `Could not complete sync for ${type}: ${error.message}`, type: 'error' });
         }
-         addLog(`--- Finished sync for ${type} ---`, 'info');
+         logs.push({ timestamp: new Date().toISOString(), message: `--- Finished sync for ${type} ---`, type: 'info' });
     }
+    return logs;
 }
