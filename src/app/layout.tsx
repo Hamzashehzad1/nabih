@@ -10,16 +10,16 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
 
 export const metadata: Metadata = {
-  title: 'Nabih | AI Tools for Web Design, Development & SEO',
-  description: 'The All-In-One Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, and client feedback solutions to streamline your workflow.',
+  title: 'Nabih | AI Toolkit for Web Agencies, Developers & SEO Pros',
+  description: 'The All-In-One AI Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, client feedback solutions, and advanced SEO tools to streamline your workflow.',
   manifest: '/manifest.json',
   metadataBase: new URL('https://nabih.ai'), // Replace with your actual domain
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Nabih | AI Tools for Web Design, Development & SEO',
-    description: 'The All-In-One Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, and client feedback solutions to streamline your workflow.',
+    title: 'Nabih | AI Toolkit for Web Agencies, Developers & SEO Pros',
+    description: 'The All-In-One AI Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, client feedback solutions, and advanced SEO tools to streamline your workflow.',
     url: 'https://nabih.ai', // Replace with your actual domain
     siteName: 'Nabih',
     images: [
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nabih | AI Tools for Web Design, Development & SEO',
-    description: 'The All-In-One Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, and client feedback solutions to streamline your workflow.',
+    title: 'Nabih | AI Toolkit for Web Agencies, Developers & SEO Pros',
+    description: 'The All-In-One AI Toolkit for Web Agencies & Creators. Use our AI landing page generator, WordPress admin branding tools, client feedback solutions, and advanced SEO tools to streamline your workflow.',
     // site: '@yourtwitterhandle', // Replace with your Twitter handle
     // creator: '@yourtwitterhandle',
     images: ['/twitter-og-image.png'], // Path to your Twitter OG image
