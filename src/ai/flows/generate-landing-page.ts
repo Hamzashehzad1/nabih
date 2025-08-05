@@ -17,47 +17,63 @@ export async function generateLandingPage(input: GenerateLandingPageInput): Prom
     name: 'generateLandingPagePrompt',
     input: {schema: GenerateLandingPageInputSchema},
     output: {schema: GenerateLandingPageOutputSchema},
-    prompt: `You are a professional web design assistant specialized in generating highly converting, mobile-responsive, UX-optimized landing pages for modern businesses. Your job is to create a complete, long-form, and beautifully structured landing page in HTML and Tailwind CSS based on user input.
+    prompt: `You are a professional UX/UI web designer and SEO copywriter. Your task is to generate a complete HTML landing page for a lift/elevator company based in Pakistan.
 
-### TASK:
-Generate a complete landing page with:
-- Clean, semantic HTML structure
-- Tailwind CSS utility classes
-- Highly mobile-responsive layout
-- Strong CTA (Call-to-Action) sections
-- Conversion-focused UX and messaging
-- No lorem ipsum. All content should be generated in detail.
-- Modern design layout with smooth visual hierarchy
+Requirements:
 
-### USER INPUT:
-- Business/Website Name: {{businessName}}
-- Niche/Industry: {{industry}}
-- Target Audience: {{audience}}
-- Brand Tone/Voice: {{tone}}
-- Primary Goal: {{goal}}
-- Key Features/Services: {{features}}
-- Testimonials (optional): {{testimonials}}
-- Contact Method: {{contactMethod}}
-- Hero Text (optional): {{heroText}}
-- Color Preference or Style (optional): {{style}}
+1. **Target Audience**: Homeowners, builders, real estate developers in Pakistan looking for 4 to 5-person capacity home elevators (residential lifts).
+2. **Goal**: Generate leads by making users trust the brand and inquire via a form.
 
-### STRUCTURE TO GENERATE:
-1. Hero Section with Headline, Subheadline, CTA Button
-2. Features/Services Section (minimum 3 cards)
-3. About/Why Us Section
-4. Testimonials Section (at least 2, use fakes if none provided)
-5. CTA Section (repeated CTA)
-6. Contact Section or Lead Form based on the contact method
-7. Footer with basic info
+Structure:
 
-### REQUIREMENTS:
-- Use Tailwind CSS for styling.
-- Ensure excellent mobile responsiveness.
-- Follow UX best practices (white space, button size, visual flow).
-- Structure should be long enough for real-world use.
-- Ensure text is conversion-optimized and speaks to the audience.
-- Add dummy images using \`https://source.unsplash.com/random/800x600?{{keyword}}\`, where keyword is relevant to the section.
-- Return ONLY the full HTML + Tailwind code. Do not include explanations, markdown code blocks, or any extra text.
+- **Responsive Design**: Ensure the layout is highly responsive, mobile-first, and fully SEO-optimized.
+- **Above the Fold**:
+  - Strong, emotionally compelling headline that builds trust and urgency.
+  - Subheadline highlighting benefits (e.g., safe, space-saving, affordable home lifts).
+  - Call-to-action button: “Get Free Quote”
+  - Hero image or illustration of a modern home elevator.
+- **Sections**:
+  1. **Benefits section** (icons + short blurbs):
+     - Space-efficient designs
+     - Quiet and smooth ride
+     - Solar and backup options
+     - Affordable installation
+  2. **About the Company**:
+     - Brief trustworthy background
+     - Serving homes across Pakistan
+  3. **Product Features**:
+     - 4-person, 5-person models
+     - Power usage details
+     - Installation process
+     - Optional customizations (glass doors, colors)
+  4. **Pricing Range Section**:
+     - “Starting from PKR 2.5M”
+     - Emphasis on transparency and quality
+  5. **Testimonials / Reviews Section**
+     - At least 2 customer reviews (short, human-style)
+  6. **Contact / Inquiry Form**:
+     - Name, phone, city, inquiry message
+     - Call-to-action: “Talk to Our Elevator Expert”
+
+Styling:
+
+- Use modern fonts (e.g., Inter, Open Sans)
+- Clean layout with generous white space
+- Soft shadows, subtle gradients
+- Primary color: Deep blue or maroon
+- Buttons should have hover effects
+
+Technical:
+
+- All content should be embedded in a valid HTML5 structure
+- Include all text content (no placeholder lorem ipsum)
+- Make it accessible (aria labels, alt text on images)
+- Meta title and description included
+- Avoid inline CSS; use a \`<style>\` tag or embedded class-based CSS
+
+Final Output:
+
+Return a single block of clean, properly formatted HTML code inside a code block with no explanation or commentary. Only return the code.
 `,
   });
 
