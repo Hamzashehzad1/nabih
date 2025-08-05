@@ -1,5 +1,4 @@
 
-// src/app/dashboard/woocommerce-sync/actions.ts
 'use server';
 
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api";
@@ -33,7 +32,9 @@ const dataTypesConfig: Record<string, DataTypeConfig> = {
 
 const READ_ONLY_FIELDS_FOR_UPDATE = [
     'id', 'date_created', 'date_created_gmt', 'date_modified', 
-    'date_modified_gmt', 'permalink', 'guid', '_links'
+    'date_modified_gmt', 'permalink', 'guid', '_links',
+    'number', // read-only for orders
+    'order_key' // read-only for orders
 ];
 
 const READ_ONLY_FIELDS_FOR_COMPARISON = [
@@ -49,9 +50,7 @@ function sanitizeForUpdate(item: any): any {
     });
 
     if (sanitizedItem.meta_data && Array.isArray(sanitizedItem.meta_data)) {
-        sanitizedItem.meta_data = sanitizedItem.meta_data
-        .filter((meta: any) => !meta.key.startsWith('_')) // A good rule of thumb
-        .map((meta: any) => ({ key: meta.key, value: meta.value })); 
+        sanitizedItem.meta_data = sanitizedItem.meta_data.map((meta: any) => ({ key: meta.key, value: meta.value })); 
     }
     
     if (sanitizedItem.images && Array.isArray(sanitizedItem.images)) {
@@ -64,12 +63,10 @@ function sanitizeForUpdate(item: any): any {
             delete cleanLine.id;
             delete cleanLine.subtotal_tax;
             delete cleanLine.total_tax;
+            delete cleanLine.taxes;
             return cleanLine;
         });
     }
-
-    delete sanitizedItem.number; // read-only for orders
-    delete sanitizedItem.order_key; // read-only for orders
 
     return sanitizedItem;
 }
@@ -94,6 +91,20 @@ async function fetchAllItems(api: WooCommerceRestApi, endpoint: string): Promise
         }
     }
     return allItems;
+}
+
+async function createItem(api: WooCommerceRestApi, endpoint: string, item: any): Promise<{ success: true, data: any } | { success: false, error: string }> {
+    try {
+        const createPayload = sanitizeForCreation(item);
+        const response = await api.post(endpoint, createPayload);
+        if (response.status >= 400) {
+            const errorData = response.data.message || JSON.stringify(response.data);
+            throw new Error(errorData);
+        }
+        return { success: true, data: response.data };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
 }
 
 
@@ -129,14 +140,11 @@ export async function performSync(
                 const destItem = destMap.get(id);
 
                 if (!destItem) {
-                    logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} not in destination. Creating...`, type: 'info' });
-                    try {
-                        const createPayload = sanitizeForCreation(sourceItem);
-                        const response = await destApi.post(config.endpoint, createPayload);
-                        if (response.status >= 400) throw new Error(JSON.stringify(response.data));
+                    const createResult = await createItem(destApi, config.endpoint, sourceItem);
+                    if (createResult.success) {
                         logs.push({ timestamp: new Date().toISOString(), message: `CREATED ${type} #${id} on destination.`, type: 'success' });
-                    } catch (e: any) {
-                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to CREATE ${type} #${id}: ${e.message}`, type: 'error' });
+                    } else {
+                        logs.push({ timestamp: new Date().toISOString(), message: `Failed to CREATE ${type} #${id}: ${createResult.error}`, type: 'error' });
                     }
                 } else {
                     const comparableSource = omit(sourceItem, READ_ONLY_FIELDS_FOR_COMPARISON);
@@ -152,8 +160,6 @@ export async function performSync(
                         } catch (e: any) {
                             logs.push({ timestamp: new Date().toISOString(), message: `Failed to UPDATE ${type} #${id}: ${e.message}`, type: 'error' });
                         }
-                    } else {
-                        logs.push({ timestamp: new Date().toISOString(), message: `Item #${id} is already in sync. Skipping.`, type: 'info' });
                     }
                 }
             }
@@ -179,3 +185,5 @@ export async function performSync(
     }
     return logs;
 }
+
+    
