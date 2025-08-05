@@ -5,6 +5,7 @@ import { Inter, Space_Grotesk } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { headers } from 'next/headers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   metadataBase: new URL('https://nabih.ai'), // Replace with your actual domain
   alternates: {
-    canonical: '/',
+    // Canonical will be handled dynamically below
   },
   openGraph: {
     title: 'Nabih | AI Toolkit for Web Agencies, Developers & SEO Pros',
@@ -78,6 +79,10 @@ export default function RootLayout({
       // "https://www.linkedin.com/company/yourprofile"
     ]
   };
+
+  const heads = headers();
+  const pathname = heads.get('next-url');
+  const canonicalUrl = `https://nabih.ai${pathname}`;
   
   return (
     <html lang="en" className="dark">
@@ -86,7 +91,7 @@ export default function RootLayout({
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
           />
-          <link rel="canonical" href="https://nabih.ai" />
+          <link rel="canonical" href={canonicalUrl} />
       </head>
       <body className={cn(inter.variable, spaceGrotesk.variable, "font-body antialiased")}>
         {children}
