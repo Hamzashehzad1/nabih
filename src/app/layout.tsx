@@ -5,6 +5,7 @@ import { Inter, Space_Grotesk } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/react"
 import { headers } from 'next/headers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -100,6 +101,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
