@@ -47,11 +47,15 @@ const adminNav = [
 ]
 
 // Overriding wireframe generator link to point to dashboard
-const dashboardContentSuiteNav = contentSuiteNav.map(item => 
-    item.href === '/wireframe-generator' 
-        ? { ...item, href: '/dashboard/wireframe-generator', icon: <LayoutTemplate /> } 
-        : item
-);
+const dashboardContentSuiteNav = contentSuiteNav.map(item => {
+    if (item.href === '/wireframe-generator') {
+        return { ...item, href: '/dashboard/wireframe-generator', icon: <LayoutTemplate /> };
+    }
+    if (item.href === '/landing-page-generator') {
+        return { ...item, href: '/dashboard/landing-page-generator', icon: <LayoutTemplate /> };
+    }
+    return item;
+});
 
 const dashboardSiteManagementNav = siteManagementNav;
 

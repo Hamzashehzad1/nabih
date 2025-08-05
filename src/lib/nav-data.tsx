@@ -42,6 +42,7 @@ export const contentSuiteNav = [
     { href: "/image-generator", icon: <ImageIcon />, label: "Image Generator", tooltip: { children: "Image Generator", side: "right" } },
     { href: "/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator", tooltip: { children: "Brand Kit Generator", side: "right" } },
     { href: "/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator", tooltip: { children: "Wireframe Generator", side: "right" } },
+    { href: "/landing-page-generator", icon: <LayoutTemplate />, label: "Landing Page Generator", tooltip: { children: "Landing Page Generator", side: "right" } },
 ];
 
 export const siteManagementNav = [

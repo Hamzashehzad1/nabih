@@ -19,6 +19,7 @@ const contentSuiteNav = [
     { href: "/image-generator", icon: <ImageIcon />, label: "Image Generator" },
     { href: "/brand-kit-generator", icon: <Palette />, label: "Brand Kit Generator" },
     { href: "/wireframe-generator", icon: <LayoutTemplate />, label: "Wireframe Generator" },
+    { href: "/landing-page-generator", icon: <LayoutTemplate />, label: "Landing Page Generator" },
 ];
 
 const siteManagementNav = [
