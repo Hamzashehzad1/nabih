@@ -94,6 +94,9 @@ export default function RootLayout({
           <link rel="canonical" href={canonicalUrl} />
       </head>
       <body className={cn(inter.variable, spaceGrotesk.variable, "font-body antialiased")}>
+        <div className="bg-yellow-500/20 text-yellow-500 text-center text-sm p-1">
+          Some tools are in beta – we're still testing! Thanks for your patience.
+        </div>
         {children}
         <Toaster />
         <SpeedInsights />
