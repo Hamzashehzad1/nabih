@@ -1,4 +1,3 @@
-
 // src/app/dashboard/landing-page-generator/page.tsx
 "use client";
 
@@ -6,6 +5,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Sparkles, Clipboard } from "lucide-react";
+import { z } from 'zod';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,22 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { generateLandingPage } from "@/ai/flows/generate-landing-page";
-import { GenerateLandingPageInputSchema, type GenerateLandingPageInput } from "@/ai/flows/types/landing-page";
+import { generateLandingPageAction } from "./actions";
+import type { GenerateLandingPageInput } from "@/ai/flows/types/landing-page";
+
+// This client-side schema is for form validation only.
+const clientFormSchema = z.object({
+  businessName: z.string().min(1, "Business name is required"),
+  industry: z.string().min(1, "Industry is required"),
+  audience: z.string().min(1, "Audience is required"),
+  tone: z.string().min(1, "Tone is required"),
+  goal: z.string().min(1, "Goal is required"),
+  features: z.string().min(1, "Features are required"),
+  testimonials: z.string().optional(),
+  contactMethod: z.string().min(1, "Contact method is required"),
+  heroText: z.string().optional(),
+  style: z.string().optional(),
+});
 
 type FormValues = GenerateLandingPageInput;
 
@@ -24,7 +38,7 @@ export default function LandingPageGeneratorPage() {
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(GenerateLandingPageInputSchema),
+    resolver: zodResolver(clientFormSchema),
     defaultValues: {
       businessName: "Innovate Inc.",
       industry: "SaaS for project management",
@@ -43,7 +57,7 @@ export default function LandingPageGeneratorPage() {
     setIsLoading(true);
     setGeneratedHtml("");
     try {
-      const result = await generateLandingPage(data);
+      const result = await generateLandingPageAction(data);
       setGeneratedHtml(result.html);
       toast({
         title: "Landing Page Generated!",
