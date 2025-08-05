@@ -7,13 +7,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const toolPages = [
     'content-ideas',
     'blog-generator',
-    'image-generator',
     'bulk-blog-generator',
+    'image-generator',
     'brand-kit-generator',
     'wireframe-generator',
-    'time-tracker',
+    'landing-page-generator',
     'lead-finder',
-    'landing-page-generator'
+    'time-tracker',
   ];
 
   const toolUrls = toolPages.map(tool => ({
@@ -81,5 +81,3 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 }
-
-    
