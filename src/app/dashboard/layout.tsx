@@ -280,13 +280,21 @@ export default function DashboardLayout({
           </SidebarFooter>
         </Sidebar>
         <SidebarInset>
-          <main className="flex-1 p-4 sm:p-6 lg:p-8">
-            {children}
+          <main className="flex flex-col flex-1 p-4 sm:p-6 lg:p-8">
+            <div className="flex-grow">
+                {children}
+            </div>
+            <footer className="mt-12 pt-8 border-t border-border/20 text-center text-sm text-muted-foreground">
+                <p>Enjoying the tools? <Link href="/pricing" className="text-primary underline">Upgrade to Pro</Link> to unlock unlimited access.</p>
+                 <div className="flex justify-center gap-4 mt-4">
+                    <Link href="/dashboard" className="hover:text-primary">Dashboard</Link>
+                    <Link href="/#features" className="hover:text-primary">Features</Link>
+                    <Link href="/contact" className="hover:text-primary">Contact Support</Link>
+                 </div>
+            </footer>
           </main>
         </SidebarInset>
       </div>
     </SidebarProvider>
   );
 }
-
-    
