@@ -20,14 +20,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${baseUrl}/tools/${tool}`,
     lastModified: new Date(),
     changeFrequency: 'monthly' as const,
-    priority: 0.7,
+    priority: 0.9,
   }));
 
   return [
     {
       url: `${baseUrl}/`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: 'daily',
       priority: 1,
     },
     {
@@ -45,13 +45,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
      {
       url: `${baseUrl}/contact`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'yearly',
       priority: 0.5,
     },
      {
       url: `${baseUrl}/resources/checklist`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'yearly',
       priority: 0.6,
     },
     ...toolUrls,
@@ -71,7 +71,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/updates`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
-      priority: 0.6,
+      priority: 0.7,
     },
     {
       url: `${baseUrl}/careers`,
