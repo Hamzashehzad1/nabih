@@ -33,6 +33,7 @@ import {
   Clock,
   Briefcase,
   FileCog,
+  Scissors,
 } from "lucide-react";
 
 export const contentSuiteNav = [
@@ -67,6 +68,7 @@ export const seoSuiteNav = [
 
 export const conversionToolkitNav = [
     { href: "/dashboard/compress-and-convert", icon: <FileCog />, label: "Compress & Convert", tooltip: { children: "Compress & Convert", side: "right" } },
+    { href: "/dashboard/compress-and-convert/background-remover", icon: <Scissors />, label: "Background Remover", tooltip: { children: "Background Remover", side: "right" } },
 ];
 
 export const agencyToolkitNav = [
@@ -78,5 +80,3 @@ export const agencyToolkitNav = [
     { href: "/dashboard/white-label", icon: <Paintbrush />, label: "White-Label", tooltip: { children: "White-Label", side: "right" } },
     { href: "/dashboard/woocommerce-scraper", icon: <DownloadCloud />, label: "Products Scraper", tooltip: { children: "Products Scraper", side: "right" } },
 ];
-
-    

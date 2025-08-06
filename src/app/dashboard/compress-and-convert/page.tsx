@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileImage, Film, FileText, Music, ArrowRight } from 'lucide-react';
+import { FileImage, Film, FileText, Music, ArrowRight, Scissors } from 'lucide-react';
 
 const converters = [
     // Image Converters
@@ -15,6 +15,7 @@ const converters = [
     { slug: 'heic-to-jpeg', title: 'HEIC to JPEG', category: 'Image' },
     { slug: 'image-compressor', title: 'Image Compressor', category: 'Image' },
     { slug: 'image-resizer', title: 'Image Resizer', category: 'Image' },
+    { slug: 'background-remover', title: 'AI Background Remover', category: 'Image', icon: <Scissors className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" /> },
 
     // Video Converters
     { slug: 'mp4-to-webm', title: 'MP4 to WebM', category: 'Video' },
@@ -66,7 +67,7 @@ export default function CompressAndConvertPage() {
                                         <CardContent className="pt-6">
                                             <div className="flex justify-between items-center">
                                                 <p className="font-semibold">{tool.title}</p>
-                                                <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                {tool.icon || <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />}
                                             </div>
                                         </CardContent>
                                     </Card>

@@ -70,6 +70,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@gradio/client": "^1.5.0",
     "@types/cheerio": "^0.22.35",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20",
