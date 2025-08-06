@@ -5,10 +5,40 @@ import { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Download, Loader2, ArrowLeft, Image as ImageIcon, Sparkles, ArrowRight } from 'lucide-react';
+import { FileUp, Download, Loader2, ArrowLeft, Image as ImageIcon, Sparkles, Scissors } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Client } from "@gradio/client";
+
+const GRADIO_API_URL = "https://not-lain-background-removal.hf.space/run/image";
+
+async function removeBackgroundWithFetch(file: File): Promise<string> {
+    const reader = new FileReader();
+    const fileAsDataUrl = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+    });
+
+    const response = await fetch(GRADIO_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            data: [fileAsDataUrl],
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`API call failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    if (result.data && result.data.length > 0 && typeof result.data[0] === 'string' && result.data[0].startsWith('data:image')) {
+        return result.data[0];
+    } else {
+        throw new Error("Invalid API response structure from Gradio.");
+    }
+}
+
 
 export default function BackgroundRemoverPage() {
     const { toast } = useToast();
@@ -40,34 +70,14 @@ export default function BackgroundRemoverPage() {
         setProcessedImage(null);
 
         try {
-            const client = await Client.connect("not-lain/background-removal");
-            const result = await client.predict("/image", { 
-                image: new Blob([originalFile], { type: originalFile.type })
-            });
-            
-            // The result structure from gradio might be nested. Inspect and adjust as needed.
-            // @ts-ignore
-            if (result.data && result.data.length > 0 && result.data[0].url) {
-                 // @ts-ignore
-                const imageUrl = result.data[0].url;
-                
-                // Gradio often returns a temporary URL. We need to fetch it and convert to a data URL to make it permanent.
-                const response = await fetch(imageUrl);
-                const blob = await response.blob();
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setProcessedImage(reader.result as string);
-                    toast({ title: "Success!", description: "Background removed successfully." });
-                };
-                reader.readAsDataURL(blob);
-
-            } else {
-                throw new Error("Invalid API response structure.");
-            }
+            const resultDataUrl = await removeBackgroundWithFetch(originalFile);
+            setProcessedImage(resultDataUrl);
+            toast({ title: "Success!", description: "Background removed successfully." });
 
         } catch (error) {
             console.error("Background removal error:", error);
-            toast({ title: "Processing Error", description: "Could not remove background. Please try another image.", variant: "destructive" });
+            const errorMessage = error instanceof Error ? error.message : "Could not remove background. Please try another image.";
+            toast({ title: "Processing Error", description: errorMessage, variant: "destructive" });
         } finally {
             setIsProcessing(false);
         }
