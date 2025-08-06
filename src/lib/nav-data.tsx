@@ -1,4 +1,5 @@
 
+
 import {
   LayoutDashboard,
   Settings,
@@ -34,7 +35,9 @@ import {
   Briefcase,
   FileCog,
   Scissors,
+  ShieldAlert,
 } from "lucide-react";
+import { Bug } from "@/components/ui/bug";
 
 export const contentSuiteNav = [
     { href: "/tools/content-ideas", icon: <Lightbulb />, label: "Content Ideas", tooltip: { children: "Content Ideas", side: "right" } },
@@ -49,6 +52,7 @@ export const contentSuiteNav = [
 export const siteManagementNav = [
     { href: "/dashboard/ai-chatbot", icon: <Bot />, label: "AI Chatbot", tooltip: { children: "AI Chatbot", side: "right" } },
     { href: "/dashboard/website-audit", icon: <Activity />, label: "Website Audit", tooltip: { children: "Website Audit", side: "right" } },
+    { href: "/dashboard/vulnerability-scanner", icon: <Bug />, label: "Vulnerability Scanner", tooltip: { children: "Vulnerability Scanner", side: "right" } },
     { href: "/dashboard/advanced-media-library", icon: <Library />, label: "Media Library", tooltip: { children: "Media Library", side: "right" } },
     { href: "/dashboard/image-resizer", icon: <Crop />, label: "Image Resizer", tooltip: { children: "Image Resizer", side: "right" } },
     { href: "/dashboard/internal-linking", icon: <Link2 />, label: "Internal Linking", tooltip: { children: "Internal Linking", side: "right" } },
