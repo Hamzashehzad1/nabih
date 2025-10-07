@@ -35,27 +35,25 @@ const prompt = ai.definePrompt({
   name: 'generateBlogPostPrompt',
   input: {schema: GenerateBlogPostInputSchema},
   output: {schema: GenerateBlogPostOutputSchema},
-  prompt: `You are an expert blog writer and SEO content strategist.
-Write a unique, well-structured, and engaging blog post based on the following details:
+  prompt: `You are an expert blog writer and SEO strategist.
+Write a complete blog article based on the details below:
 
 Title: {{{title}}}
 SEO Keywords: {{{seoKeywords}}}
-Word Count: Around {{{wordLength}}} words
+Target Length: around {{{wordLength}}} words
 Tone: {{{tone}}}
 Theme: {{{theme}}}
 Copywriting Style: {{{copywritingStyle}}}
 
-Guidelines for writing:
-- Do NOT use Markdown formatting like "##", "###", or bullet points with asterisks. Write in clean paragraphs suitable for a WordPress blog editor.
-- Use proper subheadings (H2, H3) written naturally, not with symbols.
-- Write in a natural, conversational style while keeping it professional and authoritative.
-- Research the topic in depth. Provide accurate, useful, and detailed information with examples, context, and insights.
-- Incorporate the SEO keywords smoothly and naturally, without keyword stuffing.
-- Make the introduction engaging and the conclusion strong, encouraging reader action or reflection.
-- Add depth, storytelling elements, and creative angles to keep the reader hooked.
-- The blog should feel original and insightful, not generic.
-
-Deliver a polished, ready-to-publish blog article.
+Formatting and Output Rules:
+1. Do not use Markdown, asterisks, hashtags, or special characters for formatting.
+2. Use plain text only. Structure the blog with clear section headings written as normal sentences (e.g., "Why Wills Matter for Everyone") — not with symbols.
+3. Paragraphs should be short and readable. No bullet points, no numbered lists — explain ideas in flowing text.
+4. Naturally integrate SEO keywords without overstuffing.
+5. Write with depth and authority: expand on ideas, provide context, examples, comparisons, and insights.
+6. The introduction should hook the reader, the body should inform and engage, and the conclusion should provide a strong closing thought or call to action.
+7. Make the blog feel unique and professional, not generic. Avoid robotic or templated wording.
+8. Deliver only the blog article text, clean and ready to publish in WordPress.
   `,
 });
 
