@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -34,15 +35,27 @@ const prompt = ai.definePrompt({
   name: 'generateBlogPostPrompt',
   input: {schema: GenerateBlogPostInputSchema},
   output: {schema: GenerateBlogPostOutputSchema},
-  prompt: `You are an AI assistant that specializes in generating blog posts.
+  prompt: `You are an expert blog writer and SEO content strategist.
+Write a unique, well-structured, and engaging blog post based on the following details:
 
-  Generate a blog post based on the following criteria:
-  Title: {{{title}}}
-  SEO Keywords: {{{seoKeywords}}}
-  Word Length: {{{wordLength}}} words
-  Tone: {{{tone}}}
-  Theme: {{{theme}}}
-  Copywriting Style: {{{copywritingStyle}}}
+Title: {{{title}}}
+SEO Keywords: {{{seoKeywords}}}
+Word Count: Around {{{wordLength}}} words
+Tone: {{{tone}}}
+Theme: {{{theme}}}
+Copywriting Style: {{{copywritingStyle}}}
+
+Guidelines for writing:
+- Do NOT use Markdown formatting like "##", "###", or bullet points with asterisks. Write in clean paragraphs suitable for a WordPress blog editor.
+- Use proper subheadings (H2, H3) written naturally, not with symbols.
+- Write in a natural, conversational style while keeping it professional and authoritative.
+- Research the topic in depth. Provide accurate, useful, and detailed information with examples, context, and insights.
+- Incorporate the SEO keywords smoothly and naturally, without keyword stuffing.
+- Make the introduction engaging and the conclusion strong, encouraging reader action or reflection.
+- Add depth, storytelling elements, and creative angles to keep the reader hooked.
+- The blog should feel original and insightful, not generic.
+
+Deliver a polished, ready-to-publish blog article.
   `,
 });
 
