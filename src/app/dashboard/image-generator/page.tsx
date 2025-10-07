@@ -102,6 +102,12 @@ interface UpdateStatus {
     type: 'draft' | 'publish' | null;
 }
 
+type ApiKeys = {
+    gemini: string;
+    pexels: string;
+    unsplash: string;
+};
+
 
 function getBase64Size(base64: string): number {
     if (!base64) return 0;
@@ -316,6 +322,7 @@ export default function ImageGeneratorPage() {
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ isUpdating: false, postId: null, type: null });
   const [postDetailsMap, setPostDetailsMap] = useState<Map<string, PostDetails>>(new Map());
+  const [apiKeys] = useLocalStorage<ApiKeys>('api-keys', { gemini: '', pexels: '', unsplash: '' });
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
@@ -467,9 +474,12 @@ export default function ImageGeneratorPage() {
 
             if (promptInput) {
                  try {
-                    const { query } = await generateImagePrompt(promptInput);
-                    const searchResult = await searchImages({ query });
-                    setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: searchResult.images }));
+                    const { query, images } = await generateAndSearch(promptInput, {
+                        pexelsApiKey: apiKeys.pexels,
+                        unsplashApiKey: apiKeys.unsplash,
+                        sources: ['Pexels', 'Unsplash', 'Wikimedia']
+                    });
+                    setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
                 } catch (error) {
                     console.error("AI query generation failed:", error);
                      toast({ title: 'AI Suggestion Failed', description: 'Could not generate an image query.', variant: 'destructive'});
@@ -478,7 +488,7 @@ export default function ImageGeneratorPage() {
         };
 
         generate();
-  }, [posts, postDetailsMap, toast]);
+  }, [posts, postDetailsMap, toast, apiKeys]);
 
   const onQueryGenerated = useCallback((query: string, images: ImageSearchResult[]) => {
       setSearchDialogState(prev => ({ ...prev, initialQuery: query, initialImages: images }));
@@ -918,8 +928,14 @@ export default function ImageGeneratorPage() {
         onOpenChange={(open) => setSearchDialogState({ ...searchDialogState, open })}
         onQueryGenerated={onQueryGenerated}
         onSelectImage={handleSelectImageFromSearch}
-        onSearch={async (query, page) => {
-            const result = await searchImages({ query, page });
+        onSearch={async (query, page, sources) => {
+            const result = await searchImages({
+              query,
+              page,
+              sources,
+              pexelsApiKey: apiKeys.pexels,
+              unsplashApiKey: apiKeys.unsplash,
+            });
             return result.images;
         }}
         initialQuery={searchDialogState.initialQuery}

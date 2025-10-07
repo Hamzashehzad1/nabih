@@ -19,14 +19,17 @@ import type { ImageSearchResult } from '@/app/dashboard/image-generator/actions'
 import { Skeleton } from './ui/skeleton';
 import { useInView } from 'react-intersection-observer';
 import { cn } from '@/lib/utils';
+import { Checkbox } from './ui/checkbox';
+import { Label } from './ui/label';
 
+type ImageSource = 'Pexels' | 'Unsplash' | 'Wikimedia';
 
 interface ImageSearchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onQueryGenerated?: (query: string, images: ImageSearchResult[]) => void;
   onSelectImage: (image: ImageSearchResult) => void;
-  onSearch: (query: string, page: number) => Promise<ImageSearchResult[]>;
+  onSearch: (query: string, page: number, sources: ImageSource[]) => Promise<ImageSearchResult[]>;
   initialQuery?: string;
   initialImages?: ImageSearchResult[];
 }
@@ -46,6 +49,7 @@ export function ImageSearchDialog({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [sources, setSources] = useState<ImageSource[]>(['Pexels', 'Unsplash', 'Wikimedia']);
   
   const { ref, inView } = useInView({
     threshold: 0,
@@ -66,7 +70,7 @@ export function ImageSearchDialog({
 
     setIsLoadingMore(true);
     const nextPage = page + 1;
-    const results = await onSearch(query, nextPage);
+    const results = await onSearch(query, nextPage, sources);
     
     if (results.length === 0) {
       setHasMore(false);
@@ -75,7 +79,7 @@ export function ImageSearchDialog({
     setImages(prev => [...prev, ...results]);
     setPage(nextPage);
     setIsLoadingMore(false);
-  }, [isLoadingMore, hasMore, query, page, onSearch]);
+  }, [isLoadingMore, hasMore, query, page, onSearch, sources]);
   
   useEffect(() => {
     if (inView) {
@@ -90,13 +94,13 @@ export function ImageSearchDialog({
     setHasMore(true);
     setIsLoading(true);
     
-    const results = await onSearch(query, 1);
+    const results = await onSearch(query, 1, sources);
     if (results.length === 0) {
       setHasMore(false);
     }
     setImages(results);
     setIsLoading(false);
-  }, [query, onSearch]);
+  }, [query, onSearch, sources]);
 
   useEffect(() => {
     if (open) {
@@ -135,6 +139,16 @@ export function ImageSearchDialog({
       }
   }
 
+  const handleSourceChange = (source: ImageSource, checked: boolean) => {
+    setSources(prev => {
+        if(checked) {
+            return [...prev, source];
+        } else {
+            return prev.filter(s => s !== source);
+        }
+    })
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-7xl h-[90vh] flex flex-col p-4">
@@ -144,14 +158,26 @@ export function ImageSearchDialog({
             Use the AI-generated query below or create your own to search Pexels, Unsplash, and Wikimedia.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex gap-2 flex-shrink-0">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="AI query will appear here... or type your own"
-            data-testid="image-search-input"
-          />
+        <div className="flex gap-4 flex-shrink-0 items-end">
+          <div className="flex-grow">
+            <Label htmlFor="image-search-input">Search Query</Label>
+            <Input
+                id="image-search-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="AI query will appear here... or type your own"
+                data-testid="image-search-input"
+            />
+          </div>
+          <div className="flex items-center space-x-4">
+            {(['Pexels', 'Unsplash', 'Wikimedia'] as ImageSource[]).map(source => (
+                <div key={source} className="flex items-center space-x-2">
+                    <Checkbox id={source} checked={sources.includes(source)} onCheckedChange={(checked) => handleSourceChange(source, !!checked)} />
+                    <Label htmlFor={source}>{source}</Label>
+                </div>
+            ))}
+          </div>
           <Button onClick={() => handleSearch()} disabled={isLoading}>
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

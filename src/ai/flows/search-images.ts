@@ -15,6 +15,9 @@ import { JSDOM } from 'jsdom';
 const SearchImagesInputSchema = z.object({
   query: z.string().describe('The search query for images.'),
   page: z.number().optional().default(1).describe('The page number for pagination.'),
+  sources: z.array(z.enum(['Pexels', 'Unsplash', 'Wikimedia'])).optional().default(['Pexels', 'Unsplash', 'Wikimedia']),
+  pexelsApiKey: z.string().optional(),
+  unsplashApiKey: z.string().optional(),
 });
 export type SearchImagesInput = z.infer<typeof SearchImagesInputSchema>;
 
@@ -31,11 +34,11 @@ const SearchImagesOutputSchema = z.object({
 });
 export type SearchImagesOutput = z.infer<typeof SearchImagesOutputSchema>;
 
-async function searchPexels(query: string, page: number): Promise<SearchImagesOutput['images']> {
-  if (!process.env.PEXELS_API_KEY) return [];
+async function searchPexels(query: string, page: number, apiKey?: string): Promise<SearchImagesOutput['images']> {
+  if (!apiKey) return [];
   try {
     const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=15&orientation=landscape&page=${page}`, {
-      headers: { Authorization: process.env.PEXELS_API_KEY },
+      headers: { Authorization: apiKey },
     });
     if (!response.ok) {
         console.error('Pexels API Error:', await response.text());
@@ -55,11 +58,11 @@ async function searchPexels(query: string, page: number): Promise<SearchImagesOu
   }
 }
 
-async function searchUnsplash(query: string, page: number): Promise<SearchImagesOutput['images']> {
-  if (!process.env.UNSPLASH_ACCESS_KEY) return [];
+async function searchUnsplash(query: string, page: number, apiKey?: string): Promise<SearchImagesOutput['images']> {
+  if (!apiKey) return [];
   try {
     const response = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=15&orientation=landscape&page=${page}`, {
-      headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` },
+      headers: { Authorization: `Client-ID ${apiKey}` },
     });
     if (!response.ok) {
         console.error('Unsplash API Error:', await response.text());
@@ -155,27 +158,34 @@ async function searchWikimedia(query: string, page: number): Promise<SearchImage
 }
 
 
-export async function searchImages({ query, page = 1 }: SearchImagesInput): Promise<SearchImagesOutput> {
-    const [pexelsImages, unsplashImages, wikimediaImages] = await Promise.all([
-      searchPexels(query, page),
-      searchUnsplash(query, page),
-      searchWikimedia(query, page),
-    ]);
+export async function searchImages({ query, page = 1, sources = [], pexelsApiKey, unsplashApiKey }: SearchImagesInput): Promise<SearchImagesOutput> {
+    const searchPromises = [];
+
+    if (sources.includes('Pexels')) {
+        searchPromises.push(searchPexels(query, page, pexelsApiKey));
+    }
+    if (sources.includes('Unsplash')) {
+        searchPromises.push(searchUnsplash(query, page, unsplashApiKey));
+    }
+    if (sources.includes('Wikimedia')) {
+        searchPromises.push(searchWikimedia(query, page));
+    }
+
+    const results = await Promise.all(searchPromises);
+    const [pexelsImages = [], unsplashImages = [], wikimediaImages = []] = results;
     
     // Simple interleaving of results
     const images: SearchImagesOutput['images'] = [];
-    let pIndex = 0;
-    let uIndex = 0;
-    let wIndex = 0;
     const maxLength = Math.max(pexelsImages.length, unsplashImages.length, wikimediaImages.length);
 
     for (let i = 0; i < maxLength; i++) {
-        if(wIndex < wikimediaImages.length) images.push(wikimediaImages[wIndex++]);
-        if(pIndex < pexelsImages.length) images.push(pexelsImages[pIndex++]);
-        if(uIndex < unsplashImages.length) images.push(unsplashImages[uIndex++]);
+        if(sources.includes('Wikimedia') && i < wikimediaImages.length) images.push(wikimediaImages[i]);
+        if(sources.includes('Pexels') && i < pexelsImages.length) images.push(pexelsImages[i]);
+        if(sources.includes('Unsplash') && i < unsplashImages.length) images.push(unsplashImages[i]);
     }
 
     return { images };
   }
+
 
 

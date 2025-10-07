@@ -2,7 +2,7 @@
 'use server';
 
 import { generateImagePrompt, GenerateImagePromptInput } from '@/ai/flows/generate-image-prompt';
-import { searchImages, SearchImagesOutput } from '@/ai/flows/search-images';
+import { searchImages, SearchImagesInput, SearchImagesOutput } from '@/ai/flows/search-images';
 import { z } from 'zod';
 
 // This schema remains for type safety on the client
@@ -37,10 +37,13 @@ export interface WpPost {
 export type ImageSearchResult = SearchImagesOutput['images'][0] & { size?: number };
 
 
-export async function generateAndSearch(input: GenerateImagePromptInput): Promise<{query: string, images: ImageSearchResult[]}> {
+export async function generateAndSearch(
+    promptInput: GenerateImagePromptInput, 
+    searchInput: Omit<SearchImagesInput, 'query' | 'page'>
+): Promise<{query: string, images: ImageSearchResult[]}> {
     try {
-        const { query } = await generateImagePrompt(input);
-        const searchResult = await searchImages({ query });
+        const { query } = await generateImagePrompt(promptInput);
+        const searchResult = await searchImages({ ...searchInput, query });
         return { query, images: searchResult.images };
     } catch (error) {
         console.error('Error in generateAndSearch:', error);
