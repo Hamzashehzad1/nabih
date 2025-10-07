@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, Loader2, Save, Files, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Bot, Loader2, Save, Files, CheckCircle2, XCircle, AlertTriangle, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { generateBlogPost, GenerateBlogPostInput } from "@/ai/flows/generate-blog-post";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { createWpPost } from "../actions/wp-actions";
+import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
   titles: z.string().min(5, "Please enter at least one title."),
@@ -40,19 +42,22 @@ interface GeneratedPost {
   error?: string;
 }
 
-interface StoredBlogPost {
+interface WpSite {
     id: string;
-    title: string;
-    content: string;
-    date: string;
+    url: string;
+    user: string;
+    appPassword?: string;
 }
+
 
 export default function BulkBlogGeneratorPage() {
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const { toast } = useToast();
-  const [posts, setPosts] = useLocalStorage<StoredBlogPost[]>("blog-posts", []);
+  const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [publishStatus, setPublishStatus] = useState<'draft' | 'publish'>('draft');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -104,31 +109,45 @@ export default function BulkBlogGeneratorPage() {
     toast({ title: "Bulk Generation Complete", description: "All titles have been processed." });
   };
 
-  const handleSaveAll = () => {
-    const postsToSave = generatedPosts.filter(p => p.status === 'success');
-    if(postsToSave.length === 0) {
-        toast({ title: "No posts to save", description: "No posts were generated successfully.", variant: "destructive" });
+  const handlePostAllToWp = async () => {
+    const postsToPublish = generatedPosts.filter(p => p.status === 'success');
+    if(postsToPublish.length === 0) {
+        toast({ title: "No posts to publish", description: "No posts were generated successfully.", variant: "destructive" });
         return;
     }
-    setIsSaving(true);
-    
-    const newPosts: StoredBlogPost[] = postsToSave.map(p => ({
-        id: new Date().toISOString() + p.title,
-        title: p.title,
-        content: p.content,
-        date: new Date().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        }),
-    }));
+    const site = sites.find(s => s.id === selectedSiteId);
+    if (!site) {
+        toast({ title: "No site selected", description: "Please select a WordPress site to post to.", variant: "destructive" });
+        return;
+    }
 
-    setPosts(prev => [...prev, ...newPosts]);
+    setIsPosting(true);
     
-    setIsSaving(false);
+    let successCount = 0;
+    for(const post of postsToPublish) {
+        const result = await createWpPost(site, {
+            title: post.title,
+            content: post.content,
+            status: publishStatus,
+        });
+
+        if (result.success) {
+            successCount++;
+        } else {
+             toast({
+                title: `Failed to Post "${post.title}"`,
+                description: result.error,
+                variant: "destructive",
+            });
+        }
+    }
+    
+    setIsPosting(false);
+    if (successCount > 0) {
+        toast({ title: "Posting Complete!", description: `${successCount} new blog posts have been sent to your site.` });
+    }
     setGeneratedPosts([]);
     form.reset();
-    toast({ title: "Posts Saved!", description: `${newPosts.length} new blog posts have been saved locally.` });
   };
 
 
@@ -263,7 +282,7 @@ export default function BulkBlogGeneratorPage() {
                         />
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={isLoading || isSaving}>
+                    <Button type="submit" className="w-full" disabled={isLoading || isPosting}>
                         {isLoading ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -282,21 +301,9 @@ export default function BulkBlogGeneratorPage() {
             </Card>
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                <div>
+                <CardHeader>
                     <CardTitle>Generated Content</CardTitle>
                     <CardDescription>Your AI-generated blog posts will appear here.</CardDescription>
-                </div>
-                {generatedPosts.some(p => p.status === 'success') && (
-                    <Button onClick={handleSaveAll} disabled={isSaving || isLoading}>
-                        {isSaving ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <Save className="mr-2 h-4 w-4" />
-                        )}
-                        Save All Posts
-                    </Button>
-                )}
                 </CardHeader>
                 <CardContent>
                 <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none h-[700px] overflow-y-auto rounded-md border bg-muted/50 p-4">
@@ -338,6 +345,34 @@ export default function BulkBlogGeneratorPage() {
                     )}
                 </div>
                 </CardContent>
+                 {generatedPosts.some(p => p.status === 'success') && (
+                    <CardFooter className="flex-col items-start gap-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <Select onValueChange={setSelectedSiteId}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Select a site to post" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {sites.map(site => (
+                                        <SelectItem key={site.id} value={site.id}>{new URL(site.url).hostname}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                             <div className="flex items-center space-x-2">
+                                <Switch id="publish-status" checked={publishStatus === 'publish'} onCheckedChange={(checked) => setPublishStatus(checked ? 'publish' : 'draft')} />
+                                <Label htmlFor="publish-status" className="capitalize">{publishStatus}</Label>
+                            </div>
+                        </div>
+                        <Button onClick={handlePostAllToWp} disabled={isPosting || isLoading || !selectedSiteId}>
+                            {isPosting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Send className="mr-2 h-4 w-4" />
+                            )}
+                            Post All to WordPress
+                        </Button>
+                    </CardFooter>
+                )}
             </Card>
         </div>
     </div>

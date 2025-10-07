@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, Clipboard, Loader2, Save } from "lucide-react";
+import { Bot, Clipboard, Loader2, Save, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { generateBlogPost, GenerateBlogPostInput } from "@/ai/flows/generate-blog-post";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { createWpPost } from "../actions/wp-actions";
+import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long."),
@@ -31,20 +33,23 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface BlogPost {
+interface WpSite {
     id: string;
-    title: string;
-    content: string;
-    date: string;
+    url: string;
+    user: string;
+    appPassword?: string;
 }
+
 
 export default function BlogGeneratorPage() {
   const [generatedPost, setGeneratedPost] = useState("");
   const [generatedTitle, setGeneratedTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const { toast } = useToast();
-  const [posts, setPosts] = useLocalStorage<BlogPost[]>("blog-posts", []);
+  const [sites] = useLocalStorage<WpSite[]>('wp-sites', []);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [publishStatus, setPublishStatus] = useState<'draft' | 'publish'>('draft');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -87,34 +92,36 @@ export default function BlogGeneratorPage() {
     });
   };
 
-  const handleSavePost = async () => {
+  const handlePostToWp = async () => {
     if (!generatedPost || !generatedTitle) return;
-    setIsSaving(true);
-    
-    // Simulate a save operation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newPost: BlogPost = {
-        id: new Date().toISOString(),
+    const site = sites.find(s => s.id === selectedSiteId);
+    if (!site) {
+        toast({ title: "No site selected", description: "Please select a WordPress site to post to.", variant: "destructive" });
+        return;
+    }
+
+    setIsPosting(true);
+    const result = await createWpPost(site, {
         title: generatedTitle,
         content: generatedPost,
-        date: new Date().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        }),
-    };
-
-    setPosts([...posts, newPost]);
-
-    setIsSaving(false);
-    toast({
-      title: "Post Saved!",
-      description: "Your new blog post has been saved locally.",
+        status: publishStatus,
     });
-    // Clear the generated post to prevent re-saving
-    setGeneratedPost("");
-    setGeneratedTitle("");
+
+    if (result.success) {
+        toast({
+            title: "Posted to WordPress!",
+            description: "Your new blog post has been sent to your site.",
+        });
+        setGeneratedPost("");
+        setGeneratedTitle("");
+    } else {
+        toast({
+            title: "Failed to Post",
+            description: result.error,
+            variant: "destructive",
+        });
+    }
+    setIsPosting(false);
   };
 
 
@@ -241,7 +248,7 @@ export default function BlogGeneratorPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading || isSaving}>
+              <Button type="submit" className="w-full" disabled={isLoading || isPosting}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -260,26 +267,9 @@ export default function BlogGeneratorPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Generated Content</CardTitle>
-            <CardDescription>Your AI-generated blog post will appear here.</CardDescription>
-          </div>
-          {generatedPost && (
-            <div className="flex gap-2">
-                <Button variant="outline" size="icon" onClick={copyToClipboard} aria-label="Copy to clipboard">
-                    <Clipboard className="h-4 w-4" />
-                </Button>
-                <Button onClick={handleSavePost} disabled={isSaving || isLoading}>
-                    {isSaving ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                        <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Save Post
-                </Button>
-            </div>
-          )}
+        <CardHeader>
+          <CardTitle>Generated Content</CardTitle>
+          <CardDescription>Your AI-generated blog post will appear here.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="prose prose-sm dark:prose-invert prose-headings:font-headline max-w-none h-[600px] overflow-y-auto rounded-md border bg-muted/50 p-4">
@@ -300,6 +290,39 @@ export default function BlogGeneratorPage() {
             )}
           </div>
         </CardContent>
+        {generatedPost && (
+            <CardFooter className="flex flex-col items-start gap-4">
+                 <div className="flex flex-wrap items-center gap-4">
+                     <Select onValueChange={setSelectedSiteId}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select a site" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {sites.map(site => (
+                                <SelectItem key={site.id} value={site.id}>{new URL(site.url).hostname}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <div className="flex items-center space-x-2">
+                        <Switch id="publish-status" checked={publishStatus === 'publish'} onCheckedChange={(checked) => setPublishStatus(checked ? 'publish' : 'draft')} />
+                        <Label htmlFor="publish-status" className="capitalize">{publishStatus}</Label>
+                    </div>
+                </div>
+                 <div className="flex gap-2">
+                    <Button variant="outline" onClick={copyToClipboard} aria-label="Copy to clipboard">
+                        <Clipboard className="mr-2 h-4 w-4" /> Copy
+                    </Button>
+                    <Button onClick={handlePostToWp} disabled={isPosting || isLoading || !selectedSiteId}>
+                        {isPosting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Send className="mr-2 h-4 w-4" />
+                        )}
+                        Post to WordPress
+                    </Button>
+                </div>
+            </CardFooter>
+          )}
       </Card>
     </div>
   );
