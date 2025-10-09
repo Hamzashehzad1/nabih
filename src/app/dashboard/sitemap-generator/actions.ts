@@ -6,7 +6,7 @@ import { z } from 'zod';
 const SitemapEntrySchema = z.object({
   id: z.number(),
   link: z.string().url(),
-  modified_gmt: z.string().datetime(),
+  modified_gmt: z.string().datetime().optional(),
 });
 
 type SitemapEntry = {
@@ -43,6 +43,12 @@ export async function fetchAllUrls(
                 });
 
                 if (!response.ok) {
+                    // It's common for a site not to have one of the post types (e.g. no pages).
+                    // We can break the loop and continue to the next type.
+                    if (response.status === 400 && (await response.clone().json()).code === 'rest_no_route') {
+                       break;
+                    }
+                    
                     let errorDetails = `HTTP error fetching ${postType}! status: ${response.status}`;
                     try {
                         const errorData = await response.json();
@@ -65,7 +71,7 @@ export async function fetchAllUrls(
 
                 const formattedEntries = parsedEntries.data.map(entry => ({
                     url: entry.link,
-                    modified: entry.modified_gmt,
+                    modified: entry.modified_gmt || new Date().toISOString(),
                 }));
                 
                 allEntries = allEntries.concat(formattedEntries);
