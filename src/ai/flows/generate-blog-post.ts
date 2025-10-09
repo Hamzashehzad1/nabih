@@ -23,7 +23,7 @@ const GenerateBlogPostInputSchema = z.object({
 export type GenerateBlogPostInput = z.infer<typeof GenerateBlogPostInputSchema>;
 
 const GenerateBlogPostOutputSchema = z.object({
-  blogPost: z.string().describe('The generated blog post content.'),
+  blogPost: z.string().describe('The generated blog post content, formatted with HTML.'),
 });
 export type GenerateBlogPostOutput = z.infer<typeof GenerateBlogPostOutputSchema>;
 
@@ -35,8 +35,8 @@ const prompt = ai.definePrompt({
   name: 'generateBlogPostPrompt',
   input: {schema: GenerateBlogPostInputSchema},
   output: {schema: GenerateBlogPostOutputSchema},
-  prompt: `You are an expert blog writer and SEO strategist.
-Write a complete blog article based on the details below:
+  prompt: `You are an expert blog writer and SEO content strategist.
+Write a complete, well-structured, and engaging blog article based on the details below.
 
 Title: {{{title}}}
 SEO Keywords: {{{seoKeywords}}}
@@ -45,15 +45,19 @@ Tone: {{{tone}}}
 Theme: {{{theme}}}
 Copywriting Style: {{{copywritingStyle}}}
 
-Formatting and Output Rules:
-1. Do not use Markdown, asterisks, hashtags, or special characters for formatting.
-2. Use plain text only. Structure the blog with clear section headings written as normal sentences (e.g., "Why Wills Matter for Everyone") — not with symbols.
-3. Paragraphs should be short and readable. No bullet points, no numbered lists — explain ideas in flowing text.
-4. Naturally integrate SEO keywords without overstuffing.
-5. Write with depth and authority: expand on ideas, provide context, examples, comparisons, and insights.
-6. The introduction should hook the reader, the body should inform and engage, and the conclusion should provide a strong closing thought or call to action.
-7. Make the blog feel unique and professional, not generic. Avoid robotic or templated wording.
-8. Deliver only the blog article text, clean and ready to publish in WordPress.
+**Formatting and Output Rules:**
+1.  **Use HTML for structure:**
+    *   The main title should be in an <h1> tag.
+    *   Use <h2> and <h3> tags for subheadings. Do not use Markdown ('##', '###').
+    *   Wrap paragraphs in <p> tags. No bullet points or numbered lists.
+2.  **External Links:** Where relevant, include placeholders for external links, like this: \`[link to relevant external source]\`.
+3.  **Content Quality:**
+    *   Write in a natural, conversational style while keeping it professional and authoritative.
+    *   Research the topic in depth. Provide accurate, useful, and detailed information with examples, context, and insights.
+    *   Incorporate the SEO keywords smoothly and naturally, without keyword stuffing.
+    *   Make the introduction engaging and the conclusion strong, encouraging reader action or reflection.
+    *   Add depth and storytelling to keep the reader hooked. The blog should feel original and insightful, not generic.
+4.  **Final Output:** Deliver only the complete HTML content of the blog article, ready to be pasted into a WordPress editor.
   `,
 });
 
