@@ -286,7 +286,7 @@ export default function BlogGeneratorPage() {
               </div>
             )}
             {generatedPost && (
-              <div dangerouslySetInnerHTML={{ __html: generatedPost.replace(/\n/g, '<br />') }} />
+              <div dangerouslySetInnerHTML={{ __html: generatedPost }} />
             )}
           </div>
         </CardContent>

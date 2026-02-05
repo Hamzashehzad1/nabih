@@ -329,7 +329,7 @@ export default function BulkBlogGeneratorPage() {
                                     </AccordionTrigger>
                                     <AccordionContent>
                                     {post.status === 'success' ? (
-                                        <div dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }} />
+                                        <div dangerouslySetInnerHTML={{ __html: post.content }} />
                                     ) : post.status === 'error' ? (
                                         <Alert variant="destructive">
                                             <AlertTriangle className="h-4 w-4" />
